@@ -1,0 +1,228 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Host;
+use App\Models\AppUser;
+use App\Models\Agency;
+use App\Models\Country;
+use App\Models\BdUser;
+use App\Models\AdminAccount;
+use App\Helper\Helper;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+
+class HostController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+
+    public function index(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = Host::with(['user', 'agency.user', 'country'])->latest();
+
+            return DataTables::of($query)
+                ->addIndexColumn()
+
+                ->addColumn('user', function ($row) {
+                    if (!$row->user) return '-';
+
+                    $image = $row->user->image
+                        ? Helper::showImage($row->user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                            <div>
+                                <div class="fw-bold">' . e($row->user->name) . '</div>
+                                <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
+                            </div>
+                        </div>
+                    ';
+                })
+
+                ->addColumn('agency', function ($row) {
+
+                    if (!$row->agency || !$row->agency->user) return '-';
+
+                    $agencyUser = $row->agency->user;
+
+                    $image = $agencyUser->image
+                        ? Helper::showImage($agencyUser->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                        <div>
+                            <div class="fw-bold">' . e($agencyUser->name) . '</div>
+                            <small class="text-muted">UID: ' . e($agencyUser->uid) . '</small>
+                        </div>
+                    </div>';
+                })
+
+                ->addColumn('country', fn($row) => $row->country->name ?? '-')
+
+                ->editColumn('status', function ($row) {
+                    return $row->status
+                        ? '<span class="badge bg-success">Approved</span>'
+                        : '<span class="badge bg-danger">Pending</span>';
+                })
+
+                ->addColumn('created_at', function ($row) {
+                    return '
+                    <div>
+                        <div><strong>Created:</strong> ' . Carbon::parse($row->created_at)->format('Y-m-d H:i:s') . '</div>
+                        <div><strong>Updated:</strong> ' . Carbon::parse($row->updated_at)->format('Y-m-d H:i:s') . '</div>
+                    </div>';
+                })
+
+                ->addColumn('action', function ($row) {
+                    return '
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="' . route('host.form', $row->id) . '">
+                                <i class="fas fa-edit text-primary"></i> Edit
+                            </a>
+                            <a class="dropdown-item" href="' . route('host.transfer.form', $row->id) . '">
+                                <i class="fas fa-exchange-alt text-warning"></i> Transfer Host
+                            </a>
+                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>';
+                })
+
+                ->rawColumns(['user', 'agency', 'created_at', 'status', 'action'])
+                ->make(true);
+        }
+
+        return view('host.index');
+    }
+
+    public function form($id = null)
+    {
+        $host = $id ? Host::find($id) : null;
+
+        if ($id && !$host) {
+            return redirect()->route('host')->with('error', 'Host not found');
+        }
+
+        $countries = Country::all();
+
+        return view('host.form', compact('host', 'countries'));
+    }
+
+    public function save(Request $request, $id = null)
+    {
+        $rules = [
+            'user_uid' => 'required|exists:app_users,uid',
+            'country_id' => 'required|exists:countries,id',
+            'status' => 'required|in:0,1',
+        ];
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        return DB::transaction(function () use ($request, $id) {
+
+            $host = $id ? Host::find($id) : new Host();
+
+            $user = AppUser::where('uid', $request->user_uid)->first();
+            $userId = $user->id;
+
+            // $existsInAdmin = AdminAccount::where('user_id', $userId)->exists();
+            // $existsInAgency = Agency::where('user_id', $userId)->exists();
+            $existsInHost = Host::where('user_id', $userId)
+                ->when($id, fn($q) => $q->where('id', '!=', $id))
+                ->exists();
+
+            $existsInBd = BdUser::where('user_id', $userId)->exists();
+
+            $role = null;
+
+            // if ($existsInAdmin) $role = 'Admin';
+            // if ($existsInAgency) $role = 'Agency';
+            if ($existsInHost) $role = 'Host';
+            elseif ($existsInBd) $role = 'BD';
+
+            if ($role) {
+                return back()->with('error', "User already exists as $role");
+            }
+
+            $agency = $request->agency_uid
+                ? Agency::whereHas(
+                    'user',
+                    fn($q) =>
+                    $q->where('uid', $request->agency_uid)
+                )->first()
+                : null;
+
+            $host->fill([
+                'user_id' => $user->id,
+                'agency_id' => $agency->id ?? null,
+                'country_id' => $request->country_id,
+                'status' => $request->status,
+            ])->save();
+
+            return redirect()
+                ->route('host')
+                ->with('success', $id ? 'Host updated successfully' : 'Host added successfully');
+        });
+    }
+
+    public function delete(Request $request)
+    {
+        return Helper::deleteRecord(new Host, $request->id);
+    }
+
+
+    
+    public function transferForm($id)
+    {
+        $host = Host::with(['user', 'agency'])->findOrFail($id);
+
+        return view('host.transfer', compact('host'));
+    }
+
+    public function transferSave(Request $request, $id)
+    {
+        $request->validate([
+            'agency_uid' => 'required|exists:app_users,uid'
+        ]);
+
+        $host = Host::findOrFail($id);
+
+        $agency = Agency::whereHas('user', function ($q) use ($request) {
+            $q->where('uid', $request->agency_uid);
+        })->first();
+
+        if (!$agency) {
+            return back()->with('error', 'Agency not found');
+        }
+
+        if ($agency->country_id != $host->country_id) {
+            return back()->with('error', 'Agency country must match host country');
+        }
+
+        $host->agency_id = $agency->id;
+        $host->save();
+
+        return redirect()->route('host')->with('success', 'Host transferred successfully');
+    }
+}

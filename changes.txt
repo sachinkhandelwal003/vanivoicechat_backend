@@ -1,0 +1,19 @@
+########################### 09-01-2025 ######################################
+ALTER TABLE `employee_attendances` ADD `check_status` TINYINT NOT NULL DEFAULT '0' COMMENT '0=pending,1=Check In, 2=Check Out' AFTER `check_out`;
+
+
+ALTER TABLE `employees` ADD `type` TINYINT NOT NULL DEFAULT '1' COMMENT '1=Employee,2=Sales' AFTER `password`;
+
+ALTER TABLE `employees` ADD `address` TEXT NULL DEFAULT NULL AFTER `phone`;
+
+ALTER TABLE `employees` ADD `company_email` VARCHAR(255) NULL DEFAULT NULL AFTER `email`;
+
+
+########################### 10-01-2025 ######################################
+
+ALTER TABLE `companies` ADD `check_in_time` TIME NULL DEFAULT NULL AFTER `password`, ADD `late_check_in_time` TIME NULL DEFAULT NULL AFTER `check_in_time`, ADD `is_late_check_in` TINYINT NOT NULL DEFAULT '0' AFTER `late_check_in_time`, ADD `working_hours` DECIMAL NOT NULL DEFAULT '0.00' AFTER `is_late_check_in`;
+
+
+
+########################### 20-01-2025 ######################################
+ALTER TABLE `employee_leads` ADD `mobile` VARCHAR(20) NULL DEFAULT NULL AFTER `deleted_at`, ADD `email` VARCHAR(250) NULL DEFAULT NULL AFTER `mobile`, ADD `skype_id` VARCHAR(250) NULL DEFAULT NULL AFTER `email`;

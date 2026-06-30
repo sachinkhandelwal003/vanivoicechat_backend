@@ -1,0 +1,1 @@
+[02-May-2025 10:39:39 UTC] PHP Fatal error:  Cannot use temporary expression in write context in /home/lwdld500nr82/public_html/kotiboxglobaltech.com/rental_app/app/Http/Controllers/Api/PropertyController.php on line 139

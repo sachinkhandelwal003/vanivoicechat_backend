@@ -1,0 +1,18 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Level extends Model
+{
+    protected $table = 'levels';
+
+    protected $fillable = [
+        'type',
+        'level',
+        'required_exp',
+        'icon',
+        'entry_effect'
+    ];
+}
