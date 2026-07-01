@@ -29,7 +29,15 @@ class ChatBubbleController extends Controller
             return DataTables::of($query)
                 ->addIndexColumn()
                 ->editColumn('icon', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->icon) . '" width="40">';
+                    $image = asset('storage/' . $row->icon);
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
                 ->editColumn('status', function ($row) {
                     return $row['status'] == 1 ? '<small class="badge fw-semi-bold rounded-pill status badge-light-success"> Enable</small>' : '<small class="badge fw-semi-bold rounded-pill status badge-light-danger"> Disable</small>';
@@ -75,6 +83,8 @@ class ChatBubbleController extends Controller
             'name'            => 'required|string|max:255',
             'visibility_type' => 'required|in:backend,in_app',
             'icon'            => 'required|image|mimes:png,jpg,jpeg,webp',
+            // 'slice_rect'      => 'required',
+            // 'padding_rect'    => 'required',
             'status'          => 'required|in:0,1',
         ];
 
@@ -101,6 +111,8 @@ class ChatBubbleController extends Controller
                 'name'            => $request->name,
                 'visibility_type' => $request->visibility_type,
                 'status'          => $request->status,
+                'slice_rect'      => $request->slice_rect,
+                'padding_rect'    => $request->padding_rect,
                 'icon'             => $icon,
                 'needcoin' => $request->visibility_type === 'in_app'
                     ? array_values($request->needcoin)
@@ -135,6 +147,8 @@ class ChatBubbleController extends Controller
             'name'            => 'required|string|max:255',
             'visibility_type' => 'required|in:backend,in_app',
             'icon'            => 'nullable|image|mimes:png,jpg,jpeg,webp',
+            // 'slice_rect'      => 'required',
+            // 'padding_rect'    => 'required',
             'status'          => 'required|in:0,1',
         ];
 
@@ -154,6 +168,8 @@ class ChatBubbleController extends Controller
             $data = [
                 'name'            => $request->name,
                 'visibility_type' => $request->visibility_type,
+                'slice_rect'      => $request->slice_rect,
+                'padding_rect'    => $request->padding_rect,
                 'status'          => $request->status,
             ];
             if ($request->visibility_type === 'in_app') {

@@ -10,6 +10,7 @@ class FirebaseService
     protected $client;
     protected $projectId;
     protected $credentials;
+    protected $accessToken;
 
     public function __construct()
     {
@@ -24,8 +25,12 @@ class FirebaseService
 
         $json = json_decode(file_get_contents($jsonFile), true);
 
-        // safer than env
         $this->projectId = $json['project_id'];
+
+        // fetch token only once
+        $authToken = $this->credentials->fetchAuthToken();
+
+        $this->accessToken = $authToken['access_token'];
     }
 
     public function sendNotification($fcmToken, $title, $body, $image = null)
@@ -35,10 +40,6 @@ class FirebaseService
             if (empty($fcmToken)) {
                 return false;
             }
-
-            $authToken = $this->credentials->fetchAuthToken();
-
-            $accessToken = $authToken['access_token'];
 
             $url = "https://fcm.googleapis.com/v1/projects/{$this->projectId}/messages:send";
 
@@ -50,7 +51,6 @@ class FirebaseService
                 ]
             ];
 
-            // attach image only if valid URL
             if (!empty($image) && filter_var($image, FILTER_VALIDATE_URL)) {
                 $message["notification"]["image"] = $image;
             }
@@ -61,10 +61,11 @@ class FirebaseService
 
             $response = $this->client->post($url, [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $accessToken,
+                    'Authorization' => 'Bearer ' . $this->accessToken,
                     'Content-Type'  => 'application/json',
                 ],
-                'json' => $payload
+                'json' => $payload,
+                'timeout' => 10
             ]);
 
             return json_decode($response->getBody(), true);

@@ -15,7 +15,9 @@ class PremiumNumber extends Model
         'user_id',
         'uid',
         'premium_number',
-        'valid_days'
+        'valid_days',
+        'start_at',
+        'end_at'
     ];
 
     public function user()

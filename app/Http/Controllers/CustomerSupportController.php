@@ -30,10 +30,25 @@ class CustomerSupportController extends Controller
                 ->addIndexColumn()
 
                 ->editColumn('user_id', function ($row) {
-                    if ($row->user) {
-                        return $row->user->name . '<br><small>' . $row->user->uid . '</small>';
-                    }
-                    return '-';
+
+                    if (!$row->user) {return '-';}
+                
+                    $image = $row->user->image
+                        ? Helper::showImage($row->user->image, true)
+                        : asset('assets/img/avatar.png');
+                
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
+                
+                            <img src="'.$image.'" width="40" height="40" class="rounded-circle">
+                
+                            <div>
+                                <div class="fw-bold">'.$row->user->name.'</div>
+                                <small class="text-muted">'.$row->user->uid.'</small>
+                            </div>
+                
+                        </div>
+                    ';
                 })
 
                 ->editColumn('region', function ($row) {

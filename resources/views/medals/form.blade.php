@@ -73,6 +73,25 @@
                         </select>
                     </div>
 
+                                        <!-- Level -->
+                    <div class="mb-3">
+                        <label class="form-label">Level</label>
+                        <input type="text" name="level" class="form-control"
+                            value="{{ old('level', $medal->level ?? '') }}">
+                    </div>
+
+                                        <!-- Target value -->
+                    <div class="mb-3">
+                        <label class="form-label">Target value</label>
+                        <input type="text" name="target_value" class="form-control"
+                            value="{{ old('target_value', $medal->target_value ?? '') }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sort</label>
+                        <input type="number" name="sort" class="form-control"
+                            value="{{ old('sort', $medal->sort ?? '') }}" required>
+                    </div>
+
                     <!-- STATUS -->
                     <div class="mb-3">
                         <label class="form-label">Status</label>

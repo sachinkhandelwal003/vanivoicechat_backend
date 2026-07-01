@@ -257,17 +257,40 @@ class StoreUidsController extends Controller
                     return $row->unique_id ?? '-';
                 })
 
-
                 ->addColumn('badge', function ($row) {
-                    return $row->badge
-                        ? '<img src="' . asset('storage/' . $row->badge) . '" width="40">'
-                        : '-';
-                })
 
+                    if (!$row->badge) {
+                        return '-';
+                    }
+                
+                    $image = asset('storage/' . $row->badge);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
+                })
+                
                 ->addColumn('rank_badge', function ($row) {
-                    return $row->rank_badge
-                        ? '<img src="' . asset('storage/' . $row->rank_badge) . '" width="40">'
-                        : '-';
+                
+                    if (!$row->rank_badge) {
+                        return '-';
+                    }
+                
+                    $image = asset('storage/' . $row->rank_badge);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
 
                 ->addColumn('action', function ($row) {
@@ -315,6 +338,7 @@ class StoreUidsController extends Controller
 
             'icon'            => 'required|image|mimes:png,jpg,jpeg,webp',
             'rank_badge'      => 'required|image|mimes:png,jpg,jpeg,webp',
+            'rank_badge_color' => 'required|string|max:255',
         ];
 
         if ($request->visibility_type == 'in_app') {
@@ -344,6 +368,7 @@ class StoreUidsController extends Controller
                 'visibility_type'  => $request->visibility_type,
                 'badge'            => $badge,
                 'rank_badge'       => $rankBadge,
+                'rank_badge_color' => $request->rank_badge_color,
                 'status'           => $request->status,
 
                 'needcoin'       => $request->visibility_type === 'in_app'
@@ -385,6 +410,7 @@ class StoreUidsController extends Controller
             'visibility_type' => 'required|in:backend,in_app',
             'icon'            => 'nullable|image|mimes:png,jpg,jpeg,webp',
             'rank_badge'      => 'nullable|image|mimes:png,jpg,jpeg,webp',
+            'rank_badge_color' => 'nullable|string|max:255',
             'status'          => 'required|in:0,1',
         ];
 
@@ -414,6 +440,7 @@ class StoreUidsController extends Controller
                 'validity'         => $request->visibility_type === 'in_app'
                     ? array_values($request->validity)
                     : null,
+                'rank_badge_color' => $request->rank_badge_color ?? null,
             ];
 
             if ($request->hasFile('icon')) {

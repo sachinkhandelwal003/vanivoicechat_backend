@@ -83,4 +83,85 @@ class AppUser extends Authenticatable
     {
         return $this->hasMany(RedEnvelopeClaim::class, 'user_id', 'id');
     }
+
+    public function wcLevels()
+    {
+        return $this->hasMany(WCLevel::class, 'user_id', 'id');
+    }
+
+    public function userMedals()
+    {
+        return $this->hasMany(UserMedal::class, 'user_id', 'id');
+    }
+
+    public function activeCard()
+    {
+        return $this->belongsTo(DataCard::class, 'active_card_id');
+    }
+    public function activeFrame()
+    {
+        return $this->belongsTo(Frame::class, 'active_frame_id');
+    }
+
+    public function host()
+    {
+        return $this->hasOne(Host::class, 'user_id');
+    }
+
+    public function agency()
+    {
+        return $this->hasOne(Agency::class, 'user_id');
+    }
+
+    public function bdUser()
+    {
+        return $this->hasOne(BdUser::class, 'user_id');
+    }
+
+    public function albums()
+    {
+        return $this->hasMany(UserAlbum::class, 'app_user_id', 'id');
+    }
+
+    public function musics()
+    {
+        return $this->hasMany(RoomMusicPlaylist::class, 'user_id', 'id');
+    }
+
+    public function deliveredItems()
+    {
+        return $this->hasMany(ItemDelivery::class, 'recipient', 'id')
+            ->where('end_at', '>=', now());
+    }
+
+    public function giftedItems()
+    {
+        return $this->hasMany(ItemGiftTransaction::class, 'receiver_id', 'id')
+            ->where('end_at', '>=', now());
+    }
+
+    public function activeTheme()
+    {
+        return $this->belongsTo(Theme::class, 'active_theme_id');
+    }
+
+    public function room()
+    {
+        return $this->hasOne(Room::class, 'user_id', 'id');
+    }
+
+    public function sentInvites()
+    {
+        return $this->hasMany(InviteUser::class, 'inviter_id');
+    }
+
+    public function receivedInvite()
+    {
+        return $this->hasOne(InviteUser::class, 'invited_user_id');
+    }
+
+    public function inviteRewards()
+    {
+        return $this->hasMany(InviteRewardHistory::class, 'user_id');
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\RelationshipItem;
+use App\Models\RelationshipInvitation;
 use App\Helper\Helper;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
@@ -29,9 +30,16 @@ class RelationshipItemController extends Controller
                 ->addIndexColumn()
 
                 ->editColumn('icon', function ($row) {
-                    return $row->icon
-                        ? '<img src="' . asset('storage/' . $row->icon) . '" width="40">'
-                        : '-';
+
+                    if (!$row->icon) {return '-';
+                    }
+
+                    $image = asset('storage/' . $row->icon);
+
+                    return '
+                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
 
                 ->editColumn('type', function ($row) {
@@ -90,10 +98,11 @@ class RelationshipItemController extends Controller
             'required_coins' => 'nullable|integer',
 
             'icon' => 'nullable|image',
-            'gif' => 'nullable|mimes:gif',
+            'gif' => 'nullable',
             'ring' => 'nullable|image',
             'avatar' => 'nullable|image',
             'frame' => 'nullable|image',
+            'frame_animation' => 'nullable',
             'badge' => 'nullable|image',
             'background' => 'nullable|image',
         ];
@@ -114,7 +123,7 @@ class RelationshipItemController extends Controller
 
             $data = $request->only(['name', 'type', 'required_coins']);
 
-            foreach (['icon', 'gif', 'ring', 'avatar', 'frame', 'badge', 'background'] as $file) {
+            foreach (['icon', 'gif', 'ring', 'avatar', 'frame', 'frame_animation', 'badge', 'background'] as $file) {
 
                 if ($request->hasFile($file)) {
 
@@ -137,5 +146,83 @@ class RelationshipItemController extends Controller
     public function delete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new RelationshipItem, $request->id);
+    }
+
+    public function userRelationshipList(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = RelationshipInvitation::with(['sender', 'receiver', 'relationshipItem'])->latest();
+
+            return DataTables::of($query)
+
+                ->addIndexColumn()
+
+                ->addColumn('sender', function ($row) {
+
+                    if (!$row->sender) {return '-';}
+
+                    $image = $row->sender->image
+                        ? Helper::showImage($row->sender->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->sender->id.'" style="cursor:pointer;">
+
+                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+
+                            <div>
+                                <div class="fw-bold">'.e($row->sender->name).'</div>
+                                <small class="text-muted">'.e($row->sender->uid).'</small>
+                            </div>
+
+                        </div>
+                    ';
+                })
+                
+                ->addColumn('receiver', function ($row) {
+
+                    if (!$row->receiver) {return '-';}
+
+                    $image = $row->receiver->image
+                        ? Helper::showImage($row->receiver->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->receiver->id.'" style="cursor:pointer;">
+
+                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+
+                            <div>
+                                <div class="fw-bold">'.e($row->receiver->name).'</div>
+                                <small class="text-muted">'.e($row->receiver->uid).'</small>
+                            </div>
+
+                        </div>
+                    ';
+                })
+
+                ->addColumn('relation_item', function ($row) {
+                    return $row->relationshipItem->name ?? '-';
+                })
+
+                ->editColumn('type', function ($row) {
+                    return ucfirst($row->type);
+                })
+
+                ->editColumn('status', function ($row) {
+
+                    if ($row->status == 'accept') {
+                        return '<span class="badge bg-success">Accepted</span>';
+                    }
+
+                    return '<span class="badge bg-warning">' . $row->status . '</span>';
+                })
+
+                ->rawColumns(['sender', 'receiver', 'status'])
+                ->make(true);
+        }
+
+        return view('relationship.user-relation-list');
     }
 }

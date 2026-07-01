@@ -20,7 +20,7 @@ class AdminAccount extends Model
 
     public function user()
     {
-        return $this->belongsTo(AppUser::class, 'user_id');
+        return $this->belongsTo(AppUser::class, 'user_id', 'id');
     }
 
     public function country()
@@ -31,5 +31,15 @@ class AdminAccount extends Model
     public function adminAccount()
     {
         return $this->belongsTo(AdminAccount::class, 'user_id', 'user_id');
+    }
+
+    public function agencies()
+    {
+        return $this->hasMany(Agency::class, 'admin_id');
+    }
+
+    public function bdUsers()
+    {
+        return $this->hasMany(BdUser::class, 'admin_id', 'id');
     }
 }

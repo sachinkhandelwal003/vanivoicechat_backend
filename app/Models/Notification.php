@@ -13,7 +13,7 @@ class Notification extends Model
 
     protected $table = 'notifications';
 
-    protected $fillable = ['id','user_id','sender_id','receiver_id','type','title','message','icon','image','reference_id','is_read'];
+    protected $fillable = ['id','user_id','sender_id','receiver_id','type','title','message','icon','image','country','reference_id','is_read'];
 
 
     public function user()
@@ -21,5 +21,9 @@ class Notification extends Model
         return $this->hasOne(AppUser::class,'id','user_id');
     }
 
+    public function reads()
+{
+    return $this->hasMany(NotificationRead::class, 'notification_id');
+}
    
 }

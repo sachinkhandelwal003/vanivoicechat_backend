@@ -3,6 +3,26 @@
 
 @include('partial.common.header')
 <style>
+    #userProfileSidebar {
+        position: fixed;
+        top: 0;
+        right: -550px;
+        width: 550px;
+        height: 100vh;
+        overflow-y: auto;
+        background: #fff;
+        z-index: 99999;
+        transition: .3s;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, .15);
+    }
+
+    #userProfileSidebar.show {
+        right: 0;
+    }
+
+
+
+
     .support-user {
         cursor: pointer;
         transition: 0.2s;
@@ -45,6 +65,36 @@
     .msg-user {
         background: #e4e6eb;
         align-self: flex-start;
+    }
+
+
+
+    #imagePreviewModal .modal-dialog {
+        max-width: 100vw;
+        height: 100vh;
+        margin: 0;
+    }
+
+    #imagePreviewModal .modal-content {
+        background: rgba(0, 0, 0, .75);
+        border: 0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #globalPreviewImage {
+        max-width: 300px;
+        max-height: 300px;
+        object-fit: contain;
+    }
+
+    #imagePreviewModal .btn-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        filter: invert(1);
     }
 </style>
 
@@ -163,7 +213,52 @@
             </div>
         </div>
     </div>
+
+    <!-- User Profile Offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="userProfileCanvas" aria-labelledby="userProfileCanvasLabel" style="width:500px;">
+
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title">User Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+
+        <div class="offcanvas-body p-0" id="userProfileContent">
+
+            <div class="text-center py-5">
+
+                <div class="spinner-border text-primary"></div>
+
+                <div class="mt-2">
+                    Loading...
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
     @include('partial.common.footer')
+
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-transparent border-0">
+
+                <button type="button"
+                    class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                    data-bs-dismiss="modal">
+                </button>
+
+                <div class="text-center">
+                    <img id="globalPreviewImage"
+                        src=""
+                        onclick="event.stopPropagation();"
+                        style="max-width:400px;max-height:400px;">
+                </div>
+
+            </div>
+        </div>
+    </div>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -172,6 +267,54 @@
 
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.15.0/echo.iife.js"></script>
+
+    <script>
+        $(document).on('click', '.user-profile-trigger',
+            function () {
+
+                let userId = $(this).data('user-id');
+
+                let canvas = new bootstrap.Offcanvas(
+                    document.getElementById('userProfileCanvas')
+                );
+
+                canvas.show();
+
+                $('#userProfileContent').html(`
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <div class="mt-2">Loading...</div>
+                    </div>
+                `);
+
+                $.ajax({
+
+                    url: '/user-profile/' + userId,
+                    type: 'GET',
+
+                    success: function(response) {
+
+                        $('#userProfileContent')
+                            .html(response.html);
+
+                    },
+
+                    error: function() {
+
+                        $('#userProfileContent').html(`
+                            <div class="alert alert-danger m-3">
+                                User details not found.
+                            </div>
+                        `);
+
+                    }
+
+                });
+
+            }
+        );
+
+    </script>
 
     <script>
         // Pusher.logToConsole = true;
@@ -245,6 +388,35 @@
 
             });
 
+        });
+    </script>
+
+    <script>
+        $(document).on('click', '.image-preview', function() {
+
+            let imageUrl = $(this).data('image');
+
+            $('#globalPreviewImage').attr('src', imageUrl);
+
+            let modal = new bootstrap.Modal(
+                document.getElementById('imagePreviewModal')
+            );
+
+            modal.show();
+        });
+
+        $(document).on('click', '#imagePreviewModal', function(e) {
+
+            if (!$(e.target).closest('#globalPreviewImage').length) {
+
+                let modal = bootstrap.Modal.getInstance(
+                    document.getElementById('imagePreviewModal')
+                );
+
+                if (modal) {
+                    modal.hide();
+                }
+            }
         });
     </script>
 

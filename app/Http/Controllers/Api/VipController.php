@@ -4,6 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Helper\Helper;
+use App\Models\VipTransaction;
+use App\Models\Vip;
+use App\Models\AppUser;
+use App\Models\SvipTransaction;
+use App\Models\Svip;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -48,6 +53,9 @@ class VipController extends Controller
                     'bubble' => Helper::showImage($svip->bubble, true),
                     'headwear' => Helper::showImage($svip->headwear, true),
                     'entry' => Helper::showImage($svip->entry, true),
+                    'entrance_image' => Helper::showImage($svip->entrance_image, true),
+                    'voice_image' => Helper::showImage($svip->voice_image, true),
+                    'profile_card' => Helper::showImage($svip->profile_card, true),
 
                     'privileges' => $privileges->map(function ($p) use ($activePrivileges) {
                         return [
@@ -71,6 +79,71 @@ class VipController extends Controller
                 'status' => false,
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+
+    public function buySvip(Request $request)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'svip_id' => 'required|exists:svips,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first()
+            ]);
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $svip = Svip::findOrFail($request->svip_id);
+
+            if ($user->total_points < $svip->need_coins) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Insufficient coins.'
+                ]);
+            }
+
+            // Remove previous active SVIP
+            SvipTransaction::where('user_id', $user->id)
+                ->delete();
+
+            // Deduct coins
+            $user->decrement('total_points', $svip->need_coins);
+
+            $transaction = SvipTransaction::create([
+                'user_id'    => $user->id,
+                'svip_id'    => $svip->id,
+                'coins_used' => $svip->need_coins,
+                'start_at'   => now(),
+                'end_at'     => now()->addDays($svip->days),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'SVIP purchased successfully.',
+                'data' => $transaction
+            ]);
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage()
+            ]);
         }
     }
 
@@ -103,13 +176,19 @@ class VipController extends Controller
                     'coins' => (int)$vip->needcoins,
                     'days' => (int)$vip->days,
                     'bg_color' => $vip->color,
-                    
+                    'user' => [
+                        'id' => 1,
+                        'name' => 'Username',
+                        'image' => asset('storage/defaul-user.png')
+                    ],
+
                     'username_color' => $vip->username,
                     'badge' => Helper::showImage($vip->badge, true),
                     'entry' => Helper::showImage($vip->entry_tag, true),
                     'chat_card' => Helper::showImage($vip->chat_card, true),
                     'image_frame' => Helper::showImage($vip->image_frame, true),
                     'profile_frame' => Helper::showImage($vip->profile_frame, true),
+                    'voice_frame' => Helper::showImage($vip->voice_frame, true),
 
                     'privileges' => $privileges
                 ];
@@ -125,6 +204,178 @@ class VipController extends Controller
                 'status' => false,
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function buyVip(Request $request)
+    {
+        $user = Auth::user();
+        // dd($user);
+        $validator = Validator::make($request->all(), [
+            'vip_id' => 'required|exists:vips,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first()
+            ]);
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $vip = Vip::findOrFail($request->vip_id);
+
+            // Check if user already has this VIP
+            $alreadyHasVip = VipTransaction::where('user_id', $user->id)
+                ->where('vip_id', $vip->id)
+                ->where('end_at', '>', now())
+                ->exists();
+
+            if ($alreadyHasVip) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'You already have this VIP.'
+                ]);
+            }
+
+            // Check balance
+            if ($user->total_points < $vip->needcoins) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Insufficient coins.'
+                ]);
+            }
+
+            // Deduct coins
+            $user->decrement('total_points', $vip->needcoins);
+
+            $transaction = VipTransaction::create([
+                'user_id'    => $user->id,
+                'vip_id'     => $vip->id,
+                'source'     => 'self',
+                'sender_id'  => null,
+                'coins_used' => $vip->needcoins,
+                'start_at'   => now(),
+                'end_at'     => now()->addDays($vip->days),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'VIP purchased successfully.',
+                'data'    => $transaction
+            ]);
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+
+    public function giftVip(Request $request)
+    {
+        $sender = auth()->user();
+
+        $validator = Validator::make($request->all(), [
+            'receiver_id' => 'required|exists:app_users,id',
+            'vip_id'      => 'required|exists:vips,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first()
+            ]);
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $receiver = AppUser::findOrFail($request->receiver_id);
+            $vip = Vip::findOrFail($request->vip_id);
+
+            // Prevent self gift
+            if ($receiver->id == $sender->id) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'You cannot gift VIP to yourself.'
+                ]);
+            }
+
+            // Check if receiver already has this VIP
+            $alreadyHasVip = VipTransaction::where('user_id', $receiver->id)
+                ->where('vip_id', $vip->id)
+                ->where('end_at', '>', now())
+                ->exists();
+
+            if ($alreadyHasVip) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User already has this VIP.'
+                ]);
+            }
+
+            // Check sender balance
+            if ($sender->total_points < $vip->needcoins) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Insufficient coins.'
+                ]);
+            }
+
+            // Deduct sender coins
+            $sender->decrement('total_points', $vip->needcoins);
+
+            $transaction = VipTransaction::create([
+                'user_id'    => $receiver->id,
+                'vip_id'     => $vip->id,
+                'source'     => 'gift',
+                'sender_id'  => $sender->id,
+                'coins_used' => $vip->needcoins,
+                'start_at'   => now(),
+                'end_at'     => now()->addDays($vip->days),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'VIP gifted successfully.',
+                'data'    => $transaction
+            ]);
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage()
+            ]);
         }
     }
 }

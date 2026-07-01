@@ -32,19 +32,77 @@ class VipController extends Controller
             return DataTables::of($query)
                 ->addIndexColumn()
                 ->editColumn('badge', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->badge) . '" width="40">';
+
+                    $image = asset('storage/' . $row->badge);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
+                
                 ->editColumn('entry_tag', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->entry_tag) . '" width="40">';
+                
+                    $image = asset('storage/' . $row->entry_tag);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
+                
                 ->editColumn('chat_card', function ($row) {
-                    return $row->chat_card ? '<img src="' . asset('storage/' . $row->chat_card) . '" width="40">' : " - ";
+                
+                    if (!$row->chat_card) {
+                        return '-';
+                    }
+                
+                    $image = asset('storage/' . $row->chat_card);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
+                
                 ->editColumn('image_frame', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->image_frame) . '" width="40">';
+                
+                    $image = asset('storage/' . $row->image_frame);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
+                
                 ->editColumn('profile_frame', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->profile_frame) . '" width="40">';
+                
+                    $image = asset('storage/' . $row->profile_frame);
+                
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
                 ->editColumn('validity', function ($row) {
                     return $row->days . ' , ' . $row->needcoins;
@@ -86,17 +144,31 @@ class VipController extends Controller
     public function save(Request $request): RedirectResponse
     {
         $validator = Validator::make($request->all(), [
-            'name'       => 'required|string|max:255',
-            'day'        => 'required|integer|min:1',
-            'coin'       => 'required|integer|min:0',
-            'color'       => 'required',
-            'name_color' => 'required|string|max:50',
 
-            'badge'      => 'required|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'entry_tag'  => 'required|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'chat_card'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'avatar'     => 'required|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'frame'      => 'required|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'name'      => 'required|string|max:255',
+            'days'      => 'required|integer|min:1',
+            'needcoins' => 'required|integer|min:0',
+
+            'color'     => 'required|string|max:55',
+            'username'  => 'required|string|max:55', // username color
+
+            'img_key'   => 'nullable|string|max:55',
+            'text_key'  => 'nullable|string|max:55',
+            'frame_key' => 'nullable|string|max:55',
+
+            // Images
+            'badge'        => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'chat_card'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'entry_tag'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'image_frame'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'profile_frame' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'voice_frame'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+
+            // Animations
+            'entry_tag_animation'     => 'nullable',
+            'image_frame_animation'   => 'nullable',
+            'profile_frame_animation' => 'nullable',
+            'voice_animation'         => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -106,19 +178,42 @@ class VipController extends Controller
         DB::beginTransaction();
 
         try {
+
             $vip = new Vip();
 
+            // BASIC
             $vip->name      = $request->name;
-            $vip->days      = $request->day;
-            $vip->needcoins = $request->coin;
-            $vip->color = $request->color;
-            $vip->username  = $request->name_color;
+            $vip->days      = $request->days;
+            $vip->needcoins = $request->needcoins;
 
-            $vip->badge         = Helper::saveFile($request->file('badge'), 'vip');
-            $vip->entry_tag     = Helper::saveFile($request->file('entry_tag'), 'vip');
-            $vip->chat_card     = Helper::saveFile($request->file('chat_card'), 'vip');
-            $vip->image_frame   = Helper::saveFile($request->file('avatar'), 'vip');
-            $vip->profile_frame = Helper::saveFile($request->file('frame'), 'vip');
+            $vip->color     = $request->color;
+            $vip->username  = $request->username; // color
+
+            // KEYS
+            $vip->img_key   = $request->img_key;
+            $vip->text_key  = $request->text_key;
+            $vip->frame_key = $request->frame_key;
+
+            // FILE FIELDS
+            $fileFields = [
+                'badge',
+                'chat_card',
+                'entry_tag',
+                'entry_tag_animation',
+                'image_frame',
+                'image_frame_animation',
+                'profile_frame',
+                'profile_frame_animation',
+                'voice_frame',
+                'voice_animation',
+            ];
+
+            foreach ($fileFields as $field) {
+
+                if ($request->hasFile($field)) {
+                    $vip->$field = Helper::saveFile($request->file($field), 'vip');
+                }
+            }
 
             $vip->save();
 
@@ -126,6 +221,7 @@ class VipController extends Controller
 
             return redirect()->route('vip')->with('success', 'VIP added successfully.');
         } catch (\Throwable $e) {
+
             DB::rollBack();
 
             return redirect()->back()
@@ -145,88 +241,96 @@ class VipController extends Controller
     }
 
     public function update(Request $request, $id): RedirectResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'name'       => 'required|string|max:255',
-            'day'        => 'required|integer|min:1',
-            'coin'       => 'required|integer|min:0',
-            'color'       => 'required',
-            'name_color' => 'required|string|max:50',
+{
+    $validator = Validator::make($request->all(), [
+        'name'      => 'required|string|max:255',
+        'days'      => 'required|integer|min:1',
+        'needcoins' => 'required|integer|min:0',
 
-            'badge'      => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'entry_tag'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'chat_card'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'avatar'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
-            'frame'      => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
-        ]);
+        'color'    => 'required|string|max:55',
+        'username' => 'required|string|max:55',
 
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
+        'img_key'   => 'nullable|string|max:55',
+        'text_key'  => 'nullable|string|max:55',
+        'frame_key' => 'nullable|string|max:55',
 
-        $vip = Vip::find($id);
+        'badge'         => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+        'chat_card'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+        'entry_tag'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+        'image_frame'   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+        'profile_frame' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
+        'voice_frame'   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
 
-        if (!$vip) {
-            return redirect()->route('vip')->with('error', 'VIP not found.');
-        }
+        'entry_tag_animation'     => 'nullable',
+        'image_frame_animation'   => 'nullable',
+        'profile_frame_animation' => 'nullable',
+        'voice_animation'         => 'nullable',
+    ]);
 
-        DB::beginTransaction();
-
-        try {
-            $vip->name      = $request->name;
-            $vip->days      = $request->day;
-            $vip->needcoins = $request->coin;
-            $vip->color = $request->color;
-            $vip->username  = $request->name_color;
-
-            if ($request->hasFile('badge')) {
-                if (!empty($vip->badge) && file_exists(public_path($vip->badge))) {
-                    unlink(public_path($vip->badge));
-                }
-                $vip->badge = Helper::saveFile($request->file('badge'), 'vip');
-            }
-
-            if ($request->hasFile('entry_tag')) {
-                if (!empty($vip->entry_tag) && file_exists(public_path($vip->entry_tag))) {
-                    unlink(public_path($vip->entry_tag));
-                }
-                $vip->entry_tag = Helper::saveFile($request->file('entry_tag'), 'vip');
-            }
-
-            if ($request->hasFile('chat_card')) {
-                if (!empty($vip->chat_card) && file_exists(public_path($vip->chat_card))) {
-                    unlink(public_path($vip->chat_card));
-                }
-                $vip->chat_card = Helper::saveFile($request->file('chat_card'), 'vip');
-            }
-
-            if ($request->hasFile('avatar')) {
-                if (!empty($vip->image_frame) && file_exists(public_path($vip->image_frame))) {
-                    unlink(public_path($vip->image_frame));
-                }
-                $vip->image_frame = Helper::saveFile($request->file('avatar'), 'vip');
-            }
-
-            if ($request->hasFile('frame')) {
-                if (!empty($vip->profile_frame) && file_exists(public_path($vip->profile_frame))) {
-                    unlink(public_path($vip->profile_frame));
-                }
-                $vip->profile_frame = Helper::saveFile($request->file('frame'), 'vip');
-            }
-
-            $vip->save();
-
-            DB::commit();
-
-            return redirect()->route('vip')->with('success', 'VIP updated successfully.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Something went wrong: ' . $e->getMessage());
-        }
+    if ($validator->fails()) {
+        return redirect()->back()->withErrors($validator)->withInput();
     }
+
+    $vip = Vip::find($id);
+
+    if (!$vip) {
+        return redirect()->route('vip')->with('error', 'VIP not found.');
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $vip->name      = $request->name;
+        $vip->days      = $request->days;
+        $vip->needcoins = $request->needcoins;
+        $vip->color     = $request->color;
+        $vip->username  = $request->username;
+
+        $vip->img_key   = $request->img_key;
+        $vip->text_key  = $request->text_key;
+        $vip->frame_key = $request->frame_key;
+
+        $fileFields = [
+            'badge',
+            'chat_card',
+            'entry_tag',
+            'entry_tag_animation',
+            'image_frame',
+            'image_frame_animation',
+            'profile_frame',
+            'profile_frame_animation',
+            'voice_frame',
+            'voice_animation',
+        ];
+
+        foreach ($fileFields as $field) {
+            if ($request->hasFile($field)) {
+
+                if (!empty($vip->$field)) {
+                    $oldPath = public_path('storage/' . $vip->$field);
+
+                    if (file_exists($oldPath)) {
+                        @unlink($oldPath);
+                    }
+                }
+
+                $vip->$field = Helper::saveFile($request->file($field), 'vip');
+            }
+        }
+
+        $vip->save();
+
+        DB::commit();
+
+        return redirect()->route('vip')->with('success', 'VIP updated successfully.');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        return redirect()->back()
+            ->withInput()
+            ->with('error', 'Something went wrong: ' . $e->getMessage());
+    }
+}
 
 
     public function delete(Request $request): JsonResponse
@@ -361,7 +465,7 @@ class VipController extends Controller
     }
 
 
-     public function privilegeDelete(Request $request): JsonResponse
+    public function privilegeDelete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new VipPrivilege, $request->id);
     }

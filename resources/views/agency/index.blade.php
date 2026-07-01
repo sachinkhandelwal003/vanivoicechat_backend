@@ -28,6 +28,7 @@
                     <tr>
                         <th>User</th>
                         <th>BD User</th>
+                        <th>Host</th>
                         <th>Country</th>
                         <th>WhatsApp</th>
                         <th>Status</th>
@@ -52,10 +53,11 @@
             processing: true,
             serverSide: true,
             ajax: "{{ route('agency') }}",
-            order: [[5, 'desc']],
+            order: [[6, 'desc']],
             columns: [
                 { data: 'user', name: 'user', orderable: false },
                 { data: 'bd_user', name: 'bd_user', orderable: false },
+                {data: 'host_count', name: 'host_count', searchable: false},
                 { data: 'country', name: 'country' },
                 { data: 'whatsapp_number', name: 'whatsapp_number' },
                 { data: 'status', name: 'status' },

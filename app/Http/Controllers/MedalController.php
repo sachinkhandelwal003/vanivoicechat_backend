@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Medal;
+use App\Models\AppUser;
 use App\Helper\Helper;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
@@ -29,9 +30,13 @@ class MedalController extends Controller
                 ->addIndexColumn()
 
                 ->editColumn('icon', function ($row) {
-                    return $row->icon
-                        ? '<img src="' . asset('storage/' . $row->icon) . '" width="40">'
-                        : '-';
+
+                    $image = asset('storage/' . $row->icon);
+
+                    return '
+                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
 
                 ->editColumn('type', function ($row) {
@@ -93,6 +98,9 @@ class MedalController extends Controller
             'title' => 'required|string|max:255',
             'type' => 'required|in:achievement,event',
             'icon' => 'nullable|image',
+            'level' => 'nullable',
+            'sort'  => 'required',
+            'target_value' => 'required',
             'status' => 'nullable|boolean',
         ];
 
@@ -113,7 +121,10 @@ class MedalController extends Controller
             $data = $request->only([
                 'title',
                 'type',
-                'status'
+                'status',
+                'sort',
+                'level',
+                'target_value',
             ]);
 
             if ($request->hasFile('icon')) {
@@ -136,5 +147,78 @@ class MedalController extends Controller
     public function delete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new Medal, $request->id);
+    }
+
+
+
+    public function userMedals(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = AppUser::with([
+                'userMedals.medal'
+            ])->has('userMedals');
+
+            return DataTables::of($query)
+
+                ->addColumn('user', function ($row) {
+
+                    $image = $row->image
+                        ? Helper::showImage($row->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->id.'" style="cursor:pointer;">
+
+                            <img src="'.$image.'" width="40" height="40" class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">'.$row->name.'</div>
+                                <small class="text-muted">'.$row->uid.'</small>
+                            </div>
+
+                        </div>
+                    ';
+                })
+
+                ->addColumn('total_medals', function ($row) {
+
+                    return $row->userMedals->count();
+                })
+
+                ->addColumn('medals', function ($row) {
+
+                    $html = '<div class="d-flex flex-wrap gap-2">';
+
+                    foreach ($row->userMedals as $userMedal) {
+
+                        if (!$userMedal->medal) {
+                            continue;
+                        }
+
+                        $image = $userMedal->medal->icon
+                            ? asset('storage/' . $userMedal->medal->icon)
+                            : asset('assets/img/avatar.png');
+
+                        $html .= '
+                            <img src="'.$image.'" class="medal-image" data-image="'.$image.'" width="40" height="40"
+                                 style="cursor:pointer;border-radius:50%;object-fit:cover;">
+                        ';
+                    }
+
+                    $html .= '</div>';
+
+                    return $html;
+                })
+
+                ->rawColumns([
+                    'user',
+                    'medals'
+                ])
+
+                ->make(true);
+        }
+
+        return view('medals.user_medals');
     }
 }

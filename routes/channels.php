@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,5 +35,18 @@ Broadcast::channel('room.{roomId}', function ($user, $roomId) {
         'id' => $user->id,
         'name' => $user->name,
         'image' => $user->image ? \App\Helper\Helper::showImage($user->image, true) : null,
+    ];
+});
+
+Broadcast::channel('room-online.{roomId}', function ($user, $roomId) {
+    \Log::info('CHANNEL CALLBACK HIT', [
+        'user' => $user,
+        'roomId' => $roomId,
+    ]);
+
+    // Presence channel me hamesha array return karna zaroori hai
+    return [
+        'id' => $user->id,
+        'name' => $user->name,
     ];
 });

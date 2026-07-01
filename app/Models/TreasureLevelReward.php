@@ -18,7 +18,6 @@ class TreasureLevelReward extends Model
         'status'
     ];
 
-
     public function level()
     {
         return $this->belongsTo(TreasureLevel::class, 'treasure_level_id');

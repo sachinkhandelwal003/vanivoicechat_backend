@@ -26,9 +26,21 @@ use App\Http\Controllers\Api\RoleManagementController;
 use App\Http\Controllers\Api\RoomMusicController;
 use App\Http\Controllers\Api\RedEnvelopeController;
 use App\Http\Controllers\Api\RoomRewardController;
+use App\Http\Controllers\Api\TreasureController;
+use App\Http\Controllers\Api\AdminCenterController;
+use App\Http\Controllers\Api\BDController;
+use App\Http\Controllers\Api\AgencyController;
+use App\Http\Controllers\Api\HostCenterController;
+use App\Http\Controllers\Api\RechargeController;
+use Illuminate\Support\Facades\Broadcast;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
+
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
+
 
 
 Route::get('/', function () {
@@ -39,6 +51,7 @@ Route::get('/', function () {
 
 Route::get('clear-all', function () {
     Artisan::call('cache:clear');
+    Artisan::call('optimize:clear');
     Artisan::call('config:clear');
     Artisan::call('route:clear');
     Artisan::call('view:clear');
@@ -48,6 +61,25 @@ Route::get('clear-all', function () {
         'message' => 'Clear All'
     ]);
 });
+
+Route::get('/route-list', function () {
+
+    $routes = collect(\Route::getRoutes())->map(function ($route) {
+
+        return [
+            'uri' => $route->uri(),
+            'methods' => $route->methods(),
+            'name' => $route->getName(),
+            'action' => $route->getActionName(),
+            'middleware' => $route->gatherMiddleware(),
+        ];
+    });
+
+    return response()->json($routes);
+});
+
+Route::get('/test-room-cron', [RoomController::class, 'run']);
+
 
 Route::post('/signup', [AuthController::class, 'register']);
 Route::post('/auth/google', [AuthController::class, 'login']);
@@ -67,7 +99,24 @@ Route::post('filter-store-uids', [StoreController::class, 'filterStoreUids']);
 Route::get('svip-list', [VipController::class, 'getSvipList']);
 Route::get('vip-list', [VipController::class, 'getVipList']);
 
+
+
 // Route::post('/agora/media-pull/webhook', [RoomMusicController::class, 'handle']);
+
+Route::post('/pusher-kill-check-app/webhook', [HomeController::class, 'webhookHandle']);
+
+Route::middleware('auth:sanctum')->get('/check-user', function (\Illuminate\Http\Request $request) {
+
+    \Log::info('AUTH USER TEST', [
+        'user' => auth()->user(),
+        'id' => auth()->id(),
+    ]);
+
+    return response()->json([
+        'user' => auth()->user(),
+        'id' => auth()->id(),
+    ]);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/delete-account', [AuthController::class, 'deleteAccount']);
@@ -145,7 +194,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/room/room-effect-setting', [RoomController::class, 'getEffectSettings']);
     Route::post('room/update-room-effect-setting', [RoomController::class, 'updateEffectSettings']);
     Route::get('/room/room-members', [RoomController::class, 'getRoomMembers']);
-
+    Route::post('/room/ping', [RoomController::class, 'ping']);
 
     Route::post('room-music/add-song', [RoomMusicController::class, 'addSong']);
     Route::get('room-music/list', [RoomMusicController::class, 'musicList']);
@@ -166,6 +215,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('wc-levels', [WCLevelController::class, 'getLevels']);
 
     Route::get('/medals', [MedalController::class, 'index']);
+    Route::get('/my-medals', [MedalController::class, 'myMedals']);
+    Route::post('/equip-medal', [MedalController::class, 'toggleEquipMedal']);
 
     Route::get('/bd-list', [RoleManagementController::class, 'bdListByAdmin']);
     Route::get('/admin/agency-list', [RoleManagementController::class, 'agencyListByAdmin']);
@@ -214,6 +265,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/get-broadcast-price', [HomeController::class, 'broadcastPrice']);
     Route::get('/search', [HomeController::class, 'search']);
     Route::get('rules/{type}', [HomeController::class, 'getRules']);
+    Route::post('report', [HomeController::class, 'store']);
 
 
     Route::get('/get-theme-lists', [ThemeController::class, 'themeList']);
@@ -254,6 +306,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/message/block-user', [MessageController::class, 'blockUser']);
     Route::post('/message/unblock-user', [MessageController::class, 'unblockUser']);
     Route::get('/message/blocked-user-list', [MessageController::class, 'blockedUsersList']);
+    Route::post('mark-system-notification-read', [MessageController::class, 'markSystentNotificationRead']);
 
     Route::get('/notifications', [NotificationController::class, 'getNotifications']);
 
@@ -279,13 +332,85 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('relationships/respond', [RelationshipController::class, 'respondInvite']);
     Route::get('relationships/invitations', [RelationshipController::class, 'getInvitations']);
     Route::get('/relationship/invite-preview', [RelationshipController::class, 'relationInvitePreview']);
-
+    Route::get('relationship/breakup-details', [RelationshipController::class, 'breakupDetails']);
+    Route::get('relationship/list', [RelationshipController::class, 'myRelationshipList']);
+    Route::post('relationship/breakup', [RelationshipController::class, 'removeRelationship']);
 
     Route::get('red-envelope/config', [RedEnvelopeController::class, 'config']);
     Route::post('red-envelope/create', [RedEnvelopeController::class, 'createRedEnvelope']);
     Route::post('red-envelope/claim', [RedEnvelopeController::class, 'claimRedEnvelope']);
     Route::post('red-envelope/details', [RedEnvelopeController::class, 'redEnvelopeDetails']);
+
+    Route::get('treasure/details', [TreasureController::class, 'details']);
+    Route::post('treasure/claim', [TreasureController::class, 'claim']);
+
+
+    Route::get('admin-center/admin-details', [AdminCenterController::class, 'adminCenterDetails']);
+    Route::get('admin-center/agent-list', [AdminCenterController::class, 'agentList']);
+    Route::get('admin-center/bd-list', [AdminCenterController::class, 'bdList']);
+    Route::get('admin-center/bd-agent-list/{bdId}', [AdminCenterController::class, 'bdAgentListById']);
+    Route::get('admin-center/agent-host-list/{agencyId}', [AdminCenterController::class, 'agentHostList']);
+
+    Route::post('admin-center/agent-invite', [AdminCenterController::class, 'sendAgentInvite']);
+    Route::post('admin-center/BD-invite', [AdminCenterController::class, 'sendBdInvite']);
+
+
+    Route::get('bd/bd-details', [BDController::class, 'bdDetails']);
+    Route::get('bd/agent-list', [BDController::class, 'bdAgentList']);
+    Route::post('bd/invite-agent', [BDController::class, 'inviteAgent']);
+
+
+    Route::get('agency/agency-details', [AgencyController::class, 'agencyDetails']);
+    Route::post('agency/search-user', [AgencyController::class, 'searchHostUser']);
+    Route::post('agency/invite-host', [AgencyController::class, 'inviteHost']);
+    Route::get('agency/host-list', [AgencyController::class, 'hostList']);
+    Route::post('agency/remove-host', [AgencyController::class, 'removeHost']);
+    Route::get('agency/host-application-list', [AgencyController::class, 'hostApplicationList']);
+    Route::post('agency/host-application-action', [AgencyController::class, 'hostApplicationAction']);
+    Route::get('agency/agency-policies', [AgencyController::class, 'agencyPolicy']);
+    Route::get('agency/agency-my-work', [AgencyController::class, 'agencyMyWork']);
+    Route::get('agency/agency-my-work-details', [AgencyController::class, 'agencyWorkDetails']);
+    Route::get('agency/team-bill', [AgencyController::class, 'teamBill']);
+    Route::get('agency/team-bill-details', [AgencyController::class, 'teamBillDetails']);
+
+    Route::get('run-agency-salary-settlement',[AgencyController::class,'runAgencySalarySettlement']
+);
+
+
+    Route::post('host/apply-for-host', [HostCenterController::class, 'applyForHost']);
+    Route::get('host/host-policies', [HostCenterController::class, 'hostPolicy']);
+    Route::get('host/my-work', [HostCenterController::class, 'myWork']);
+    Route::get('host/my-work-details', [HostCenterController::class, 'myWorkDetails']);
+    Route::post('host/exchange-salary-to-coins', [HostCenterController::class, 'exchangeSalaryToCoins']);
+    Route::get('host/exchange-salary-to-coins-history', [HostCenterController::class, 'exchangeHistory']);
+    Route::get('host/search-transfer-user', [HostCenterController::class, 'searchTransferUser']);
+    Route::post('host/transfer-dollar', [HostCenterController::class, 'transferDollar']);
+    Route::get('host/transfer-dollar-history', [HostCenterController::class, 'transferHistory']);
+    Route::get('host/wallet-balance', [HostCenterController::class, 'walletBalance']);
+    Route::post('submit-withdrawal', [HostCenterController::class, 'submitWithdrawal']);
+    Route::get('withdrawal-history', [HostCenterController::class, 'withdrawalHistory']);
+
+
+    Route::get('/run-host-settlement',[HostCenterController::class, 'runHostSettlement']);
+
+
+    Route::get('coinseller/seller-dashboard', [RechargeController::class, 'sellerDashboard']);
+    Route::get('coinseller/search-recharge-user', [RechargeController::class, 'searchRechargeUser']);
+    Route::post('coinseller/recharge-coin', [RechargeController::class, 'rechargeCoin']);
+    Route::get('coinseller/recharge-history', [RechargeController::class, 'sellerHistory']);
+    Route::get('merchant/merchant-dashboard', [RechargeController::class, 'merchantDashboard']);
+    Route::get('merchant/search-user', [RechargeController::class, 'searchUser']);
+    Route::post('merchant/merchant-recharge-user', [RechargeController::class, 'merchantRechargeUser']);
+    Route::get('merchant/search-seller', [RechargeController::class, 'searchSeller']);
+    Route::post('merchant/merchant-recharge-seller', [RechargeController::class, 'merchantRechargeSeller']);
+    Route::get('merchant/merchant-history', [RechargeController::class, 'merchantHistory']);
+
+
+    Route::post('buy-svip', [VipController::class, 'buySvip']);
+    Route::post('buy-vip', [VipController::class, 'buyVip']);
+    Route::post('gift-vip', [VipController::class, 'giftVip']);
 });
+
 
 
 Route::any('{path}', function () {

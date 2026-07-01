@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Helper\Helper;
+use App\Models\AppUser;
+use App\Models\RoomMusicPlaylist;
 use App\Models\Room;
 use App\Models\RoomMember;
 use App\Models\RoomUserRole;
+use App\Models\Theme;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -35,22 +38,48 @@ class RoomController extends Controller
             return DataTables::of($query)
                 ->addIndexColumn()
 
+                // ->addColumn('room_owner', function ($row) {
+                //     if (!$row->user) return '-';
+
+                //     $image = $row->user->image
+                //         ? Helper::showImage($row->user->image, true)
+                //         : asset('assets/img/avatar.png');
+
+                //     return '
+                //     <div class="d-flex align-items-center gap-2">
+                //         <img src="' . $image . '" class="rounded-circle" width="40" height="40">
+                //         <div>
+                //             <div class="fw-bold">' . e($row->user->name) . '</div>
+                //             <small class="text-muted">' . e($row->user->uid) . '</small>
+                //         </div>
+                //     </div>
+                //  ';
+                // })
                 ->addColumn('room_owner', function ($row) {
-                    if (!$row->user) return '-';
+
+                    if (!$row->user) {return '-';}
 
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/avatar.png');
 
                     return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '" class="rounded-circle" width="40" height="40">
-                        <div>
-                            <div class="fw-bold">' . e($row->user->name) . '</div>
-                            <small class="text-muted">' . e($row->user->uid) . '</small>
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                             data-user-id="'.$row->user->id.'"
+                             style="cursor:pointer;">
+
+                            <img src="'.$image.'"
+                                 class="rounded-circle"
+                                 width="40"
+                                 height="40">
+
+                            <div>
+                                <div class="fw-bold">'.e($row->user->name).'</div>
+                                <small class="text-muted">'.e($row->user->uid).'</small>
+                            </div>
+
                         </div>
-                    </div>
-                ';
+                    ';
                 })
 
                 ->addColumn('room_info', function ($row) {
@@ -214,5 +243,170 @@ class RoomController extends Controller
         $room = Room::with('user')->findOrFail($id);
 
         return view('room.view', compact('room'));
+    }
+
+
+    public function userMusics(Request $request)
+    {
+        if ($request->ajax()) {
+    
+            $query = AppUser::with('musics')->has('musics')->latest();
+    
+            return DataTables::of($query)
+
+                ->addColumn('user', function ($row) {
+
+                    $image = $row->image
+                        ? Helper::showImage($row->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="user-box user-profile-trigger"
+                             data-user-id="'.$row->id.'"
+                             style="cursor:pointer;">
+
+                            <img src="'.$image.'">
+
+                            <div class="user-info">
+                                <div class="name">'.$row->name.'</div>
+                                <div class="uid">'.$row->uid.'</div>
+                            </div>
+
+                        </div>
+                    ';
+                })
+    
+                ->addColumn('total_music', function ($row) {
+                    return '
+                        <span class="music-badge">
+                            🎵 '.$row->musics->count().' Songs
+                        </span>
+                    ';
+                })
+    
+                ->addColumn('musics', function ($row) {
+
+                    return '
+                        <button class="btn-playlist view-musics"
+                                data-user="'.$row->id.'">
+                            <i class="fas fa-music me-1"></i>
+                            View Playlist
+                        </button>
+                    ';
+                })
+    
+                ->rawColumns(['user', 'total_music', 'musics'])
+
+                ->filterColumn('user', function ($query, $keyword) {
+                    $query->where(function ($q) use ($keyword) {
+                        $q->where('name', 'like', "%{$keyword}%")->orWhere('uid', 'like', "%{$keyword}%");
+                    });
+                })
+
+                ->make(true);
+        }
+    
+        return view('room.user_music');
+    }
+
+    public function getUserMusicList($id)
+    {
+        $musics = RoomMusicPlaylist::where('user_id', $id)
+            ->select('title', 'artist', 'audio_url')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data' => $musics
+        ]);
+    }
+
+    public function userThemes(Request $request)
+    {
+        if ($request->ajax()) {
+    
+            $query = Room::with(['user'])->whereNotNull('active_theme_id')->latest();
+    
+            return DataTables::of($query)
+    
+                ->addColumn('user', function ($row) {
+
+                    if (!$row->user) {return '-';}
+                
+                    $image = $row->user->image
+                        ? Helper::showImage($row->user->image, true)
+                        : asset('assets/img/avatar.png');
+                
+                    return '
+                        <div class="d-flex align-items-center user-profile-trigger"
+                             data-user-id="'.$row->user->id.'"
+                             style="cursor:pointer;">
+                
+                            <img src="'.$image.'"
+                                 width="50"
+                                 height="50"
+                                 class="rounded-circle me-2">
+                
+                            <div>
+                                <div class="fw-bold">'.$row->user->name.'</div>
+                                <small>'.$row->user->uid.'</small>
+                            </div>
+                
+                        </div>
+                    ';
+                })
+    
+                ->addColumn('theme', function ($row) {
+
+                    if (!$row->active_theme_id) {return '-';}
+                
+                    $theme = Theme::find($row->active_theme_id);
+                
+                    if (!$theme) {return '-';}
+                
+                    return '
+                        <div class="d-flex align-items-center">
+                            <img src="'.Helper::showImage($theme->icon, true).'"
+                                 width="60"
+                                 height="60"
+                                 class="rounded me-2">
+                
+                            <div>
+                                <div class="fw-bold">'.$theme->name.'</div>
+                            </div>
+                        </div>
+                    ';
+                })
+    
+                ->addColumn('room', function ($row) {
+
+                    return '
+                        <div>
+                            <div class="fw-bold">'.$row->room_name.'</div>
+                            <small>'.$row->room_id.'</small>
+                        </div>
+                    ';
+                })
+    
+                ->filterColumn('user', function ($query, $keyword) {
+    
+                    $query->where(function ($q) use ($keyword) {
+    
+                        $q->where('name', 'like', "%{$keyword}%")
+                          ->orWhere('uid', 'like', "%{$keyword}%");
+    
+                    });
+                })
+
+                ->addColumn('activated_at', function ($row) {
+                    return Carbon::parse($row->updated_at)->timezone('Asia/Kolkata')->format('d M Y h:i A');
+                })
+    
+                ->rawColumns(['user','theme','room','activated_at'])
+                ->make(true);
+        }
+    
+        return view('room.user_theme');
     }
 }

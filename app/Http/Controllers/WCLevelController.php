@@ -33,9 +33,15 @@ class WCLevelController extends Controller
                 ->addIndexColumn()
 
                 ->editColumn('icon', function ($row) {
-                    return $row->icon
-                        ? '<img src="' . asset('storage/' . $row->icon) . '" width="40">'
-                        : '-';
+
+                    if (!$row->icon) {return '-';}
+                
+                    $image = asset('storage/' . $row->icon);
+                
+                    return '
+                        <img src="'.$image.'" width="40" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
 
                 ->editColumn('entry_effect', function ($row) {

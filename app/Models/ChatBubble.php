@@ -10,7 +10,7 @@ class ChatBubble extends Model
     use HasFactory;
 
     protected $table = 'chat_bubbles';
-    protected $fillable = ['name', 'validity', 'visibility_type', 'needcoin', 'icon', 'status'];
+    protected $fillable = ['name', 'validity', 'visibility_type', 'needcoin', 'icon','slice_rect','padding_rect', 'status'];
 
 
     protected $casts = [

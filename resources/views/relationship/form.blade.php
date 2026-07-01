@@ -81,6 +81,7 @@
                 ['label' => 'Ring', 'name' => 'ring'],
                 ['label' => 'Avatar', 'name' => 'avatar'],
                 ['label' => 'Frame', 'name' => 'frame'],
+                ['label' => 'Frame Animation', 'name' => 'frame_animation'],
                 ['label' => 'Badge', 'name' => 'badge'],
                 ['label' => 'Background', 'name' => 'background'],
                 ];

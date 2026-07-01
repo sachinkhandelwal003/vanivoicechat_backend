@@ -88,7 +88,7 @@ class PremiumNumberController extends Controller
 
                     return $btn;
                 })
-                ->rawColumns(['user_info','action'])
+                ->rawColumns(['user_info', 'action'])
                 ->make(true);
         }
 
@@ -123,11 +123,47 @@ class PremiumNumberController extends Controller
                     ->withInput();
             }
 
+            $hasActiveStoreUid = DB::table('item_deliveries')
+                ->where('recipient', $user->id)
+                ->where('type', 'id')
+                ->where('end_at', '>', now())
+                ->exists();
+
+            $hasGiftedStoreUid = DB::table('item_gift_transactions')
+                ->where('receiver_id', $user->id)
+                ->where('type', 'id')
+                ->where('end_at', '>', now())
+                ->exists();
+
+            if ($hasActiveStoreUid || $hasGiftedStoreUid) {
+                return redirect()->back()
+                    ->withErrors([
+                        'uid' => 'User already has an active Store UID.'
+                    ])
+                    ->withInput();
+            }
+
+            $exists = PremiumNumber::where('premium_number', $request->premium_number)
+                ->where('end_at', '>', now())
+                ->exists();
+
+            if ($exists) {
+                return redirect()->back()
+                    ->withErrors([
+                        'premium_number' => 'Premium UID already assigned.'
+                    ]);
+            }
+
+
+            $validDays = (int) $request->valid_days;
+
             PremiumNumber::create([
                 'uid'            => $request->uid,
                 'user_id'        => $user->id,
                 'premium_number' => $request->premium_number,
                 'valid_days'     => $request->valid_days,
+                'start_at'       => now(),
+                'end_at'         => now()->addDays($validDays),
             ]);
 
             return redirect()->route('premium_number')
@@ -159,9 +195,46 @@ class PremiumNumberController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        $user = AppUser::where('uid', $request->uid)->first();
+        $hasActiveStoreUid = DB::table('item_deliveries')
+            ->where('recipient', $user->id)
+            ->where('type', 'id')
+            ->where('end_at', '>', now())
+            ->exists();
+
+        $hasGiftedStoreUid = DB::table('item_gift_transactions')
+            ->where('receiver_id', $user->id)
+            ->where('type', 'id')
+            ->where('end_at', '>', now())
+            ->exists();
+
+        if ($hasActiveStoreUid || $hasGiftedStoreUid) {
+            return redirect()->back()
+                ->withErrors([
+                    'uid' => 'User already has an active Store UID.'
+                ])
+                ->withInput();
+        }
+
+        $exists = PremiumNumber::where('premium_number', $request->premium_number)
+            ->where('id', '!=', $id)
+            ->where('end_at', '>', now())
+            ->exists();
+
+        if ($exists) {
+            return back()
+                ->withErrors([
+                    'premium_number' => 'Premium UID already assigned.'
+                ])
+                ->withInput();
+        }
+
+        $validDays = (int) $request->valid_days;
+
         $pNumber->uid = $request->uid;
         $pNumber->premium_number = $request->premium_number;
-        $pNumber->valid_days = $request->valid_days;
+        $pNumber->valid_days  = $validDays;
+        $pNumber->end_at = \Carbon\Carbon::parse($pNumber->start_at)->addDays($validDays);
 
         $pNumber->save();
 

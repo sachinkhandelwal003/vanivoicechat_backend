@@ -29,9 +29,17 @@ class CoinController extends Controller
 
             return DataTables::of($query)
                 ->addIndexColumn()
+
                 ->editColumn('icon', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->icon) . '" width="40">';
+
+                    $image = asset('storage/' . $row->icon);
+
+                    return '
+                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
+
                 ->editColumn('status', function ($row) {
                     return $row['status'] == 1 ? '<small class="badge fw-semi-bold rounded-pill status badge-light-success"> Enable</small>' : '<small class="badge fw-semi-bold rounded-pill status badge-light-danger"> Disable</small>';
                 })

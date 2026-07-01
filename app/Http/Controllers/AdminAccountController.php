@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AdminAccount;
 use App\Models\AppUser;
 use App\Models\Country;
+use App\Models\BdUser;
 use App\Helper\Helper;
 use Carbon\Carbon;
 use Illuminate\View\View;
@@ -26,34 +27,64 @@ class AdminAccountController extends Controller
     {
         if ($request->ajax()) {
 
-            $query = AdminAccount::with(['user', 'country'])->latest();
+            // $query = AdminAccount::with(['user', 'country'])->latest();
+            $query = AdminAccount::with(['user', 'country'])->withCount(['bdUsers as bd_count', 'agencies as agency_count'])->latest();
 
             return DataTables::of($query)
                 ->addIndexColumn()
 
                 ->addColumn('user', function ($row) {
 
-                    if (!$row->user) return '-';
+                    if (!$row->user) {return '-';}
 
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/avatar.png');
 
                     return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '" 
-                            width="40" height="40" 
-                            class="rounded-circle">
-            
-                        <div>
-                            <div class="fw-bold">' . e($row->user->name) . '</div>
-                            <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                             data-user-id="'.$row->user->id.'"
+                             style="cursor:pointer;">
+
+                            <img src="'.$image.'"
+                                 width="40"
+                                 height="40"
+                                 class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">'.e($row->user->name).'</div>
+                                <small class="text-muted">UID: '.e($row->user->uid).'</small>
+                            </div>
+
                         </div>
-                    </div>';
+                    ';
                 })
 
                 ->addColumn('country', function ($row) {
                     return $row->country->name ?? '-';
+                })
+
+                ->addColumn('bd_count', function ($row) {
+                    return '
+                        <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:30px;
+                            background:linear-gradient(135deg,#4f46e5,#7c3aed);
+                            color:#fff; font-weight:600; box-shadow:0 4px 12px rgba(79,70,229,.25);
+                        ">
+                            <i class="fas fa-user-tie"></i>
+                            '.$row->bd_count.'
+                        </div>
+                    ';
+                })
+                
+                ->addColumn('agency_count', function ($row) {
+                    return '
+                        <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:30px;
+                            background:linear-gradient(135deg,#f59e0b,#f97316); color:#fff; font-weight:600; box-shadow:0 4px 12px rgba(245,158,11,.25);
+                        ">
+                            <i class="fas fa-building"></i>
+                            '.$row->agency_count.'
+                        </div>
+                    ';
                 })
 
                 ->editColumn('status', function ($row) {
@@ -87,7 +118,7 @@ class AdminAccountController extends Controller
                     </div>';
                 })
 
-                ->rawColumns(['user', 'status', 'action', 'time'])
+                ->rawColumns(['user', 'bd_count', 'agency_count', 'status', 'action', 'time'])
                 ->make(true);
         }
 
@@ -112,6 +143,7 @@ class AdminAccountController extends Controller
         return view('admin_account.form', compact('admin', 'users', 'countries'));
     }
 
+
     public function save(Request $request, $id = null)
     {
         $rules = [
@@ -121,38 +153,158 @@ class AdminAccountController extends Controller
             'status' => 'required|in:0,1',
         ];
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make(
+            $request->all(),
+            $rules
+        );
 
         if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
+            return redirect()
+                ->back()
+                ->withErrors($validator)
+                ->withInput();
         }
 
         return DB::transaction(function () use ($request, $id) {
 
-            $admin = $id ? AdminAccount::find($id) : new AdminAccount();
+            /*
+        |--------------------------------------------------------------------------
+        | Find Admin Record
+        |--------------------------------------------------------------------------
+        */
+
+            $admin = $id
+                ? AdminAccount::find($id)
+                : new AdminAccount();
 
             if ($id && !$admin) {
-                return redirect()->back()->with('error', 'Admin not found');
+
+                return redirect()
+                    ->back()
+                    ->with(
+                        'error',
+                        'Admin not found'
+                    );
             }
 
-            $user = AppUser::where('uid', $request->user_uid)->first();
+            /*
+        |--------------------------------------------------------------------------
+        | Find User
+        |--------------------------------------------------------------------------
+        */
+
+            $user = AppUser::where(
+                'uid',
+                $request->user_uid
+            )->first();
 
             if (!$user) {
-                return redirect()->back()->with('error', 'User not found');
+
+                return redirect()
+                    ->back()
+                    ->with(
+                        'error',
+                        'User not found'
+                    );
             }
 
+            /*
+        |--------------------------------------------------------------------------
+        | Check Existing BD
+        |--------------------------------------------------------------------------
+        */
+
+            $bd = BdUser::where(
+                'user_id',
+                $user->id
+            )->first();
+
+            /*
+        |--------------------------------------------------------------------------
+        | If BD Already Under Another Admin
+        |--------------------------------------------------------------------------
+        */
+
+            if (
+                $bd
+                &&
+                (int) $bd->is_admin_bound === 1
+                &&
+                !empty($bd->admin_id)
+            ) {
+
+                return redirect()
+                    ->back()
+                    ->with(
+                        'error',
+                        'This BD is already under another Admin'
+                    );
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Save Admin
+        |--------------------------------------------------------------------------
+        */
+
             $data = [
+
                 'user_id' => $user->id,
-                'country_id' => $request->country_id,
-                'whatsapp_number' => $request->whatsapp_number,
-                'status' => $request->status
+
+                'country_id' =>
+                $request->country_id,
+
+                'whatsapp_number' =>
+                $request->whatsapp_number,
+
+                'status' =>
+                $request->status
             ];
 
             $admin->fill($data)->save();
 
+            /*
+        |--------------------------------------------------------------------------
+        | Create / Update BD Record
+        |--------------------------------------------------------------------------
+        | Admin user also becomes BD
+        |--------------------------------------------------------------------------
+        */
+
+            BdUser::updateOrCreate(
+
+                [
+                    'user_id' => $user->id
+                ],
+
+                [
+                    'is_admin_bound' => 1,
+
+                    'admin_id' => $admin->id,
+
+                    'country_id' =>
+                    $request->country_id,
+
+                    'whatsapp_number' =>
+                    $request->whatsapp_number,
+
+                    'status' =>
+                    $request->status,
+
+                    'invite_status' =>
+                    'accept',
+                    'is_dashboard_access' => 0,
+                ]
+            );
+
             return redirect()
                 ->route('admin.account')
-                ->with('success', $id ? 'Admin updated successfully' : 'Admin added successfully');
+                ->with(
+                    'success',
+                    $id
+                        ? 'Admin updated successfully'
+                        : 'Admin added successfully'
+                );
         });
     }
 

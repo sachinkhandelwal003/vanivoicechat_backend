@@ -20,6 +20,16 @@ use App\Models\RoomUserRole;
 use App\Models\RoomSetting;
 use App\Models\RoomMusicState;
 use App\Models\RoomMessageClear;
+use App\Models\ChatBubble;
+use App\Models\Level;
+use App\Models\WCLevel;
+use App\Models\Medal;
+use App\Models\UserMedal;
+use App\Models\RelationshipInvitation;
+use App\Models\StoreUids;
+use App\Models\PremiumNumber;
+use App\Models\Vip;
+use App\Models\Svip;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -44,6 +54,7 @@ use App\Events\RoomMessagesCleared;
 use App\Services\Agora\RtcTokenBuilder2;
 use App\Services\FirebaseService;
 use App\Traits\RoomPermissionTrait;
+use Artisan;
 
 class RoomController extends Controller
 {
@@ -53,7 +64,7 @@ class RoomController extends Controller
     {
         $user = Auth::user();
 
-        $room = Room::with('user:id,name,uid,image,active_frame_id,active_uid_id,active_card_id', 'theme:id,name,icon')
+        $room = Room::with('user:id,name,uid,image,gender,active_frame_id,active_uid_id,active_card_id,active_chat_bubble_id,active_voice_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type', 'theme:id,name,icon')
             ->where('user_id', $user->id)
             ->where('status', 1)
             ->first();
@@ -90,6 +101,56 @@ class RoomController extends Controller
                 $room->user->image = null;
             }
 
+            $roomOwnerUid = $room->user->uid;
+            $roomOwnerUidBadge = null;
+            $uidBadgeColor = null;
+
+            $premiumUid = PremiumNumber::where('user_id', $room->user->id)
+                ->where('end_at', '>', now())
+                ->latest()
+                ->first();
+
+            if ($premiumUid) {
+
+                $roomOwnerUid = $premiumUid->premium_number;
+                $roomOwnerUidBadge = asset('storage/1000175794.png');
+                $uidBadgeColor = '#fcd01c';
+            } elseif ($room->user->active_uid_id) {
+
+                $storeUid = StoreUids::find($room->user->active_uid_id);
+
+                if ($storeUid) {
+
+                    $hasValidPurchase = DB::table('item_deliveries')
+                        ->where('recipient', $room->user->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    $hasValidGift = DB::table('item_gift_transactions')
+                        ->where('receiver_id', $room->user->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    if ($hasValidPurchase || $hasValidGift) {
+
+                        $roomOwnerUid = $storeUid->unique_id;
+
+                        $roomOwnerUidBadge = !empty($storeUid->rank_badge)
+                            ? Helper::showImage($storeUid->rank_badge, true)
+                            : null;
+                        $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                    }
+                }
+            }
+
+            $room->user->uid = $roomOwnerUid;
+            $room->user->uid_badge = $roomOwnerUidBadge;
+            $room->user->uid_badge_color = $uidBadgeColor;
+
             if ($room->theme) {
                 $theme = [
                     'id'    => $room->theme->id,
@@ -116,7 +177,12 @@ class RoomController extends Controller
 
             $onlineCount = RoomPresence::where('room_id', $room->id)->count();
 
-            $seatData = RoomSeat::with('user:id,name,image,active_frame_id,active_uid_id,active_card_id')
+            $seatData = RoomSeat::with([
+                'user:id,uid,name,image,gender,country,active_frame_id,active_uid_id,active_card_id,active_chat_bubble_id,active_voice_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type',
+                'user.countryData:id,name,iso',
+                'user.wcLevels.levelData',
+                'user.userMedals.medal'
+            ])
                 ->where('room_id', $room->id)
                 ->get()
                 ->keyBy('seat_no');
@@ -166,16 +232,106 @@ class RoomController extends Controller
                         'frame' => null,
                         'uid' => null,
                         'profile' => null,
+                        'voice' => null,
+                        'data_cards' => null,
                     ])
                     : [
                         'frame' => null,
                         'uid' => null,
                         'profile' => null,
+                        'voice' => null,
+                        'data_cards' => null,
                     ];
 
+                $wealthLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'wealth')
+                    ->first();
+
+                $charmLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'charm')
+                    ->first();
+
+
+                $medals = $seat?->user?->userMedals
+                    ?->where('is_equipped', 1)
+                    ->sortBy('slot_no')
+                    ->take(3)
+                    ->map(function ($item) {
+
+                        return [
+                            'id' => $item->medal->id,
+                            'name' => $item->medal->title,
+                            'icon' => Helper::showImage(
+                                $item->medal->icon,
+                                true
+                            )
+                        ];
+                    })
+                    ->values();
+
+
+                $flag = $seat?->user?->countryData?->iso
+                    ? 'https://flagcdn.com/w40/' .
+                    strtolower($seat->user->countryData->iso) .
+                    '.png'
+                    : null;
+
+                $displayUid = $seat && $seat->user ? $seat->user->uid : null;
+                $uidBadge = null;
+                $uidBadgeColor = null;
+
+                if ($seat && $seat->user) {
+
+                    $premiumUid = PremiumNumber::where('user_id', $seat->user->id)
+                        ->where('end_at', '>', now())
+                        ->latest()
+                        ->first();
+
+                    if ($premiumUid) {
+
+                        $displayUid = $premiumUid->premium_number;
+                        $uidBadge = asset('storage/1000175794.png');
+                        $uidBadgeColor = '#fcd01c';
+                    } elseif ($seat->user->active_uid_id) {
+
+                        $storeUid = StoreUids::find($seat->user->active_uid_id);
+
+                        if ($storeUid) {
+
+                            $hasValidPurchase = DB::table('item_deliveries')
+                                ->where('recipient', $seat->user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            $hasValidGift = DB::table('item_gift_transactions')
+                                ->where('receiver_id', $seat->user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            if ($hasValidPurchase || $hasValidGift) {
+
+                                $displayUid = $storeUid->unique_id;
+
+                                $uidBadge = !empty($storeUid->rank_badge)
+                                    ? Helper::showImage($storeUid->rank_badge, true)
+                                    : null;
+                                $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                            }
+                        }
+                    }
+                }
                 $onlineUsers[] = [
                     'id' => $seat && $seat->user ? $seat->user->id : null,
+                    // 'uid' => $seat && $seat->user ? $seat->user->uid : null,
+                    'uid' => $displayUid,
+                    'uid_badge' => $uidBadge,
+                    'uid_badge_color' => $uidBadgeColor,
                     'name' => $seat && $seat->user ? $seat->user->name : null,
+                    'gender' => $seat && $seat->user ? $seat->user->gender : null,
                     'image' => ($seat && $seat->user && !empty($seat->user->image))
                         ? Helper::showImage($seat->user->image, true)
                         : null,
@@ -188,8 +344,74 @@ class RoomController extends Controller
                     'role' => $role,
 
                     'frame' => $itemData['frame'],
-                    'uid' => $itemData['uid'],
+                    'store_id' => $itemData['uid'],
+                    'chat_bubble' => $itemData['chatBubble'] ?? null,
+                    'voice' => $itemData['voice'] ?? null,
+                    'profile' => $itemData['profile'] ?? null,
+
+                    'left_relation' => null,
+
+                    'right_relation' => null,
+
+                    'flag' => $flag,
+
+                    'wealth_level' => [
+                        'level' => $wealthLevel?->level ?? 1,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $wealthLevel->levelData->icon,
+                                true
+                            )
+                            : null
+                    ],
+
+                    'charm_level' => [
+                        'level' => $charmLevel?->level ?? 1,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $charmLevel->levelData->icon,
+                                true
+                            )
+                            : null
+                    ],
+
+                    'medals' => $medals,
+
+                    'role_badges' => $seat && $seat->user ? Helper::getUserRoleBadges($seat->user->id) : [],
                 ];
+            }
+
+            $usersCollection = collect($onlineUsers);
+
+            foreach ($onlineUsers as $key => $seatUser) {
+
+                if (!$seatUser['id']) {
+                    continue;
+                }
+
+                // LEFT SEAT
+
+                $leftSeat = $usersCollection->firstWhere('seat_no', $seatUser['seat_no'] - 1);
+
+                if ($leftSeat && !empty($leftSeat['id'])) {
+                    $leftRelation = $this->getSeatRelation($seatUser['id'], $leftSeat['id']);
+
+                    if ($leftRelation) {
+                        $onlineUsers[$key]['left_relation'] = $leftRelation;
+                    }
+                }
+
+                // RIGHT SEAT
+
+                $rightSeat = $usersCollection->firstWhere('seat_no', $seatUser['seat_no'] + 1);
+
+                if ($rightSeat && !empty($rightSeat['id'])) {
+                    $rightRelation = $this->getSeatRelation($seatUser['id'], $rightSeat['id']);
+
+                    if ($rightRelation) {
+                        $onlineUsers[$key]['right_relation'] = $rightRelation;
+                    }
+                }
             }
 
             $agora = [
@@ -276,6 +498,15 @@ class RoomController extends Controller
             ]);
         }
         $user = Auth::user();
+        $alreadyRoom = Room::where('user_id', $user->id)->exists();
+
+        if ($alreadyRoom) {
+
+            return response()->json([
+                'status' => false,
+                'message' => 'You already have a room'
+            ], 409);
+        }
         $roomImage = null;
         if ($request->hasFile('room_image')) {
             $roomImage = Helper::saveFile($request->file('room_image'), 'room_image');
@@ -287,7 +518,7 @@ class RoomController extends Controller
             'room_image' => $roomImage,
             'bio'        => $request->bio,
             'country'    => ucwords(strtolower($user->country)),
-            'room_seat'  => 8,
+            'room_seat'  => 10,
         ]);
 
         $baseRoomId = 100000;
@@ -411,7 +642,7 @@ class RoomController extends Controller
 
             $receiverIds = collect($request->receiver_ids)
                 ->unique()
-                ->reject(fn($id) => $id == $sender->id)
+                // ->reject(fn($id) => $id == $sender->id)
                 ->values();
 
             if ($receiverIds->isEmpty()) {
@@ -422,7 +653,7 @@ class RoomController extends Controller
             }
 
             $receiverCount = $receiverIds->count();
-
+            $singleGiftCost = (int) $gift->price * $multiplier;
             $totalCost = $gift->price * $receiverCount * $multiplier;
 
             if ($sender->total_points < $totalCost) {
@@ -432,37 +663,43 @@ class RoomController extends Controller
                 ], 400);
             }
 
+            $giftImage = !empty($gift->cover)
+                ? Helper::showImage($gift->cover, true)
+                : null;
+
+            $luckySound = $gift->cover_type === 'lucky'
+                ? asset('storage/lucky_gift_sound/lucky-gift-sound.mp3')
+                : null;
+
             $giftData = [
                 'id'    => $gift->id,
                 'name'  => $gift->name ?? null,
-                'image' => !empty($gift->cover) ? Helper::showImage($gift->cover, true) : null,
+                'image' => $giftImage,
+                'svga'  => !empty($gift->file_path) ? Helper::showImage($gift->file_path, true) : null,
                 'price' => $gift->price,
                 'is_lucky' => $gift->cover_type === 'lucky',
-                'lucky_sound' => $gift->cover_type === 'lucky'
-                    ? 'https://vanivoicechat.kotiboxglobaltech.online/storage/lucky_gift_sound/lucky-gift-sound.mp3'
-                    : null,
+                'lucky_sound' => $luckySound,
             ];
 
             $transactions = [];
             $receiverUsers = [];
 
             foreach ($receiverIds as $receiverId) {
-                $transactions[] = GiftTransaction::create([
+                $transaction = GiftTransaction::create([
                     'room_id'     => $request->room_id,
                     'sender_id'   => $sender->id,
                     'receiver_id' => $receiverId,
                     'gift_id'     => $gift->id,
                     'coin_value'  => $gift->price,
                     'multiplier'  => $multiplier,
-                    'total_value'  => $gift->price * $multiplier,
+                    'total_value' => $singleGiftCost,
                 ]);
 
-                // AppUser::where('id', $receiverId)
-                //     ->increment('total_points', $gift->price * $multiplier);
+                $transactions[] = $transaction;
 
                 AppUser::where('id', $receiverId)->update([
-                    'total_points' => DB::raw('total_points + ' . ($gift->price * $multiplier)),
-                    'total_value'  => DB::raw('total_value + ' . ($gift->price * $multiplier)),
+                    'total_points' => DB::raw('total_points + ' . $singleGiftCost),
+                    'total_value'  => DB::raw('total_value + ' . $singleGiftCost),
                 ]);
 
 
@@ -471,22 +708,37 @@ class RoomController extends Controller
                     ->first();
 
 
-                $level = UserLevel::where('experience_cap', '<=', $user->total_value)
-                    ->orderByDesc('experience_cap')
-                    ->first();
+                if ($user) {
+                    $level = UserLevel::where('experience_cap', '<=', $user->total_value)
+                        ->orderByDesc('experience_cap')
+                        ->first();
 
-                if ($level && $user->user_level != $level->grade) {
-                    AppUser::where('id', $receiverId)
-                        ->update(['user_level' => $level->grade]);
+                    if ($level && $user->user_level != $level->grade) {
+                        $user->user_level = $level->grade;
+                        $user->save();
+                    }
+
+                    $receiverUsers[] = $user->fresh();
                 }
-
-                $receiverUsers[] = $user;
+                $this->updateWCLevel($receiverId, 'charm');
+                $this->updateUserMedals($receiverId, 'charm');
             }
 
-            $sender->decrement('total_points', $totalCost);
+            AppUser::where('id', $sender->id)
+                ->decrement('total_points', $totalCost);
+
+            $this->updateWCLevel($sender->id, 'wealth');
 
             Room::where('id', $request->room_id)
                 ->increment('total_points', $totalCost);
+
+            $roomOwnerId = Room::where('id', $request->room_id)->value('user_id');
+            // dd( $roomOwnerId);
+
+            if ($roomOwnerId) {
+
+                $this->updateUserMedals($roomOwnerId, 'room_wealth');
+            }
 
             $familyId = FamilyMember::where('user_id', $sender->id)
                 ->whereNull('left_at')
@@ -513,6 +765,7 @@ class RoomController extends Controller
                         'id'    => $gift->id,
                         'name'  => $gift->name ?? null,
                         'image' => !empty($gift->cover) ? Helper::showImage($gift->cover, true) : null,
+                        'svga'  => !empty($gift->file_path) ? Helper::showImage($gift->file_path, true) : null,
                         'price' => $gift->price,
                         'is_lucky' => $gift->cover_type === 'lucky',
                         'lucky_sound' => $gift->cover_type === 'lucky'
@@ -543,18 +796,69 @@ class RoomController extends Controller
 
             DB::commit();
 
-            $sender = $sender->fresh();
+            $sender = AppUser::select('id', 'name', 'uid', 'image', 'total_points')
+                ->where('id', $sender->id)
+                ->first();
 
-            event(new RoomGiftSent(
-                roomId: (int) $request->room_id,
-                gift: $gift,
-                sender: $sender,
-                receivers: collect($receiverUsers),
-                transactions: collect($transactions),
-                multiplier: (int) $multiplier,
-                receiverCount: (int) $receiverCount,
-                totalCost: $totalCost
-            ));
+            $eventPayload = [
+                'type'    => 'gift',
+                'room_id' => (int) $request->room_id,
+                'message' => ($sender->name ?? 'User') . ' sent ' . ($gift->name ?? 'Gift') . ' x' . $multiplier,
+
+                'gift' => [
+                    'id'          => $gift->id,
+                    'title'       => $gift->name,
+                    'name'        => $gift->name,
+                    'image'       => $giftImage,
+                    'svga'        => !empty($gift->file_path) ? Helper::showImage($gift->file_path, true) : null,
+                    'price'       => (int) $gift->price,
+                    'is_lucky'    => $gift->cover_type === 'lucky',
+                    'lucky_sound' => $luckySound,
+                ],
+
+                'sender' => [
+                    'id'           => $sender->id,
+                    'name'         => $sender->name,
+                    'uid'          => $sender->uid,
+                    'image'        => !empty($sender->image)
+                        ? Helper::showImage($sender->image, true)
+                        : null,
+                    'total_points' => (int) $sender->total_points,
+                ],
+
+                'receivers' => collect($receiverUsers)->map(function ($user) {
+                    return [
+                        'id'          => $user->id,
+                        'name'        => $user->name,
+                        'uid'         => $user->uid,
+                        'image'       => !empty($user->image)
+                            ? Helper::showImage($user->image, true)
+                            : null,
+                        'user_level'  => $user->user_level,
+                    ];
+                })->values()->toArray(),
+
+                'transaction_ids' => collect($transactions)
+                    ->pluck('id')
+                    ->values()
+                    ->toArray(),
+
+                'multiplier'     => (int) $multiplier,
+                'receiver_count' => (int) $receiverCount,
+                'total_cost'     => (int) $totalCost,
+            ];
+
+            try {
+                event(new RoomGiftSent(
+                    roomId: (int) $request->room_id,
+                    payload: $eventPayload
+                ));
+            } catch (\Throwable $e) {
+                \Log::error('Gift Pusher broadcast failed', [
+                    'room_id' => $request->room_id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
 
             return response()->json([
                 'status' => true,
@@ -576,198 +880,161 @@ class RoomController extends Controller
         }
     }
 
-    // public function join(Request $request)
-    // {
-    //     $validation = Validator::make($request->all(), [
-    //         'room_id' => 'required|integer'
-    //     ]);
+    private function updateWCLevel($userId, $type)
+    {
+        // Current exp
 
-    //     if ($validation->fails()) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => $validation->errors()
-    //         ], 422);
-    //     }
+        if ($type == 'wealth') {
+            $currentExp = GiftTransaction::where('sender_id', $userId)->sum('total_value');
+        } elseif ($type == 'charm') {
+            $currentExp = GiftTransaction::where('receiver_id', $userId)->sum('total_value');
+        } else {
+            return;
+        }
 
-    //     $user = Auth::user();
-    //     $roomId = (int) $request->room_id;
+        // Current level
 
-    //     $room = Room::find($roomId);
+        $level = Level::where('type', $type)
+            ->where('required_exp', '<=', $currentExp)
+            ->orderByDesc('required_exp')
+            ->first();
 
-    //     if (!$room) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Room not found'
-    //         ], 404);
-    //     }
+        // New user → level 1
 
-    //     if ((bool) $room->is_locked) {
-    //         $isOwner = (int) $room->user_id === (int) $user->id;
+        if (!$level) {
+            $level = Level::where('type', $type)->orderBy('required_exp')->first();
+        }
 
-    //         if (!$isOwner) {
-    //             if (!$request->filled('password')) {
-    //                 return response()->json([
-    //                     'status' => false,
-    //                     'message' => 'This room is locked. Please enter password.',
-    //                     'is_room_lock' => true
-    //                 ], 403);
-    //             }
+        // Save
 
-    //             if (!\Illuminate\Support\Facades\Hash::check($request->password, $room->password)) {
-    //                 return response()->json([
-    //                     'status' => false,
-    //                     'message' => 'Invalid room password',
-    //                     'is_room_lock' => true
-    //                 ], 403);
-    //             }
-    //         }
-    //     }
+        WCLevel::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'type' => $type
+            ],
+            [
+                'level' => $level->level,
+                'exp' => $currentExp
+            ]
+        );
+    }
 
-    //     $blocked = DB::table('user_blocks')
-    //         ->where('room_id', $room->id)
-    //         ->where('blocker_id', $room->user_id)
-    //         ->where('blocked_user_id', $user->id)
-    //         ->where(function ($query) {
-    //             $query->whereNull('expires_at')
-    //                 ->orWhere('expires_at', '>', now());
-    //         })
-    //         ->first();
+    private function updateUserMedals($userId, $type)
+    {
+        $currentValue = 0;
 
-    //     if ($blocked) {
-    //         if (is_null($blocked->expires_at)) {
-    //             $message = 'You are permanently banned from this room';
-    //         } else {
-    //             $remainingTime = now()->diffForHumans($blocked->expires_at, [
-    //                 'parts' => 2,
-    //             ]);
+        //    Wealth / Charm
+        if (in_array($type, ['wealth', 'charm'])) {
 
-    //             $message = 'You are banned from this room for ' . $remainingTime;
-    //         }
+            $wcLevel = WcLevel::where('user_id', $userId)->where('type', $type)->first();
+            if (!$wcLevel) {
+                return;
+            }
+            $currentValue = (int) $wcLevel->level;
+        }
 
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => $message,
-    //         ], 403);
-    //     }
+        // Room Members
+        elseif ($type == 'room_members') {
 
-    //     RoomPresence::firstOrCreate([
-    //         'room_id' => $roomId,
-    //         'user_id' => $user->id,
-    //     ]);
+            $roomId = Room::where('user_id', $userId)->value('id');
 
-    //     if ((int) $room->user_id !== (int) $user->id) {
-    //         RoomUserRole::firstOrCreate(
-    //             [
-    //                 'room_id' => $roomId,
-    //                 'user_id' => $user->id,
-    //             ],
-    //             [
-    //                 'role' => 'guest',
-    //                 'assigned_by' => $room->user_id,
-    //             ]
-    //         );
-    //     }
+            if (!$roomId) {
+                return;
+            }
+            $currentValue = RoomMember::where('room_id', $roomId)
+                ->distinct('user_id')->count();
+        }
 
-    //     $presences = RoomPresence::with([
-    //         'user:id,name,image,active_car_id,active_frame_id,active_chat_bubble_id,active_theme_id,active_uid_id,active_voice_id,active_entry_id,active_card_id'
-    //     ])
-    //         ->where('room_id', $roomId)
-    //         ->latest()
-    //         ->get();
+        // Room Wealth
+        elseif ($type == 'room_wealth') {
 
-    //     $userIds = $presences->pluck('user_id')->filter()->unique()->values();
+            $roomId = Room::where('user_id', $userId)->value('id');
+            if (!$roomId) {
+                return;
+            }
+            $currentValue = GiftTransaction::where('room_id', $roomId)
+                ->sum('total_value');
+        }
 
-    //     $roles = RoomUserRole::where('room_id', $roomId)
-    //         ->whereIn('user_id', $userIds)
-    //         ->pluck('role', 'user_id');
+        // First Recharge
+        // elseif ($type == 'first_recharge') {
 
-    //     $onlineUsers = $presences->pluck('user')->filter()->values();
-    //     $itemsByUserId = $this->getActiveItemsForUsers($onlineUsers);
+        //         $currentValue = Recharge::where('user_id', $userId)
+        //             ->exists() ? 1 : 0;
+        //     }
 
-    //     $users = $presences->map(function ($presence) use ($room, $roles, $itemsByUserId) {
-    //         $presenceUser = $presence->user;
+        else {
+            return;
+        }
 
-    //         $role = 'guest';
-    //         if ((int) $room->user_id === (int) $presence->user_id) {
-    //             $role = 'owner';
-    //         } else {
-    //             $role = $roles[$presence->user_id] ?? 'guest';
-    //         }
+        // \Log::info('MEDAL CHECK', [
+        //     'type' => $type,
+        //     'value' => $currentValue
+        // ]);
 
-    //         $itemData = $itemsByUserId[$presence->user_id] ?? [
-    //             'entry' => null,
-    //             'frame' => null,
-    //             'chat_bubble' => null,
-    //             'theme' => null,
-    //             'uid' => null,
-    //             'voice' => null,
-    //             'enter_tag' => null,
-    //             'profile' => null,
-    //         ];
+        $medals = Medal::where('type', 'achievement')
+            ->orderBy('target_value')
+            ->get();
 
-    //         return [
-    //             'id' => $presenceUser->id ?? null,
-    //             'name' => $presenceUser->name ?? null,
-    //             'image' => !empty($presenceUser->image)
-    //                 ? Helper::showImage($presenceUser->image, true)
-    //                 : null,
-    //             'role' => $role,
+        foreach ($medals as $medal) {
 
-    //             'entry' => $itemData['entry'],
-    //             'frame' => $itemData['frame'],
-    //             'chat_bubble' => $itemData['chat_bubble'],
-    //             'theme' => $itemData['theme'],
-    //             'uid' => $itemData['uid'],
-    //             'voice' => $itemData['voice'],
-    //             'enter_tag' => $itemData['enter_tag'],
-    //             'profile' => $itemData['profile'],
-    //         ];
-    //     })->values();
+            $title = strtolower($medal->title);
 
-    //     $onlineCount = $presences->count();
+            // Medal filter
 
-    //     $currentUserRole = ((int) $room->user_id === (int) $user->id)
-    //         ? 'owner'
-    //         : ($roles[$user->id] ?? 'guest');
+            if ($type == 'wealth' && !str_contains($title, 'wealth')) {
+                continue;
+            }
 
-    //     $authUserItems = $itemsByUserId[$user->id] ?? $this->getActiveUserItems($user);
+            if ($type == 'charm' && !str_contains($title, 'charm')) {
+                continue;
+            }
 
-    //     $currentUser = [
-    //         'id' => $user->id,
-    //         'name' => $user->name,
-    //         'image' => !empty($user->image)
-    //             ? Helper::showImage($user->image, true)
-    //             : null,
-    //         'role' => $currentUserRole,
+            if ($type == 'room_members' && !str_contains($title, 'room member')) {
+                continue;
+            }
 
-    //         'entry' => $authUserItems['entry'],
-    //         'frame' => $authUserItems['frame'],
-    //         // 'chat_bubble' => $authUserItems['chat_bubble'],
-    //         // 'theme' => $authUserItems['theme'],
-    //         'uid' => $authUserItems['uid'],
-    //         // 'voice' => $authUserItems['voice'],
-    //         'enter_tag' => $authUserItems['enter_tag'],
-    //         'profile' => $authUserItems['profile'],
-    //     ];
+            if ($type == 'room_wealth' && !str_contains($title, 'room wealth')) {
+                continue;
+            }
 
-    //     broadcast(new RoomPresenceUpdated(
-    //         $roomId,
-    //         $onlineCount,
-    //         $users,
-    //         'join',
-    //         $currentUser
-    //     ))->toOthers();
+            if ($type == 'first_recharge' && !str_contains($title, 'recharge')) {
+                continue;
+            }
 
-    //     return response()->json([
-    //         'status' => true,
-    //         'room_id' => $roomId,
-    //         'online_count' => $onlineCount,
-    //         'users' => $users,
-    //         'type' => 'join',
-    //         'user' => $currentUser,
-    //     ]);
-    // }
+            // Wealth/Charm → level based
 
+            if (in_array($type, ['wealth', 'charm'])) {
+
+                if ($currentValue < (int) $medal->level) {
+                    continue;
+                }
+            }
+
+            // Others → target based
+            else {
+                if ($currentValue < (int) $medal->target_value) {
+                    continue;
+                }
+            }
+
+            UserMedal::firstOrCreate(
+                [
+                    'user_id' => $userId,
+                    'medal_id' => $medal->id
+                ],
+                [
+                    'is_equipped' => 0,
+                    'achieved_at' => now()
+                ]
+            );
+
+            // \Log::info('MEDAL UNLOCKED', [
+            //     'user_id' => $userId,
+            //     'medal' => $medal->title
+            // ]);
+        }
+    }
 
 
     public function join(Request $request)
@@ -799,6 +1066,7 @@ class RoomController extends Controller
             $isOwner = (int) $room->user_id === (int) $user->id;
 
             if (!$isOwner) {
+
                 if (!$request->filled('password')) {
                     return response()->json([
                         'status' => false,
@@ -828,15 +1096,10 @@ class RoomController extends Controller
             ->first();
 
         if ($blocked) {
-            if (is_null($blocked->expires_at)) {
-                $message = 'You are permanently banned from this room';
-            } else {
-                $remainingTime = now()->diffForHumans($blocked->expires_at, [
-                    'parts' => 2,
-                ]);
 
-                $message = 'You are banned from this room for ' . $remainingTime;
-            }
+            $message = is_null($blocked->expires_at)
+                ? 'You are permanently banned from this room'
+                : 'You are banned from this room';
 
             return response()->json([
                 'status' => false,
@@ -844,12 +1107,23 @@ class RoomController extends Controller
             ], 403);
         }
 
-        RoomPresence::firstOrCreate([
-            'room_id' => $roomId,
-            'user_id' => $user->id,
-        ]);
+        // RoomPresence::firstOrCreate([
+        //     'room_id' => $roomId,
+        //     'user_id' => $user->id,
+        // ]);
+
+        RoomPresence::updateOrCreate(
+            [
+                'room_id' => $roomId,
+                'user_id' => $user->id,
+            ],
+            [
+                'last_ping_at' => now(),
+            ]
+        );
 
         if ((int) $room->user_id !== (int) $user->id) {
+
             RoomUserRole::firstOrCreate(
                 [
                     'room_id' => $roomId,
@@ -863,7 +1137,10 @@ class RoomController extends Controller
         }
 
         $presences = RoomPresence::with([
-            'user:id,name,image,active_car_id,active_frame_id,active_chat_bubble_id,active_theme_id,active_uid_id,active_voice_id,active_entry_id,active_card_id'
+            'user:id,name,image,country,gender,active_car_id,active_frame_id,active_chat_bubble_id,active_theme_id,active_uid_id,active_voice_id,active_entry_id,active_card_id,active_entry_type,active_entry_tag_type,active_frame_type,active_chat_bubble_type,active_voice_type,active_profile_card_type',
+            'user.countryData:id,name,iso',
+            'user.wcLevels.levelData',
+            'user.userMedals.medal'
         ])
             ->where('room_id', $roomId)
             ->latest()
@@ -880,15 +1157,42 @@ class RoomController extends Controller
         $itemsByUserId = $this->getActiveItemsForUsers($onlineUsers);
 
         $users = $presences->map(function ($presence) use ($room, $roles, $itemsByUserId) {
+
             $presenceUser = $presence->user;
 
-            $role = 'guest';
+            $role = (int) $room->user_id === (int) $presence->user_id
+                ? 'owner'
+                : ($roles[$presence->user_id] ?? 'guest');
 
-            if ((int) $room->user_id === (int) $presence->user_id) {
-                $role = 'owner';
-            } else {
-                $role = $roles[$presence->user_id] ?? 'guest';
-            }
+
+            $wealthLevel = $presenceUser?->wcLevels
+                ?->where('type', 'wealth')
+                ->first();
+
+            $charmLevel = $presenceUser?->wcLevels
+                ?->where('type', 'charm')
+                ->first();
+
+
+            $medals = $presenceUser?->userMedals
+                ?->where('is_equipped', 1)
+                ->sortBy('slot_no')
+                ->take(3)
+                ->map(function ($item) {
+
+                    return [
+                        'id' => $item->medal->id,
+                        'name' => $item->medal->title,
+                        'icon' => Helper::showImage($item->medal->icon, true)
+                    ];
+                })
+                ->values();
+
+
+            $flag = $presenceUser?->countryData?->iso
+                ? 'https://flagcdn.com/w40/' . strtolower($presenceUser->countryData->iso) . '.png'
+                : null;
+
 
             $itemData = $itemsByUserId[$presence->user_id] ?? [
                 'entry' => null,
@@ -904,10 +1208,31 @@ class RoomController extends Controller
             return [
                 'id' => $presenceUser->id ?? null,
                 'name' => $presenceUser->name ?? null,
+                'gender' => $presenceUser->gender ?? null,
+
                 'image' => !empty($presenceUser->image)
                     ? Helper::showImage($presenceUser->image, true)
                     : null,
+
                 'role' => $role,
+
+                'flag' => $flag,
+
+                'wealth_level' => [
+                    'level' => $wealthLevel?->level ?? 1,
+                    'icon' => $wealthLevel?->levelData?->icon
+                        ? Helper::showImage($wealthLevel->levelData->icon, true)
+                        : null
+                ],
+
+                'charm_level' => [
+                    'level' => $charmLevel?->level ?? 1,
+                    'icon' => $charmLevel?->levelData?->icon
+                        ? Helper::showImage($charmLevel->levelData->icon, true)
+                        : null
+                ],
+
+                'medals' => $medals,
 
                 'entry' => $itemData['entry'],
                 'frame' => $itemData['frame'],
@@ -922,55 +1247,22 @@ class RoomController extends Controller
 
         $onlineCount = $presences->count();
 
-        $currentUserRole = ((int) $room->user_id === (int) $user->id)
-            ? 'owner'
-            : ($roles[$user->id] ?? 'guest');
+        $currentUser = $users
+            ->where('id', $user->id)
+            ->first();
 
-        $authUserItems = $itemsByUserId[$user->id] ?? $this->getActiveUserItems($user);
+        $roomOwnerId = $room->user_id;
 
-        $currentUser = [
-            'id' => $user->id,
-            'name' => $user->name,
-            'image' => !empty($user->image)
-                ? Helper::showImage($user->image, true)
-                : null,
-            'role' => $currentUserRole,
-
-            'entry' => $authUserItems['entry'],
-            'frame' => $authUserItems['frame'],
-            'chat_bubble' => $authUserItems['chat_bubble'],
-            'theme' => $authUserItems['theme'],
-            'uid' => $authUserItems['uid'],
-            'voice' => $authUserItems['voice'],
-            'enter_tag' => $authUserItems['enter_tag'],
-            'profile' => $authUserItems['profile'],
-        ];
-
-        /*
-    |--------------------------------------------------------------------------
-    | Pusher Broadcast Payload
-    |--------------------------------------------------------------------------
-    | API response same rahega.
-    | Pusher me users full array nahi bhej rahe.
-    | Sirf joined user ka required data bhej rahe hain.
-    */
-        $broadcastCurrentUser = [
-            'id' => $currentUser['id'],
-            'name' => $currentUser['name'],
-            'image' => $currentUser['image'],
-            'role' => $currentUser['role'],
-
-            'entry' => $currentUser['entry'],
-            'frame' => $currentUser['frame'],
-            'enter_tag' => $currentUser['enter_tag'],
-        ];
+        if ($roomOwnerId) {
+            $this->updateUserMedals($roomOwnerId, 'room_members');
+        }
 
         broadcast(new RoomPresenceUpdated(
             $roomId,
             $onlineCount,
             [],
             'join',
-            $broadcastCurrentUser
+            $currentUser
         ))->toOthers();
 
         return response()->json([
@@ -982,6 +1274,166 @@ class RoomController extends Controller
             'user' => $currentUser,
         ]);
     }
+
+    // private function getActiveItemsForUsers($users): array
+    // {
+    //     $users = collect($users)->filter();
+
+    //     $carIds = $users->pluck('active_car_id')->filter()->unique()->values();
+    //     $frameIds = $users->pluck('active_frame_id')->filter()->unique()->values();
+    //     $chatBubbleIds = $users->pluck('active_chat_bubble_id')->filter()->unique()->values();
+    //     $themeIds = $users->pluck('active_theme_id')->filter()->unique()->values();
+    //     $uidIds = $users->pluck('active_uid_id')->filter()->unique()->values();
+    //     $voiceIds = $users->pluck('active_voice_id')->filter()->unique()->values();
+    //     $entryTagIds = $users->pluck('active_entry_id')->filter()->unique()->values();
+    //     $cardIds = $users->pluck('active_card_id')->filter()->unique()->values();
+
+    //     $cars = DB::table('cars')
+    //         ->whereIn('id', $carIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $frames = DB::table('frames')
+    //         ->whereIn('id', $frameIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $chatBubbles = DB::table('chat_bubbles')
+    //         ->whereIn('id', $chatBubbleIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $themes = DB::table('themes')
+    //         ->whereIn('id', $themeIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $uids = DB::table('store_uids')
+    //         ->whereIn('id', $uidIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $voices = DB::table('voices')
+    //         ->whereIn('id', $voiceIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $entryTags = DB::table('entry_tags')
+    //         ->whereIn('id', $entryTagIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $dataCards = DB::table('data_cards')
+    //         ->whereIn('id', $cardIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $mapped = [];
+
+    //     foreach ($users as $user) {
+    //         $entry = null;
+    //         $frame = null;
+    //         $chatBubble = null;
+    //         $theme = null;
+    //         $uid = null;
+    //         $voice = null;
+    //         $enterTag = null;
+    //         $profile = null;
+
+    //         if (!empty($user->active_car_id) && isset($cars[$user->active_car_id])) {
+    //             $car = $cars[$user->active_car_id];
+    //             $entry = [
+    //                 'id' => $car->id,
+    //                 'name' => $car->name ?? null,
+    //                 'image' => !empty($car->icon) ? Helper::showImage($car->icon, true) : null,
+    //                 'file' => !empty($car->gif) ? Helper::showImage($car->gif, true) : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_frame_id) && isset($frames[$user->active_frame_id])) {
+    //             $frameData = $frames[$user->active_frame_id];
+    //             $frame = [
+    //                 'id' => $frameData->id,
+    //                 'name' => $frameData->name ?? null,
+    //                 'image' => !empty($frameData->icon) ? Helper::showImage($frameData->icon, true) : null,
+    //                 'file' => !empty($frameData->gif) ? Helper::showImage($frameData->gif, true) : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_chat_bubble_id) && isset($chatBubbles[$user->active_chat_bubble_id])) {
+    //             $chatBubbleData = $chatBubbles[$user->active_chat_bubble_id];
+    //             $chatBubble = [
+    //                 'id' => $chatBubbleData->id,
+    //                 'name' => $chatBubbleData->name ?? null,
+    //                 'image' => !empty($chatBubbleData->icon) ? Helper::showImage($chatBubbleData->icon, true) : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_theme_id) && isset($themes[$user->active_theme_id])) {
+    //             $themeData = $themes[$user->active_theme_id];
+    //             $theme = [
+    //                 'id' => $themeData->id,
+    //                 'name' => $themeData->name ?? null,
+    //                 'image' => !empty($themeData->icon) ? Helper::showImage($themeData->icon, true) : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_uid_id) && isset($uids[$user->active_uid_id])) {
+    //             $uidData = $uids[$user->active_uid_id];
+    //             $uid = [
+    //                 'id' => $uidData->id,
+    //                 'uid' => $uidData->unique_id ?? null,
+    //                 'image' => !empty($uidData->badge) ? Helper::showImage($uidData->badge, true) : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_voice_id) && isset($voices[$user->active_voice_id])) {
+    //             $voiceData = $voices[$user->active_voice_id];
+    //             $voice = [
+    //                 'id' => $voiceData->id,
+    //                 'name' => $voiceData->name ?? null,
+    //                 'image' => !empty($voiceData->icon) ? Helper::showImage($voiceData->icon, true) : null,
+    //                 'file' => !empty($voiceData->gif) ? Helper::showImage($voiceData->gif, true) : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_entry_id) && isset($entryTags[$user->active_entry_id])) {
+    //             $enterTagData = $entryTags[$user->active_entry_id];
+    //             $enterTag = [
+    //                 'id' => $enterTagData->id,
+    //                 'name' => $enterTagData->name ?? null,
+    //                 'image' => !empty($enterTagData->icon) ? Helper::showImage($enterTagData->icon, true) : null,
+    //                 'file' => !empty($enterTagData->gif) ? Helper::showImage($enterTagData->gif, true) : null,
+    //                 'img_key' => $enterTagData->img_key ?? null,
+    //                 'text_key' => $enterTagData->text_key ?? null,
+    //                 'frame_key' => $enterTagData->frame_key ?? null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_card_id) && isset($dataCards[$user->active_card_id])) {
+    //             $profileData = $dataCards[$user->active_card_id];
+    //             $profile = [
+    //                 'id' => $profileData->id,
+    //                 'name' => $profileData->name ?? null,
+    //                 'image' => !empty($profileData->icon) ? Helper::showImage($profileData->icon, true) : null,
+    //                 'file' => !empty($profileData->gif) ? Helper::showImage($profileData->gif, true) : null,
+    //             ];
+    //         }
+
+    //         $mapped[$user->id] = [
+    //             'entry' => $entry,
+    //             'frame' => $frame,
+    //             'chat_bubble' => $chatBubble,
+    //             'theme' => $theme,
+    //             'uid' => $uid,
+    //             'voice' => $voice,
+    //             'enter_tag' => $enterTag,
+    //             'profile' => $profile,
+    //         ];
+    //     }
+
+    //     return $mapped;
+    // }
 
 
     private function getActiveItemsForUsers($users): array
@@ -1049,14 +1501,63 @@ class RoomController extends Controller
             $enterTag = null;
             $profile = null;
 
-            if (!empty($user->active_car_id) && isset($cars[$user->active_car_id])) {
-                $car = $cars[$user->active_car_id];
-                $entry = [
-                    'id' => $car->id,
-                    'name' => $car->name ?? null,
-                    'image' => !empty($car->icon) ? Helper::showImage($car->icon, true) : null,
-                    'file' => !empty($car->gif) ? Helper::showImage($car->gif, true) : null,
-                ];
+            if (!empty($user->active_car_id)) {
+
+                if (
+                    empty($user->active_entry_type)
+                    || $user->active_entry_type === 'store'
+                ) {
+
+                    if (isset($cars[$user->active_car_id])) {
+
+                        $car = $cars[$user->active_car_id];
+
+                        $entry = [
+                            'id' => $car->id,
+                            'name' => $car->name ?? null,
+                            'image' => !empty($car->icon)
+                                ? Helper::showImage($car->icon, true)
+                                : null,
+                            'file' => !empty($car->gif)
+                                ? Helper::showImage($car->gif, true)
+                                : null,
+                        ];
+                    }
+                } elseif ($user->active_entry_type === 'vip') {
+
+                    $vip = Vip::find($user->active_car_id);
+
+                    if ($vip) {
+
+                        $entry = [
+                            'id' => $vip->id,
+                            'name' => $vip->name,
+                            'image' => !empty($vip->voice_frame)
+                                ? asset('storage/' . $vip->voice_frame)
+                                : null,
+                            'file' => !empty($vip->voice_animation)
+                                ? asset('storage/' . $vip->voice_animation)
+                                : null,
+                        ];
+                    }
+                } elseif ($user->active_entry_type === 'svip') {
+
+                    $svip = Svip::find($user->active_car_id);
+
+                    if ($svip) {
+
+                        $entry = [
+                            'id' => $svip->id,
+                            'name' => $svip->name,
+                            'image' => !empty($svip->entrance_image)
+                                ? asset('storage/' . $svip->entrance_image)
+                                : null,
+                            'file' => !empty($svip->entrance_animation)
+                                ? asset('storage/' . $svip->entrance_animation)
+                                : null,
+                        ];
+                    }
+                }
             }
 
             if (!empty($user->active_frame_id) && isset($frames[$user->active_frame_id])) {
@@ -1106,17 +1607,72 @@ class RoomController extends Controller
                 ];
             }
 
-            if (!empty($user->active_entry_id) && isset($entryTags[$user->active_entry_id])) {
-                $enterTagData = $entryTags[$user->active_entry_id];
-                $enterTag = [
-                    'id' => $enterTagData->id,
-                    'name' => $enterTagData->name ?? null,
-                    'image' => !empty($enterTagData->icon) ? Helper::showImage($enterTagData->icon, true) : null,
-                    'file' => !empty($enterTagData->gif) ? Helper::showImage($enterTagData->gif, true) : null,
-                    'img_key' => $enterTagData->img_key ?? null,
-                    'text_key' => $enterTagData->text_key ?? null,
-                    'frame_key' => $enterTagData->frame_key ?? null,
-                ];
+            if (!empty($user->active_entry_id)) {
+
+                if (
+                    empty($user->active_entry_tag_type)
+                    || $user->active_entry_tag_type === 'store'
+                ) {
+
+                    if (isset($entryTags[$user->active_entry_id])) {
+
+                        $enterTagData = $entryTags[$user->active_entry_id];
+
+                        $enterTag = [
+                            'id' => $enterTagData->id,
+                            'name' => $enterTagData->name ?? null,
+                            'image' => !empty($enterTagData->icon)
+                                ? Helper::showImage($enterTagData->icon, true)
+                                : null,
+                            'file' => !empty($enterTagData->gif)
+                                ? Helper::showImage($enterTagData->gif, true)
+                                : null,
+                            'img_key' => $enterTagData->img_key ?? null,
+                            'text_key' => $enterTagData->text_key ?? null,
+                            'frame_key' => $enterTagData->frame_key ?? null,
+                        ];
+                    }
+                } elseif ($user->active_entry_tag_type === 'vip') {
+
+                    $vip = Vip::find($user->active_entry_id);
+
+                    if ($vip) {
+
+                        $enterTag = [
+                            'id' => $vip->id,
+                            'name' => $vip->name,
+                            'image' => !empty($vip->entry_tag)
+                                ? asset('storage/' . $vip->entry_tag)
+                                : null,
+                            'file' => !empty($vip->entry_tag_animation)
+                                ? asset('storage/' . $vip->entry_tag_animation)
+                                : null,
+                            'img_key' => $vip->img_key ?? null,
+                            'text_key' => $vip->text_key ?? null,
+                            'frame_key' => $vip->frame_key ?? null,
+                        ];
+                    }
+                } elseif ($user->active_entry_tag_type === 'svip') {
+
+                    $svip = Svip::find($user->active_entry_id);
+
+                    if ($svip) {
+
+                        $enterTag = [
+                            'id' => $svip->id,
+                            'name' => $svip->name,
+                            'image' => !empty($svip->entry)
+                                ? asset('storage/' . $svip->entry)
+                                : null,
+                            'file' => !empty($svip->entry_animation)
+                                ? asset('storage/' . $svip->entry_animation)
+                                : null,
+                            'img_key' => $svip->img_key ?? null,
+                            'text_key' => $svip->text_key ?? null,
+                            'frame_key' => $svip->frame_key ?? null,
+                        ];
+                    }
+                }
             }
 
             if (!empty($user->active_card_id) && isset($dataCards[$user->active_card_id])) {
@@ -1143,176 +1699,6 @@ class RoomController extends Controller
 
         return $mapped;
     }
-
-    // public function leave(Request $request)
-    // {
-    //     $validation = Validator::make($request->all(), [
-    //         'room_id' => 'required|integer'
-    //     ]);
-
-    //     if ($validation->fails()) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => $validation->errors()
-    //         ], 422);
-    //     }
-
-    //     $user = Auth::user();
-    //     $roomId = (int) $request->room_id;
-
-    //     DB::beginTransaction();
-
-    //     try {
-
-    //         /** @var \App\Services\AgoraCloudPlayerService $cloudPlayerService */
-    //         $cloudPlayerService = app(\App\Services\AgoraCloudPlayerService::class);
-    //         // Get current seat before delete
-    //         $mySeat = RoomSeat::where('room_id', $roomId)
-    //             ->where('user_id', $user->id)
-    //             ->first();
-
-    //         $oldSeatNo = $mySeat->seat_no ?? null;
-    //         $oldIsOnMic = $mySeat->is_on_mic ?? 0;
-
-    //         $activePlayers = \App\Models\RoomMusicActivePlayer::where('room_id', $roomId)
-    //             ->where('started_by', $user->id)
-    //             ->where('is_active', true)
-    //             ->whereIn('status', ['playing', 'paused'])
-    //             ->lockForUpdate()
-    //             ->get();
-
-    //         $stoppedPlayerIds = [];
-
-    //         foreach ($activePlayers as $activePlayer) {
-    //             \Log::info('Stopping user active player on room leave', [
-    //                 'room_id' => $roomId,
-    //                 'user_id' => $user->id,
-    //                 'active_player_id' => $activePlayer->id,
-    //                 'agora_player_id' => $activePlayer->agora_player_id,
-    //                 'playlist_id' => $activePlayer->playlist_id,
-    //                 'status' => $activePlayer->status,
-    //             ]);
-
-    //             if (!empty($activePlayer->agora_player_id)) {
-    //                 try {
-    //                     $deleteResponse = $cloudPlayerService->deletePlayer($activePlayer->agora_player_id);
-
-    //                     \Log::info('Agora player deleted on room leave', [
-    //                         'room_id' => $roomId,
-    //                         'user_id' => $user->id,
-    //                         'active_player_id' => $activePlayer->id,
-    //                         'agora_player_id' => $activePlayer->agora_player_id,
-    //                         'delete_response' => $deleteResponse,
-    //                     ]);
-    //                 } catch (\Throwable $e) {
-    //                     \Log::warning('Failed to delete Agora player on room leave', [
-    //                         'room_id' => $roomId,
-    //                         'user_id' => $user->id,
-    //                         'active_player_id' => $activePlayer->id,
-    //                         'agora_player_id' => $activePlayer->agora_player_id,
-    //                         'error' => $e->getMessage(),
-    //                     ]);
-    //                 }
-    //             }
-
-    //             $activePlayer->update([
-    //                 'status' => 'stopped',
-    //                 'is_active' => false,
-    //                 'started_at' => null,
-    //             ]);
-
-    //             $stoppedPlayerIds[] = $activePlayer->id;
-    //         }
-
-    //         // Delete seat if occupied
-    //         RoomSeat::where('room_id', $roomId)
-    //             ->where('user_id', $user->id)
-    //             ->delete();
-
-    //         // Delete room presence
-    //         RoomPresence::where([
-    //             'room_id' => $roomId,
-    //             'user_id' => $user->id,
-    //         ])->delete();
-
-    //         // Get latest seat data for remaining users
-    //         $seatData = DB::table('room_seats')
-    //             ->where('room_id', $roomId)
-    //             ->get()
-    //             ->keyBy('user_id');
-
-    //         $users = RoomPresence::with('user:id,name,image')
-    //             ->where('room_id', $roomId)
-    //             ->latest()
-    //             ->get()
-    //             ->map(function ($presence) use ($seatData) {
-    //                 $seat = $seatData->get($presence->user_id);
-
-    //                 return [
-    //                     'id' => $presence->user->id ?? null,
-    //                     'name' => $presence->user->name ?? null,
-    //                     'image' => !empty($presence->user->image)
-    //                         ? \App\Helper\Helper::showImage($presence->user->image, true)
-    //                         : null,
-    //                     'seat_no' => $seat->seat_no ?? null,
-    //                     'is_on_mic' => $seat->is_on_mic ?? 0,
-    //                 ];
-    //             })
-    //             ->values();
-
-    //         $onlineCount = RoomPresence::where('room_id', $roomId)->count();
-
-    //         $currentUser = [
-    //             'id' => $user->id,
-    //             'name' => $user->name,
-    //             'image' => !empty($user->image)
-    //                 ? \App\Helper\Helper::showImage($user->image, true)
-    //                 : null,
-    //             'seat_no' => $oldSeatNo,
-    //             'is_on_mic' => $oldIsOnMic,
-    //         ];
-
-    //         DB::commit();
-
-    //         // Broadcast presence update
-    //         broadcast(new RoomPresenceUpdated(
-    //             $roomId,
-    //             $onlineCount,
-    //             $users,
-    //             'leave',
-    //             $currentUser
-    //         ))->toOthers();
-
-    //         //your app shows live seat layout, also broadcast seat update
-    //         $seats = $this->getRoomSeats($roomId);
-
-    //         broadcast(new RoomSeatUpdated(
-    //             $roomId,
-    //             'leave',
-    //             $seats,
-    //             $oldSeatNo,
-    //             $currentUser
-    //         ))->toOthers();
-
-    //         return response()->json([
-    //             'status' => true,
-    //             'room_id' => $roomId,
-    //             'online_count' => $onlineCount,
-    //             'users' => $users,
-    //             'type' => 'leave',
-    //             'user' => $currentUser,
-    //             'seat_deleted' => !is_null($oldSeatNo),
-    //             'seats' => $seats,
-    //         ]);
-    //     } catch (\Throwable $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
 
     public function leave(Request $request)
     {
@@ -1496,7 +1882,7 @@ class RoomController extends Controller
         $user   = Auth::user();
         $roomId = $request->room_id;
 
-        $room = Room::with('user:id,name,uid,image,active_frame_id,active_uid_id,active_card_id', 'theme:id,name,icon')
+        $room = Room::with('user:id,name,uid,image,gender,active_frame_id,active_uid_id,active_card_id,active_chat_bubble_id,active_voice_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type', 'theme:id,name,icon')
             ->where('id', $roomId)
             ->where('status', 1)
             ->first();
@@ -1527,6 +1913,56 @@ class RoomController extends Controller
                 $room->user->image = null;
             }
 
+            $roomOwnerUid = $room->user->uid;
+            $roomOwnerUidBadge = null;
+            $uidBadgeColor = null;
+
+            $premiumUid = PremiumNumber::where('user_id', $room->user->id)
+                ->where('end_at', '>', now())
+                ->latest()
+                ->first();
+
+            if ($premiumUid) {
+
+                $roomOwnerUid = $premiumUid->premium_number;
+                $roomOwnerUidBadge = asset('storage/1000175794.png');
+                $uidBadgeColor = '#FFD700';
+            } elseif ($room->user->active_uid_id) {
+
+                $storeUid = StoreUids::find($room->user->active_uid_id);
+
+                if ($storeUid) {
+
+                    $hasValidPurchase = DB::table('item_deliveries')
+                        ->where('recipient', $room->user->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    $hasValidGift = DB::table('item_gift_transactions')
+                        ->where('receiver_id', $room->user->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    if ($hasValidPurchase || $hasValidGift) {
+
+                        $roomOwnerUid = $storeUid->unique_id;
+
+                        $roomOwnerUidBadge = !empty($storeUid->rank_badge)
+                            ? Helper::showImage($storeUid->rank_badge, true)
+                            : null;
+                        $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                    }
+                }
+            }
+
+            $room->user->uid = $roomOwnerUid;
+            $room->user->uid_badge = $roomOwnerUidBadge;
+            $room->user->uid_badge_color = $uidBadgeColor;
+
             if ($room->theme) {
                 $theme = [
                     'id'    => $room->theme->id,
@@ -1553,7 +1989,12 @@ class RoomController extends Controller
                 ->exists();
 
             $onlineCount = RoomPresence::where('room_id', $room->id)->count();
-            $seatData = RoomSeat::with('user:id,name,image,active_frame_id,active_uid_id,active_card_id')
+            $seatData = RoomSeat::with([
+                'user:id,uid,name,image,country,gender,active_frame_id,active_uid_id,active_card_id,active_chat_bubble_id,active_voice_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type',
+                'user.countryData:id,name,iso',
+                'user.wcLevels.levelData',
+                'user.userMedals.medal'
+            ])
                 ->where('room_id', $room->id)
                 ->get()
                 ->keyBy('seat_no');
@@ -1609,16 +2050,107 @@ class RoomController extends Controller
                         'frame' => null,
                         'uid' => null,
                         'profile' => null,
+                        'chat_bubble' => null,
+                        'voice' => null,
                     ])
                     : [
                         'frame' => null,
                         'uid' => null,
                         'profile' => null,
+                        'chat_bubble' => null,
+                        'voice' => null,
                     ];
+
+                $wealthLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'wealth')
+                    ->first();
+
+                $charmLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'charm')
+                    ->first();
+
+
+                $medals = $seat?->user?->userMedals
+                    ?->where('is_equipped', 1)
+                    ->sortBy('slot_no')
+                    ->take(3)
+                    ->map(function ($item) {
+
+                        return [
+                            'id' => $item->medal->id,
+                            'name' => $item->medal->title,
+                            'icon' => Helper::showImage(
+                                $item->medal->icon,
+                                true
+                            )
+                        ];
+                    })
+                    ->values();
+
+
+                $flag = $seat?->user?->countryData?->iso
+                    ? 'https://flagcdn.com/w40/' .
+                    strtolower($seat->user->countryData->iso) .
+                    '.png'
+                    : null;
+
+                $displayUid = $seat && $seat->user ? $seat->user->uid : null;
+                $uidBadge = null;
+                $uidBadgeColor = null;
+
+                if ($seat && $seat->user) {
+
+                    $premiumUid = PremiumNumber::where('user_id', $seat->user->id)
+                        ->where('end_at', '>', now())
+                        ->latest()
+                        ->first();
+
+                    if ($premiumUid) {
+
+                        $displayUid = $premiumUid->premium_number;
+                        $uidBadge = asset('storage/1000175794.png');
+                        $uidBadgeColor = '#fcd01c';
+                    } elseif ($seat->user->active_uid_id) {
+
+                        $storeUid = StoreUids::find($seat->user->active_uid_id);
+
+                        if ($storeUid) {
+
+                            $hasValidPurchase = DB::table('item_deliveries')
+                                ->where('recipient', $seat->user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            $hasValidGift = DB::table('item_gift_transactions')
+                                ->where('receiver_id', $seat->user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            if ($hasValidPurchase || $hasValidGift) {
+
+                                $displayUid = $storeUid->unique_id;
+
+                                $uidBadge = !empty($storeUid->rank_badge)
+                                    ? Helper::showImage($storeUid->rank_badge, true)
+                                    : null;
+                                $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                            }
+                        }
+                    }
+                }
 
                 $onlineUsers[] = [
                     'id' => $seat && $seat->user ? $seat->user->id : null,
+                    // 'uid' => $seat && $seat->user ? $seat->user->uid : null,
+                    'uid' => $displayUid,
+                    'uid_badge' => $uidBadge,
+                    'uid_badge_color' => $uidBadgeColor,
                     'name' => $seat && $seat->user ? $seat->user->name : null,
+                    'gender' => $seat && $seat->user ? $seat->user->gender : null,
                     'image' => ($seat && $seat->user && !empty($seat->user->image))
                         ? Helper::showImage($seat->user->image, true)
                         : null,
@@ -1631,8 +2163,76 @@ class RoomController extends Controller
                     'role' => $role,
 
                     'frame' => $itemData['frame'],
-                    'uid' => $itemData['uid'],
+                    'store_id' => $itemData['uid'],
+                    'chat_bubble' => $itemData['chatBubble'] ?? null,
+                    'voice' => $itemData['voice'] ?? null,
+                    'profile' => $itemData['profile'] ?? null,
+
+                    'left_relation' => null,
+
+                    'right_relation' => null,
+
+                    'flag' => $flag,
+
+                    'wealth_level' => [
+                        'level' => $wealthLevel?->level ?? 1,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $wealthLevel->levelData->icon,
+                                true
+                            )
+                            : null
+                    ],
+
+                    'charm_level' => [
+                        'level' => $charmLevel?->level ?? 1,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $charmLevel->levelData->icon,
+                                true
+                            )
+                            : null
+                    ],
+
+                    'medals' => $medals,
+
+                    'role_badges' => $seat && $seat->user ? Helper::getUserRoleBadges($seat->user->id) : [],
+
+
                 ];
+            }
+
+            $usersCollection = collect($onlineUsers);
+
+            foreach ($onlineUsers as $key => $seatUser) {
+
+                if (!$seatUser['id']) {
+                    continue;
+                }
+
+                // LEFT SEAT
+
+                $leftSeat = $usersCollection->firstWhere('seat_no', $seatUser['seat_no'] - 1);
+
+                if ($leftSeat && !empty($leftSeat['id'])) {
+                    $leftRelation = $this->getSeatRelation($seatUser['id'], $leftSeat['id']);
+
+                    if ($leftRelation) {
+                        $onlineUsers[$key]['left_relation'] = $leftRelation;
+                    }
+                }
+
+                // RIGHT SEAT
+
+                $rightSeat = $usersCollection->firstWhere('seat_no', $seatUser['seat_no'] + 1);
+
+                if ($rightSeat && !empty($rightSeat['id'])) {
+                    $rightRelation = $this->getSeatRelation($seatUser['id'], $rightSeat['id']);
+
+                    if ($rightRelation) {
+                        $onlineUsers[$key]['right_relation'] = $rightRelation;
+                    }
+                }
             }
 
             $agora = [
@@ -1702,12 +2302,174 @@ class RoomController extends Controller
         ]);
     }
 
+    private function getSeatRelation($userOneId, $userTwoId)
+    {
+        if (!$userOneId || !$userTwoId) {
+            return null;
+        }
+
+        $relation = RelationshipInvitation::with(
+            'relationshipItem:id,name,icon,gif'
+        )
+            ->where('status', 'accept')
+            ->whereIn('type', ['cp', 'brother', 'sister', 'confident'])
+
+            ->where(function ($q)
+            use ($userOneId, $userTwoId) {
+
+                $q->where(function ($sub)
+                use ($userOneId, $userTwoId) {
+
+                    $sub->where('sender_id', $userOneId)
+                        ->where('receiver_id', $userTwoId);
+                })
+
+                    ->orWhere(function ($sub)
+                    use ($userOneId, $userTwoId) {
+
+                        $sub->where('sender_id', $userTwoId)
+                            ->where('receiver_id', $userOneId);
+                    });
+            })->first();
+
+        if (!$relation) {
+            return null;
+        }
+
+        return [
+            'type' => strtolower($relation->type),
+            'image' => $relation->relationshipItem?->gif
+                ? Helper::showImage($relation->relationshipItem->gif, true) : null,
+        ];
+    }
+
+    // private function getFrameAndUidForUsers($users): array
+    // {
+    //     $users = collect($users)->filter();
+
+    //     $frameIds = $users->pluck('active_frame_id')->filter()->unique()->values();
+    //     $uidIds = $users->pluck('active_uid_id')->filter()->unique()->values();
+    //     $chatBubbleIds = $users->pluck('active_chat_bubble_id')->filter()->unique()->values();
+    //     $voiceIds = $users->pluck('active_voice_id')->filter()->unique()->values();
+    //     $profileCardIds = $users->pluck('active_card_id')->filter()->unique()->values();
+
+
+    //     $frames = DB::table('frames')
+    //         ->whereIn('id', $frameIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $uids = DB::table('store_uids')
+    //         ->whereIn('id', $uidIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $chatBubbles = DB::table('chat_bubbles')
+    //         ->whereIn('id', $chatBubbleIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $voices = DB::table('voices')
+    //         ->whereIn('id', $voiceIds)
+    //         ->get()
+    //         ->keyBy('id');
+    //     $profileCards = DB::table('data_cards')
+    //         ->whereIn('id', $profileCardIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     $mapped = [];
+
+    //     foreach ($users as $user) {
+    //         $frame = null;
+    //         $uid = null;
+    //         $chatBubble = null;
+    //         $voice = null;
+    //         $profileCard = null;
+
+    //         if (!empty($user->active_frame_id) && isset($frames[$user->active_frame_id])) {
+    //             $frameData = $frames[$user->active_frame_id];
+
+    //             $frame = [
+    //                 'id' => $frameData->id,
+    //                 'name' => $frameData->name ?? null,
+    //                 'image' => !empty($frameData->icon)
+    //                     ? Helper::showImage($frameData->icon, true)
+    //                     : null,
+    //                 'file' => !empty($frameData->gif)
+    //                     ? Helper::showImage($frameData->gif, true)
+    //                     : null,
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_uid_id) && isset($uids[$user->active_uid_id])) {
+    //             $uidData = $uids[$user->active_uid_id];
+
+    //             $uid = [
+    //                 'id' => $uidData->id,
+    //                 'uid' => $uidData->unique_id ?? null,
+    //                 'image' => !empty($uidData->badge)
+    //                     ? Helper::showImage($uidData->badge, true)
+    //                     : null,
+    //             ];
+    //         }
+    //         if (!empty($user->active_chat_bubble_id) && isset($chatBubbles[$user->active_chat_bubble_id])) {
+    //             $chatBubbleData = $chatBubbles[$user->active_chat_bubble_id];
+
+    //             $chatBubble = [
+    //                 'id' => $chatBubbleData->id,
+    //                 'name' => $chatBubbleData->name ?? null,
+    //                 'image' => !empty($chatBubbleData->icon)
+    //                     ? Helper::showImage($chatBubbleData->icon, true)
+    //                     : null,
+    //                 'slice_rect' => $chatBubbleData->slice_rect ?? null,
+
+    //                 'padding_rect' => $chatBubbleData->padding_rect ?? null,
+
+    //             ];
+    //         }
+
+    //         if (!empty($user->active_voice_id) && isset($voices[$user->active_voice_id])) {
+    //             $voiceData = $voices[$user->active_voice_id];
+    //             $voice = [
+    //                 'id' => $voiceData->id,
+    //                 'name' => $voiceData->name ?? null,
+    //                 'image' => !empty($voiceData->icon) ? Helper::showImage($voiceData->icon, true) : null,
+    //                 'file' => !empty($voiceData->gif) ? Helper::showImage($voiceData->gif, true) : null,
+    //             ];
+    //         }
+    //         if (!empty($user->active_card_id) && isset($profileCards[$user->active_card_id])) {
+    //             $profileCardData = $profileCards[$user->active_card_id];
+    //             $profileCard = [
+    //                 'id' => $profileCardData->id,
+    //                 'name' => $profileCardData->name ?? null,
+    //                 'image' => !empty($profileCardData->icon) ? Helper::showImage($profileCardData->icon, true) : null,
+    //                 'file' => !empty($profileCardData->gif) ? Helper::showImage($profileCardData->gif, true) : null,
+    //             ];
+    //         }
+
+    //         $mapped[$user->id] = [
+    //             'frame' => $frame,
+    //             'uid' => $uid,
+    //             'chatBubble' => $chatBubble,
+    //             'voice' => $voice,
+    //             'profile' => $profileCard,
+    //         ];
+    //     }
+
+    //     return $mapped;
+    // }
+
+
     private function getFrameAndUidForUsers($users): array
     {
         $users = collect($users)->filter();
 
         $frameIds = $users->pluck('active_frame_id')->filter()->unique()->values();
         $uidIds = $users->pluck('active_uid_id')->filter()->unique()->values();
+        $chatBubbleIds = $users->pluck('active_chat_bubble_id')->filter()->unique()->values();
+        $voiceIds = $users->pluck('active_voice_id')->filter()->unique()->values();
+        $profileCardIds = $users->pluck('active_card_id')->filter()->unique()->values();
 
         $frames = DB::table('frames')
             ->whereIn('id', $frameIds)
@@ -1719,28 +2481,112 @@ class RoomController extends Controller
             ->get()
             ->keyBy('id');
 
+        $chatBubbles = DB::table('chat_bubbles')
+            ->whereIn('id', $chatBubbleIds)
+            ->get()
+            ->keyBy('id');
+
+        $voices = DB::table('voices')
+            ->whereIn('id', $voiceIds)
+            ->get()
+            ->keyBy('id');
+
+        $profileCards = DB::table('data_cards')
+            ->whereIn('id', $profileCardIds)
+            ->get()
+            ->keyBy('id');
+
+        $vips = DB::table('vips')->get()->keyBy('id');
+
+        $svips = DB::table('svips')->get()->keyBy('id');
+
+        $relationshipItems = DB::table('relationship_items')->get()->keyBy('id');
+
         $mapped = [];
 
         foreach ($users as $user) {
+
             $frame = null;
             $uid = null;
+            $chatBubble = null;
+            $voice = null;
+            $profileCard = null;
 
-            if (!empty($user->active_frame_id) && isset($frames[$user->active_frame_id])) {
-                $frameData = $frames[$user->active_frame_id];
+            /*
+        |--------------------------------------------------------------------------
+        | FRAME
+        |--------------------------------------------------------------------------
+        */
+            if (!empty($user->active_frame_id)) {
 
-                $frame = [
-                    'id' => $frameData->id,
-                    'name' => $frameData->name ?? null,
-                    'image' => !empty($frameData->icon)
-                        ? Helper::showImage($frameData->icon, true)
-                        : null,
-                    'file' => !empty($frameData->gif)
-                        ? Helper::showImage($frameData->gif, true)
-                        : null,
-                ];
+                $frameType = $user->active_frame_type ?? 'store';
+
+                if ($frameType === 'store' && isset($frames[$user->active_frame_id])) {
+
+                    $frameData = $frames[$user->active_frame_id];
+
+                    $frame = [
+                        'id' => $frameData->id,
+                        'name' => $frameData->name ?? null,
+                        'image' => !empty($frameData->icon)
+                            ? Helper::showImage($frameData->icon, true)
+                            : null,
+                        'file' => !empty($frameData->gif)
+                            ? Helper::showImage($frameData->gif, true)
+                            : null,
+                    ];
+                } elseif ($frameType === 'vip' && isset($vips[$user->active_frame_id])) {
+
+                    $vip = $vips[$user->active_frame_id];
+
+                    $frame = [
+                        'id' => $vip->id,
+                        'name' => $vip->name,
+                        'image' => !empty($vip->image_frame)
+                            ? Helper::showImage($vip->image_frame, true)
+                            : null,
+                        'file' => !empty($vip->image_frame_animation)
+                            ? Helper::showImage($vip->image_frame_animation, true)
+                            : null,
+                    ];
+                } elseif ($frameType === 'svip' && isset($svips[$user->active_frame_id])) {
+
+                    $svip = $svips[$user->active_frame_id];
+
+                    $frame = [
+                        'id' => $svip->id,
+                        'name' => $svip->name,
+                        'image' => !empty($svip->headwear)
+                            ? Helper::showImage($svip->headwear, true)
+                            : null,
+                        'file' => !empty($svip->headwear_animation)
+                            ? Helper::showImage($svip->headwear_animation, true)
+                            : null,
+                    ];
+                } elseif ($frameType === 'cp' && isset($relationshipItems[$user->active_frame_id])) {
+
+                    $cp = $relationshipItems[$user->active_frame_id];
+
+                    $frame = [
+                        'id' => $cp->id,
+                        'name' => $cp->name,
+                        'image' => !empty($cp->frame)
+                            ? Helper::showImage($cp->frame, true)
+                            : null,
+                        'file' => !empty($cp->frame_animation)
+                            ? Helper::showImage($cp->frame_animation, true)
+                            : null,
+                    ];
+                }
             }
 
+            /*
+        |--------------------------------------------------------------------------
+        | UID
+        |--------------------------------------------------------------------------
+        */
             if (!empty($user->active_uid_id) && isset($uids[$user->active_uid_id])) {
+
                 $uidData = $uids[$user->active_uid_id];
 
                 $uid = [
@@ -1752,9 +2598,195 @@ class RoomController extends Controller
                 ];
             }
 
+            /*
+        |--------------------------------------------------------------------------
+        | CHAT BUBBLE
+        |--------------------------------------------------------------------------
+        */
+            if (!empty($user->active_chat_bubble_id)) {
+
+                $bubbleType = $user->active_chat_bubble_type ?? 'store';
+
+                if (
+                    $bubbleType === 'store'
+                    && isset($chatBubbles[$user->active_chat_bubble_id])
+                ) {
+
+                    $chatBubbleData = $chatBubbles[$user->active_chat_bubble_id];
+
+                    $chatBubble = [
+                        'id' => $chatBubbleData->id,
+                        'name' => $chatBubbleData->name,
+                        'image' => !empty($chatBubbleData->icon)
+                            ? Helper::showImage($chatBubbleData->icon, true)
+                            : null,
+                        'slice_rect' => $chatBubbleData->slice_rect,
+                        'padding_rect' => $chatBubbleData->padding_rect,
+                    ];
+                } elseif (
+                    $bubbleType === 'vip'
+                    && isset($vips[$user->active_chat_bubble_id])
+                ) {
+
+                    $vip = $vips[$user->active_chat_bubble_id];
+
+                    $chatBubble = [
+                        'id' => $vip->id,
+                        'name' => $vip->name,
+                        'image' => !empty($vip->chat_card)
+                            ? Helper::showImage($vip->chat_card, true)
+                            : null,
+                        'slice_rect' => null,
+                        'padding_rect' => null,
+                    ];
+                } elseif ($bubbleType === 'svip' && isset($svips[$user->active_chat_bubble_id])) {
+
+                    $svip = $svips[$user->active_chat_bubble_id];
+
+                    $chatBubble = [
+                        'id' => $svip->id,
+                        'name' => $svip->name,
+                        'image' => !empty($svip->bubble)
+                            ? Helper::showImage($svip->bubble, true)
+                            : null,
+                        'slice_rect' => null,
+                        'padding_rect' => null,
+                    ];
+                }
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | VOICE
+        |--------------------------------------------------------------------------
+        */
+            if (!empty($user->active_voice_id)) {
+
+                $voiceType = $user->active_voice_type ?? 'store';
+
+                if (
+                    $voiceType === 'store'
+                    && isset($voices[$user->active_voice_id])
+                ) {
+
+                    $voiceData = $voices[$user->active_voice_id];
+
+                    $voice = [
+                        'id' => $voiceData->id,
+                        'name' => $voiceData->name,
+                        'image' => !empty($voiceData->icon)
+                            ? Helper::showImage($voiceData->icon, true)
+                            : null,
+                        'file' => !empty($voiceData->gif)
+                            ? Helper::showImage($voiceData->gif, true)
+                            : null,
+                    ];
+                } elseif (
+                    $voiceType === 'vip'
+                    && isset($vips[$user->active_voice_id])
+                ) {
+
+                    $vip = $vips[$user->active_voice_id];
+
+                    $voice = [
+                        'id' => $vip->id,
+                        'name' => $vip->name,
+                        'image' => !empty($vip->voice_frame)
+                            ? Helper::showImage($vip->voice_frame, true)
+                            : null,
+                        'file' => !empty($vip->voice_animation)
+                            ? Helper::showImage($vip->voice_animation, true)
+                            : null,
+                    ];
+                } elseif (
+                    $voiceType === 'svip'
+                    && isset($svips[$user->active_voice_id])
+                ) {
+
+                    $svip = $svips[$user->active_voice_id];
+
+                    $voice = [
+                        'id' => $svip->id,
+                        'name' => $svip->name,
+                        'image' => !empty($svip->voice_image)
+                            ? Helper::showImage($svip->voice_image, true)
+                            : null,
+                        'file' => !empty($svip->voice_animation)
+                            ? Helper::showImage($svip->voice_animation, true)
+                            : null,
+                    ];
+                }
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | PROFILE CARD
+        |--------------------------------------------------------------------------
+        */
+            if (!empty($user->active_card_id)) {
+
+                $profileType = $user->active_profile_card_type ?? 'store';
+
+                if (
+                    $profileType === 'store'
+                    && isset($profileCards[$user->active_card_id])
+                ) {
+
+                    $profileCardData = $profileCards[$user->active_card_id];
+
+                    $profileCard = [
+                        'id' => $profileCardData->id,
+                        'name' => $profileCardData->name,
+                        'image' => !empty($profileCardData->icon)
+                            ? Helper::showImage($profileCardData->icon, true)
+                            : null,
+                        'file' => !empty($profileCardData->gif)
+                            ? Helper::showImage($profileCardData->gif, true)
+                            : null,
+                    ];
+                } elseif (
+                    $profileType === 'vip'
+                    && isset($vips[$user->active_card_id])
+                ) {
+
+                    $vip = $vips[$user->active_card_id];
+
+                    $profileCard = [
+                        'id' => $vip->id,
+                        'name' => $vip->name,
+                        'image' => !empty($vip->profile_frame)
+                            ? Helper::showImage($vip->profile_frame, true)
+                            : null,
+                        'file' => !empty($vip->profile_frame_animation)
+                            ? Helper::showImage($vip->profile_frame_animation, true)
+                            : null,
+                    ];
+                } elseif (
+                    $profileType === 'svip'
+                    && isset($svips[$user->active_card_id])
+                ) {
+
+                    $svip = $svips[$user->active_card_id];
+
+                    $profileCard = [
+                        'id' => $svip->id,
+                        'name' => $svip->name,
+                        'image' => !empty($svip->profile_card)
+                            ? Helper::showImage($svip->profile_card, true)
+                            : null,
+                        'file' => !empty($svip->profile_animation)
+                            ? Helper::showImage($svip->profile_animation, true)
+                            : null,
+                    ];
+                }
+            }
+
             $mapped[$user->id] = [
                 'frame' => $frame,
                 'uid' => $uid,
+                'chatBubble' => $chatBubble,
+                'voice' => $voice,
+                'profile' => $profileCard,
             ];
         }
 
@@ -1771,7 +2803,7 @@ class RoomController extends Controller
     }
 
 
-    private function getRoomSeats($roomId, $totalSeats = null)
+    public function getRoomSeats($roomId, $totalSeats = null)
     {
         if ($totalSeats === null) {
             $room = Room::select('room_seat')->find($roomId);
@@ -1799,7 +2831,87 @@ class RoomController extends Controller
                         ? Helper::showImage($seat->user->image, true)
                         : null,
                 ] : null,
+
+                'left_relation' => null,
+
+                'right_relation' => null,
             ];
+        }
+
+        $seatCollection = collect($seats);
+
+        foreach ($seats as $key => $seatUser) {
+
+            if (
+                empty($seatUser['user'])
+                ||
+                empty($seatUser['user']['id'])
+            ) {
+                continue;
+            }
+
+            $currentUserId =
+                $seatUser['user']['id'];
+
+            //  LEFT SEAT
+
+
+            $leftSeat = $seatCollection
+                ->firstWhere(
+                    'seat_no',
+                    $seatUser['seat_no'] - 1
+                );
+
+            if (
+                $leftSeat
+                &&
+                !empty($leftSeat['user'])
+                &&
+                !empty($leftSeat['user']['id'])
+            ) {
+
+                $leftRelation =
+                    $this->getSeatRelation(
+                        $currentUserId,
+                        $leftSeat['user']['id']
+                    );
+
+                if ($leftRelation) {
+
+                    $seats[$key]['left_relation']
+                        = $leftRelation;
+                }
+            }
+
+            //  RIGHT SEAT
+
+
+            $rightSeat = $seatCollection
+                ->firstWhere(
+                    'seat_no',
+                    $seatUser['seat_no'] + 1
+                );
+
+            if (
+                $rightSeat
+                &&
+                !empty($rightSeat['user'])
+                &&
+                !empty($rightSeat['user']['id'])
+            ) {
+
+                $rightRelation =
+                    $this->getSeatRelation(
+                        $currentUserId,
+                        $rightSeat['user']['id']
+                    );
+
+                if ($rightRelation) {
+
+                    $seats[$key]['right_relation']
+                        = $rightRelation;
+                }
+            }
         }
 
         return $seats;
@@ -2371,6 +3483,139 @@ class RoomController extends Controller
             ], 422);
         }
 
+        // $chatBubble = null;
+
+        // if (!empty($user->active_chat_bubble_id)) {
+        //     $bubble = ChatBubble::where('id', $user->active_chat_bubble_id)
+        //         ->where('status', 1)
+        //         ->first();
+
+        //     if ($bubble) {
+        //         $chatBubble = [
+        //             'id' => $bubble->id,
+        //             'name' => $bubble->name,
+        //             'image' => Helper::showImage($bubble->icon, true),
+        //             'slice_rect' => $bubble->slice_rect,
+        //             'padding_rect' => $bubble->padding_rect,
+
+        //         ];
+        //     }
+        // }
+
+        $chatBubble = null;
+
+        if (!empty($user->active_chat_bubble_id)) {
+
+            /*
+    |--------------------------------------------------------------------------
+    | STORE CHAT BUBBLE
+    |--------------------------------------------------------------------------
+    */
+            if (
+                empty($user->active_chat_bubble_type)
+                || $user->active_chat_bubble_type === 'store'
+            ) {
+
+                $bubble = ChatBubble::where('id', $user->active_chat_bubble_id)
+                    ->where('status', 1)
+                    ->first();
+
+                if ($bubble) {
+
+                    $chatBubble = [
+                        'id' => $bubble->id,
+                        'name' => $bubble->name,
+                        'image' => Helper::showImage($bubble->icon, true),
+                        'slice_rect' => $bubble->slice_rect,
+                        'padding_rect' => $bubble->padding_rect,
+                    ];
+                }
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | VIP CHAT BUBBLE
+    |--------------------------------------------------------------------------
+    */ elseif ($user->active_chat_bubble_type === 'vip') {
+
+                $vip = Vip::find($user->active_chat_bubble_id);
+
+                if ($vip) {
+
+                    $chatBubble = [
+                        'id' => $vip->id,
+                        'name' => $vip->name,
+                        'image' => asset('storage/' . $vip->chat_card),
+
+                        // response structure same rakhne ke liye
+                        'slice_rect' => null,
+                        'padding_rect' => null,
+                    ];
+                }
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | SVIP CHAT BUBBLE
+    |--------------------------------------------------------------------------
+    */ elseif ($user->active_chat_bubble_type === 'svip') {
+
+                $svip = Svip::find($user->active_chat_bubble_id);
+
+                if ($svip) {
+
+                    $chatBubble = [
+                        'id' => $svip->id,
+                        'name' => $svip->name,
+                        'image' => !empty($svip->bubble)
+                            ? asset('storage/' . $svip->bubble)
+                            : null,
+
+                        'slice_rect' => null,
+                        'padding_rect' => null,
+                    ];
+                }
+            }
+        }
+
+        $wealthLevel = WCLevel::with([
+            'levelData' => function ($q) {
+                $q->where('type', 'wealth');
+            }
+        ])
+            ->where('user_id', $user->id)
+            ->where('type', 'wealth')
+            ->first();
+
+        // dd($wealthLevel->levelData);
+
+        $charmLevel = WCLevel::with([
+            'levelData' => function ($q) {
+                $q->where('type', 'charm');
+            }
+        ])
+            ->where('user_id', $user->id)
+            ->where('type', 'charm')
+            ->first();
+
+
+
+        $equippedMedals = UserMedal::with('medal')
+            ->where('user_id', $user->id)
+            ->where('is_equipped', 1)
+            ->orderBy('slot_no')
+            ->get()
+            ->map(function ($item) {
+
+                return [
+
+                    'id' => $item->medal->id,
+                    'name' => $item->medal->title,
+                    'icon' => Helper::showImage($item->medal->icon, true)
+                ];
+            })
+            ->values();
+
         $roomMessage = RoomMessage::create([
             'room_id' => $room->id,
             'user_id' => $user->id,
@@ -2378,7 +3623,33 @@ class RoomController extends Controller
             'message_type' => 'text',
         ]);
 
-        $roomMessage->load('user:id,name,uid,image');
+        $roomMessage->load('user:id,name,uid,image,gender');
+
+        $roomMessage->user->wealth_icon =
+            $wealthLevel?->levelData?->icon
+            ? Helper::showImage(
+                $wealthLevel->levelData->icon,
+                true
+            )
+            : null;
+
+
+        $roomMessage->user->charm_icon =
+            $charmLevel?->levelData?->icon
+            ? Helper::showImage(
+                $charmLevel->levelData->icon,
+                true
+            )
+            : null;
+
+
+        $roomMessage->user->medals =
+            $equippedMedals;
+
+
+        $roomMessage->chat_bubble = $chatBubble;
+
+        // $roomMessage->user->role_badge = $user ? Helper::getUserRoleBadges($user->id) : [];
 
         broadcast(new RoomMessageSent($roomMessage))->toOthers();
 
@@ -2391,6 +3662,7 @@ class RoomController extends Controller
                 'user_id' => $roomMessage->user_id,
                 'message' => $roomMessage->message,
                 'message_type' => $roomMessage->message_type,
+                'chat_bubble' => $roomMessage->chat_bubble,
                 'created_at' => $roomMessage->created_at->toDateTimeString(),
                 'user' => [
                     'id' => $roomMessage->user?->id,
@@ -2765,7 +4037,12 @@ class RoomController extends Controller
         $roles = RoomUserRole::where('room_id', $roomId)
             ->pluck('role', 'user_id');
 
-        $presenceData = RoomPresence::with(['user:id,name,uid,image,active_frame_id,active_uid_id'])
+        $presenceData = RoomPresence::with([
+            'user:id,name,uid,image,gender,country,active_frame_id,active_uid_id,active_voice_id,active_card_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type',
+            'user.countryData:id,name,iso',
+            'user.wcLevels.levelData',
+            'user.userMedals.medal'
+        ])
             ->where('room_id', $roomId)
             ->orderBy('joined_at', 'desc')
             ->get();
@@ -2774,9 +4051,53 @@ class RoomController extends Controller
 
         $presenceUsers = $presenceData->pluck('user')->filter()->values();
 
+        $onlineUserIds = $presenceUsers
+            ->pluck('id')
+            ->toArray();
+
+        $cpRelations = RelationshipInvitation::with([
+
+            'sender:id,uid,name,image,active_frame_id,active_frame_type',
+
+            'sender.activeFrame:id,name,icon,gif',
+
+            'receiver:id,uid,name,image,active_frame_id,active_frame_type',
+
+            'receiver.activeFrame:id,name,icon,gif',
+
+            'relationshipItem:id,name,type,icon,gif,ring,avatar,frame,badge',
+
+        ])
+
+            ->where(
+                'status',
+                'accept'
+            )
+
+            ->whereRaw(
+                'LOWER(type)=?',
+                ['cp']
+            )
+
+            ->where(function ($q)
+            use ($onlineUserIds) {
+
+                $q->whereIn(
+                    'sender_id',
+                    $onlineUserIds
+                )
+
+                    ->orWhereIn(
+                        'receiver_id',
+                        $onlineUserIds
+                    );
+            })
+
+            ->get();
+
         $itemsByUserId = $this->getFrameAndUidForUsers($presenceUsers);
 
-        $usersList = $presenceData->map(function ($presence) use ($room, $roles, $itemsByUserId) {
+        $usersList = $presenceData->map(function ($presence) use ($room, $roles, $itemsByUserId, $cpRelations) {
 
             $userId = $presence->user->id ?? null;
 
@@ -2794,16 +4115,189 @@ class RoomController extends Controller
                 ? ($itemsByUserId[$userId] ?? [
                     'frame' => null,
                     'uid' => null,
+                    'voice' => null,
+                    'profile' => null,
+
                 ])
                 : [
                     'frame' => null,
                     'uid' => null,
+                    'voice' => null,
+                    'profile' => null,
+
                 ];
+
+            $user = $presence->user;
+
+            $displayUid = $user?->uid;
+            $uidBadge = null;
+            $uidBadgeColor = null;
+
+            if ($user) {
+
+                $premiumUid = PremiumNumber::where('user_id', $user->id)
+                    ->where('end_at', '>', now())
+                    ->latest()
+                    ->first();
+
+                if ($premiumUid) {
+
+                    $displayUid = $premiumUid->premium_number;
+
+                    $uidBadge = asset('storage/1000175794.png');
+                    $uidBadgeColor = '#fcd01c';
+                } elseif ($user->active_uid_id) {
+
+                    $storeUid = StoreUids::find($user->active_uid_id);
+
+                    if ($storeUid) {
+
+                        $hasValidPurchase = DB::table('item_deliveries')
+                            ->where('recipient', $user->id)
+                            ->where('type', 'id')
+                            ->where('item_id', $storeUid->id)
+                            ->where('end_at', '>', now())
+                            ->exists();
+
+                        $hasValidGift = DB::table('item_gift_transactions')
+                            ->where('receiver_id', $user->id)
+                            ->where('type', 'id')
+                            ->where('item_id', $storeUid->id)
+                            ->where('end_at', '>', now())
+                            ->exists();
+
+                        if ($hasValidPurchase || $hasValidGift) {
+
+                            $displayUid = $storeUid->unique_id;
+
+                            $uidBadge = !empty($storeUid->rank_badge)
+                                ? Helper::showImage($storeUid->rank_badge, true)
+                                : null;
+                            $uidBadgeColor = $storeUid->badge_color ?? null;
+                        }
+                    }
+                }
+            }
+
+            $wealthLevel = $user?->wcLevels
+                ?->where('type', 'wealth')
+                ->first();
+
+            $charmLevel = $user?->wcLevels
+                ?->where('type', 'charm')
+                ->first();
+
+
+            $medals = $user?->userMedals
+                ?->where('is_equipped', 1)
+                ->sortBy('slot_no')
+                ->take(3)
+                ->map(function ($item) {
+
+                    return [
+                        'id' => $item->medal->id,
+                        'name' => $item->medal->title,
+                        'icon' => Helper::showImage($item->medal->icon, true)
+                    ];
+                })
+                ->values();
+
+            $flag = null;
+
+            if (
+                $user?->countryData?->iso
+            ) {
+                $flag = 'https://flagcdn.com/w40/' . strtolower($user->countryData->iso) . '.png';
+            }
+
+            $cpRelation = $cpRelations
+
+                ->filter(function ($relation)
+                use ($userId) {
+
+                    return
+                        (int) $relation->sender_id === (int) $userId
+                        ||
+                        (int) $relation->receiver_id === (int) $userId;
+                })
+
+                ->map(function ($relation)
+                use ($userId) {
+
+                    $cpUser =
+                        (int) $relation->sender_id === (int) $userId
+
+                        ? $relation->receiver
+
+                        : $relation->sender;
+
+                    return [
+
+                        'id' =>
+                        $cpUser->id,
+
+                        'uid' =>
+                        $cpUser->uid,
+
+                        'name' =>
+                        $cpUser->name,
+
+                        'image' =>
+                        !empty($cpUser->image)
+
+                            ? Helper::showImage(
+                                $cpUser->image,
+                                true
+                            )
+
+                            : null,
+
+                        'frame' => [
+
+                            'id' =>
+                            $cpUser?->activeFrame?->id,
+
+                            'name' =>
+                            $cpUser?->activeFrame?->name,
+
+                            'icon' =>
+                            $cpUser?->activeFrame?->icon
+
+                                ? Helper::showImage(
+                                    $cpUser->activeFrame->icon,
+                                    true
+                                )
+
+                                : null,
+
+                            'svga' =>
+                            $cpUser?->activeFrame?->gif
+
+                                ? Helper::showImage(
+                                    $cpUser->activeFrame->gif,
+                                    true
+                                )
+
+                                : null,
+                        ],
+                        'cp_data' => [
+                            'id' => $relation?->relationshipItem?->id,
+                            'name' => $relation?->relationshipItem?->name,
+                            'icon' => $relation?->relationshipItem?->icon ? Helper::showImage($relation->relationshipItem->icon, true) : null,
+                        ],
+                    ];
+                })
+
+                ->values();
 
             return [
                 'id'    => $presence->user->id ?? null,
                 'name'  => $presence->user->name ?? 'Unknown',
-                'uid'   => $presence->user->uid ?? '',
+                'gender'  => $presence?->user?->gender,
+                // 'uid'   => $presence->user->uid ?? '',
+                'uid' => $displayUid,
+                'uid_badge' => $uidBadge,
+                'uid_badge_color' => $uidBadgeColor,
                 'image' => ($presence->user && !empty($presence->user->image))
                     ? Helper::showImage($presence->user->image, true)
                     : null,
@@ -2811,6 +4305,49 @@ class RoomController extends Controller
                 'role' => $role, // ONLY ADD THIS
                 'frame' => $itemData['frame'],
                 'uid_data' => $itemData['uid'],
+                'voice' => $itemData['voice'] ?? null,
+                'profile' => $itemData['profile'] ?? null,
+
+                'flag' => $flag,
+
+
+                'wealth_level' => [
+
+                    'level' =>
+                    $wealthLevel?->level ?? 1,
+
+                    'icon' =>
+                    $wealthLevel?->levelData?->icon
+                        ? Helper::showImage(
+                            $wealthLevel->levelData->icon,
+                            true
+                        )
+                        : null
+                ],
+
+
+                'charm_level' => [
+
+                    'level' =>
+                    $charmLevel?->level ?? 1,
+
+                    'icon' =>
+                    $charmLevel?->levelData?->icon
+                        ? Helper::showImage(
+                            $charmLevel->levelData->icon,
+                            true
+                        )
+                        : null
+                ],
+
+
+                'medals' => $medals,
+
+                'role_badges' => $userId
+                    ? Helper::getUserRoleBadges($userId)
+                    : [],
+
+                'cp_relation' => $cpRelation,
             ];
         })->values();
 
@@ -3751,7 +5288,7 @@ class RoomController extends Controller
                 ->first();
 
             $messagesQuery = RoomMessage::with([
-                'user:id,name,uid,image,total_points,user_level',
+                'user:id,name,uid,image,gender,total_points,user_level',
                 'targetUser:id,name,uid,image,total_points,user_level',
                 'gift:id,name,cover,price'
             ])
@@ -3768,16 +5305,73 @@ class RoomController extends Controller
 
             $formatted = $messages->getCollection()->map(function ($message) {
                 $meta = is_array($message->meta_json) ? $message->meta_json : [];
+                $wealthLevel = null;
+                $charmLevel = null;
+                $equippedMedals = [];
 
+                if ($message->user) {
+
+                    $wealthLevel = WCLevel::with([
+                        'levelData' => fn($q) =>
+                        $q->where('type', 'wealth')
+                    ])
+                        ->where('user_id', $message->user->id)
+                        ->where('type', 'wealth')
+                        ->first();
+
+
+                    $charmLevel = WCLevel::with([
+                        'levelData' => fn($q) =>
+                        $q->where('type', 'charm')
+                    ])
+                        ->where('user_id', $message->user->id)
+                        ->where('type', 'charm')
+                        ->first();
+
+
+                    $equippedMedals = UserMedal::with('medal')
+                        ->where('user_id', $message->user->id)
+                        ->where('is_equipped', 1)
+                        ->orderBy('slot_no')
+                        ->get()
+                        ->map(function ($item) {
+
+                            return [
+                                'id' => $item->medal->id,
+                                'name' => $item->medal->title,
+                                'icon' => Helper::showImage($item->medal->icon, true)
+                            ];
+                        })
+                        ->values();
+                }
                 $sender = $message->user ? [
                     'id'           => $message->user->id,
                     'name'         => $message->user->name,
+                    'gender'         => $message->user->gender,
                     'uid'          => $message->user->uid,
                     'image'        => !empty($message->user->image)
                         ? (preg_match('/^https?:\/\//', $message->user->image)
                             ? $message->user->image
                             : Helper::showImage($message->user->image, true))
                         : null,
+
+                    'wealth_level' => [
+                        'level' => $wealthLevel?->level ?? 1,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage($wealthLevel->levelData->icon, true)
+                            : null
+                    ],
+
+
+                    'charm_level' => [
+                        'level' => $charmLevel?->level ?? 1,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage($charmLevel->levelData->icon, true)
+                            : null
+                    ],
+
+
+                    'medals' => $equippedMedals
                 ] : null;
 
                 $targetUser = $message->targetUser ? [
@@ -4070,9 +5664,63 @@ class RoomController extends Controller
                         $role = 'member';
                     }
 
+                    $displayUid = $user->uid;
+                    $uidBadge = null;
+                    $uidBadgeColor = null;
+
+                    // Premium UID
+                    $premiumUid = PremiumNumber::where('user_id', $user->id)
+                        ->where('end_at', '>', now())
+                        ->latest()
+                        ->first();
+
+                    if ($premiumUid) {
+
+                        $displayUid = $premiumUid->premium_number;
+                        $uidBadge = asset('storage/1000175794.png');
+                        $uidBadgeColor = '#fcd01c';
+                    } else {
+
+                        // Store UID
+                        if (!empty($user->active_uid_id)) {
+
+                            $storeUid = StoreUids::find($user->active_uid_id);
+
+                            if ($storeUid) {
+
+                                $hasValidPurchase = DB::table('item_deliveries')
+                                    ->where('recipient', $user->id)
+                                    ->where('type', 'id')
+                                    ->where('item_id', $storeUid->id)
+                                    ->where('end_at', '>', now())
+                                    ->exists();
+
+                                $hasValidGift = DB::table('item_gift_transactions')
+                                    ->where('receiver_id', $user->id)
+                                    ->where('type', 'id')
+                                    ->where('item_id', $storeUid->id)
+                                    ->where('end_at', '>', now())
+                                    ->exists();
+
+                                if ($hasValidPurchase || $hasValidGift) {
+
+                                    $displayUid = $storeUid->unique_id;
+
+                                    $uidBadge = !empty($storeUid->rank_badge)
+                                        ? Helper::showImage($storeUid->rank_badge, true)
+                                        : null;
+                                    $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                                }
+                            }
+                        }
+                    }
+
                     return [
                         'id' => $user->id,
-                        'uid' => $user->uid ?? null,
+                        // 'uid' => $user->uid ?? null,
+                        'uid' => $displayUid,
+                        'uid_badge' => $uidBadge,
+                        'uid_badge_color' => $uidBadgeColor,
                         'name' => $user->name ?? null,
                         'image' => Helper::showImage($user->image ?? null, true),
                         'gender' => $user->gender ?? null,
@@ -4095,7 +5743,7 @@ class RoomController extends Controller
                 'data' => [
                     'room_id' => $roomId,
 
-                    // 👇 NEW COUNTS
+                    //NEW COUNTS
                     'total_members' => $totalMembers,
                     'total_admins' => $totalAdmins,
 
@@ -4108,5 +5756,101 @@ class RoomController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function ping1(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'room_id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = Auth::user();
+
+        RoomPresence::where('room_id', $request->room_id)
+            ->where('user_id', $user->id)
+            ->update([
+                'last_ping_at' => now()
+            ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Ping updated'
+        ]);
+    }
+
+    public function ping(Request $request)
+    {
+        \Log::info('PING API HIT');
+
+        $validator = Validator::make($request->all(), [
+            'room_id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+
+            \Log::info('PING VALIDATION FAILED', [
+                'errors' => $validator->errors()
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = Auth::user();
+
+        \Log::info('PING AUTH USER', [
+            'user_id' => $user?->id,
+            'room_id' => $request->room_id,
+        ]);
+
+        $updated = RoomPresence::where('room_id', $request->room_id)
+            ->where('user_id', $user->id)
+            ->update([
+                'last_ping_at' => now()
+            ]);
+
+        \Log::info('PING UPDATED ROWS', [
+            'updated_rows' => $updated
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Ping updated'
+        ]);
+    }
+
+    public function run1()
+    {
+        Artisan::call('room:check-dead-users');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Command executed successfully',
+            'output' => Artisan::output()
+        ]);
+    }
+
+    public function run()
+    {
+        \Log::info('MANUAL SCHEDULER RUN START');
+
+        Artisan::call('schedule:run');
+
+        \Log::info('MANUAL SCHEDULER RUN END');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Scheduler executed successfully',
+            'output' => Artisan::output()
+        ]);
     }
 }

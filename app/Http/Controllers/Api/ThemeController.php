@@ -22,24 +22,36 @@ class ThemeController extends Controller
 {
     public function themeList()
     {
-        $themeLists = Theme::where('status', 1)->latest()->get();
+        try {
+            $themes = \App\Models\Theme::whereNull('user_id')->where('status', 1)
+                ->latest()
+                ->get();
 
-        $themeData = $themeLists->map(function ($item) {
-            return [
-                'id' => $item->id,
-                'name' => $item->name,
-                'visibility_type' => $item->visibility_type,
-                'needcoin' => $item->needcoin,
-                'validity' => $item->validity,
-                'icon' => Helper::showImage($item->icon, true),
-            ];
-        });
+            $data = $themes->map(function ($theme) {
+                return [
+                    'id' => $theme->id,
+                    'name' => $theme->name,
+                    'validity' => $theme->validity,
+                    'visibility_type' => $theme->visibility_type,
+                    'needcoin' => $theme->needcoin,
+                    'icon' => \App\Helper\Helper::showImage($theme->icon, true),
+                    'status' => $theme->status,
+                    'created_at' => $theme->created_at,
+                ];
+            });
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Theme Fetched Successfuly',
-            'data' => $themeData
-        ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Themes fetched successfully',
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function buyTheme(Request $request)
@@ -69,7 +81,7 @@ class ThemeController extends Controller
         $prices     = array_map('intval', $theme->needcoin);
 
         $index = array_search($daysRequested, $validities, true);
-        
+
 
         if ($index === false || !isset($prices[$index])) {
             return response()->json([

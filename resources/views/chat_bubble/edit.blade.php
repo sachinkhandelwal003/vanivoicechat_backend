@@ -55,63 +55,63 @@
                     <!-- <div id="inAppFields"
                         class="{{ old('visibility_type', $chatBubble->visibility_type) === 'in_app' ? '' : 'd-none' }}"> -->
 
-                        <div id="pricingWrapper">
+                    <div id="pricingWrapper">
 
-                            @forelse($needcoins as $index => $coin)
-                            <div class="row g-2 mb-2 pricing-row">
-                                <div class="col-5">
-                                    <input type="number"
-                                        name="needcoin[]"
-                                        class="form-control @error('needcoin.' . $index) is-invalid @enderror"
-                                        value="{{ $coin }}"
-                                        min="1"
-                                        placeholder="Coins">
+                        @forelse($needcoins as $index => $coin)
+                        <div class="row g-2 mb-2 pricing-row">
+                            <div class="col-5">
+                                <input type="number"
+                                    name="needcoin[]"
+                                    class="form-control @error('needcoin.' . $index) is-invalid @enderror"
+                                    value="{{ $coin }}"
+                                    min="1"
+                                    placeholder="Coins">
 
-                                    @error('needcoin.' . $index)
-                                    <small class="text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-
-                                <div class="col-5">
-                                    <input type="number"
-                                        name="validity[]"
-                                        class="form-control @error('validity.' . $index) is-invalid @enderror"
-                                        value="{{ $validities[$index] ?? '' }}"
-                                        min="1"
-                                        placeholder="Days">
-
-                                    @error('validity.' . $index)
-                                    <small class="text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-
-                                <div class="col-2">
-                                    <button type="button"
-                                        class="btn btn-danger removeRow {{ $index === 0 ? 'd-none' : '' }}">
-                                        ×
-                                    </button>
-                                </div>
+                                @error('needcoin.' . $index)
+                                <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
-                            @empty
-                            {{-- fallback if no pricing exists --}}
-                            <div class="row g-2 mb-2 pricing-row">
-                                <div class="col-5">
-                                    <input type="number" name="needcoin[]" class="form-control" min="1">
-                                </div>
-                                <div class="col-5">
-                                    <input type="number" name="validity[]" class="form-control" min="1">
-                                </div>
-                                <div class="col-2">
-                                    <button type="button" class="btn btn-danger removeRow d-none">×</button>
-                                </div>
-                            </div>
-                            @endforelse
 
+                            <div class="col-5">
+                                <input type="number"
+                                    name="validity[]"
+                                    class="form-control @error('validity.' . $index) is-invalid @enderror"
+                                    value="{{ $validities[$index] ?? '' }}"
+                                    min="1"
+                                    placeholder="Days">
+
+                                @error('validity.' . $index)
+                                <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+
+                            <div class="col-2">
+                                <button type="button"
+                                    class="btn btn-danger removeRow {{ $index === 0 ? 'd-none' : '' }}">
+                                    ×
+                                </button>
+                            </div>
                         </div>
+                        @empty
+                        {{-- fallback if no pricing exists --}}
+                        <div class="row g-2 mb-2 pricing-row">
+                            <div class="col-5">
+                                <input type="number" name="needcoin[]" class="form-control" min="1">
+                            </div>
+                            <div class="col-5">
+                                <input type="number" name="validity[]" class="form-control" min="1">
+                            </div>
+                            <div class="col-2">
+                                <button type="button" class="btn btn-danger removeRow d-none">×</button>
+                            </div>
+                        </div>
+                        @endforelse
 
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="addRow">
-                            + Add Option
-                        </button>
+                    </div>
+
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addRow">
+                        + Add Option
+                    </button>
                     <!-- <div> -->
 
                 </div>
@@ -137,6 +137,26 @@
                     </label>
 
                     @error('icon')
+                    <small class="text-danger">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold"> Slice Rect <span class="text-danger">*</span></label>
+                    <input type="text" name="slice_rect"
+                        class="form-control @error('slice_rect') is-invalid @enderror"
+                        value="{{ old('name', $chatBubble->slice_rect) }}">
+                    @error('slice_rect')
+                    <small class="text-danger">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold"> Padding Rect <span class="text-danger">*</span></label>
+                    <input type="text" name="padding_rect"
+                        class="form-control @error('padding_rect') is-invalid @enderror"
+                        value="{{ old('name', $chatBubble->padding_rect) }}">
+                    @error('padding_rect')
                     <small class="text-danger">{{ $message }}</small>
                     @enderror
                 </div>

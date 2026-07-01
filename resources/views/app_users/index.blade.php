@@ -44,10 +44,8 @@
                 <thead class="bg-light">
                     <tr>
                         <th>#</th>
-                        <th>Image</th>
-                        <th>Name</th>
+                        <th>User</th>
                         <th>Invite Code</th>
-                        <th>UID</th>
                         <th>Status</th>
                         <th>Gender</th>
                         <th>Country</th>
@@ -173,16 +171,11 @@
                     searchable: false
                 },
                 {
-                    data: 'image'
-                },
-                {
-                    data: 'name'
+                    data: 'user',
+                    name: 'user'
                 },
                 {
                     data: 'invite_code'
-                },
-                {
-                    data: 'uid'
                 },
                 {
                     data: 'disable_status'

@@ -18,10 +18,11 @@ class RoomMessageSent implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $roomMessage;
+    
 
     public function __construct(RoomMessage $roomMessage)
     {
-        $this->roomMessage = $roomMessage->load('user:id,name,uid,image');
+        $this->roomMessage = $roomMessage;
     }
 
     public function broadcastOn(): array
@@ -39,19 +40,24 @@ class RoomMessageSent implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         $image = Helper::showImage($this->roomMessage->user?->image, true);
-
         return [
             'id' => $this->roomMessage->id,
             'room_id' => $this->roomMessage->room_id,
             'user_id' => $this->roomMessage->user_id,
             'message' => $this->roomMessage->message,
             'message_type' => $this->roomMessage->message_type,
+            'chat_bubble' => $this->roomMessage->chat_bubble ?? null,
             'created_at' => $this->roomMessage->created_at?->toDateTimeString(),
             'user' => [
                 'id' => $this->roomMessage->user?->id,
                 'name' => $this->roomMessage->user?->name,
+                'gender' => $this->roomMessage->user?->gender,
                 'uid' => $this->roomMessage->user?->uid,
                 'image' => $image,
+                'wealth_icon' => $this->roomMessage->user?->wealth_icon ?? null,
+                'charm_icon' => $this->roomMessage->user?->charm_icon ?? null,
+                'medals' => $this->roomMessage->user?->medals ?? [],
+                // 'role_badge' => $this->roomMessage->user?->role_badge ?? []
             ],
         ];
     }

@@ -18,6 +18,8 @@ class BdUser extends Model
         'country_id',
         'whatsapp_number',
         'briefing',
+        'invite_status',
+        'is_dashboard_access',
         'status',
     ];
 
@@ -34,5 +36,10 @@ class BdUser extends Model
     public function country()
     {
         return $this->belongsTo(Country::class, 'country_id');
+    }
+
+    public function agencies()
+    {
+        return $this->hasMany(Agency::class, 'bd_user_id', 'id');
     }
 }

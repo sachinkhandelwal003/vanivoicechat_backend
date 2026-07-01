@@ -99,13 +99,111 @@ class MomentController extends Controller
     }
 
 
+    // public function store(Request $request)
+    // {
+    //     $user = Auth::user();
+
+    //     $validate = Validator::make($request->all(), [
+    //         'description' => 'nullable|string',
+    //         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,mp4|max:30240'
+    //     ]);
+
+    //     if ($validate->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $validate->errors()
+    //         ], 422);
+    //     }
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $post = Post::create([
+    //             'user_id' => $user->id,
+    //             'topic_id' => $request->topic_id,
+    //             'description' => $request->description,
+    //             'country' => $user->country
+    //                 ? ucwords(strtolower($user->country))
+    //                 : null,
+    //         ]);
+
+    //         $imageForNotification = null;
+
+    //         if ($request->hasFile('files')) {
+    //             foreach ($request->file('files') as $file) {
+
+    //                 $path = Helper::saveFile($file, 'post_media');
+    //                 $fileType = $file->getClientMimeType();
+
+    //                 PostMedia::create([
+    //                     'post_id' => $post->id,
+    //                     'file_path' => $path,
+    //                     'file_type' => $fileType
+    //                 ]);
+
+    //                 // Save only first image for notification
+    //                 if ($imageForNotification === null && str_contains($fileType, 'image')) {
+    //                     $imageForNotification = $path;
+    //                 }
+    //             }
+    //         }
+
+    //         Notification::create([
+    //             'sender_id' => $user->id,
+    //             'receiver_id' => null,
+    //             'type' => 'post',
+    //             'title' => 'New Post',
+    //             'message' => 'A new post has been created',
+    //             'image' => $imageForNotification
+    //         ]);
+
+    //         $firebase = new FirebaseService();
+
+    //         $tokens = AppUser::whereNotNull('fcm_token')
+    //             ->select('id', 'fcm_token')
+    //             ->get();
+
+    //         foreach ($tokens as $token) {
+
+    //             $firebase->sendNotification(
+    //                 $token->fcm_token,
+    //                 "New Post",
+    //                 "A new post has been created",
+    //                 $imageForNotification ? Helper::showImage($imageForNotification, true) : null
+    //             );
+    //         }
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Post created successfully',
+    //             // 'data' => $post->load('media')
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
+
+
     public function store(Request $request)
     {
+        ignore_user_abort(true);
+        set_time_limit(0);
+
         $user = Auth::user();
 
         $validate = Validator::make($request->all(), [
+            'topic_id'    => 'nullable|exists:topics,id',
             'description' => 'nullable|string',
-            'files.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,mp4|max:30240'
+            'files'       => 'nullable|array|max:5',
+            'files.*'     => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,mp4|max:30240'
         ]);
 
         if ($validate->fails()) {
@@ -118,75 +216,107 @@ class MomentController extends Controller
         DB::beginTransaction();
 
         try {
+
             $post = Post::create([
-                'user_id' => $user->id,
-                'topic_id' => $request->topic_id,
+                'user_id'     => $user->id,
+                'topic_id'    => $request->topic_id,
                 'description' => $request->description,
-                'country' => ucwords(strtolower($user->country))
+                'country'     => $user->country
+                    ? ucwords(strtolower($user->country))
+                    : null,
             ]);
 
             $imageForNotification = null;
 
             if ($request->hasFile('files')) {
+
                 foreach ($request->file('files') as $file) {
 
                     $path = Helper::saveFile($file, 'post_media');
+
                     $fileType = $file->getClientMimeType();
 
                     PostMedia::create([
-                        'post_id' => $post->id,
+                        'post_id'   => $post->id,
                         'file_path' => $path,
                         'file_type' => $fileType
                     ]);
 
-                    // Save only first image for notification
-                    if ($imageForNotification === null && str_contains($fileType, 'image')) {
+                    // first image only
+                    if (
+                        $imageForNotification === null &&
+                        str_contains($fileType, 'image')
+                    ) {
                         $imageForNotification = $path;
                     }
                 }
             }
 
             Notification::create([
-                'sender_id' => $user->id,
+                'sender_id'   => $user->id,
                 'receiver_id' => null,
-                'type' => 'post',
-                'title' => 'New Post',
-                'message' => 'A new post has been created',
-                'image' => $imageForNotification
+                'type'        => 'post',
+                'title'       => 'New Post',
+                'message'     => 'A new post has been created',
+                'image'       => $imageForNotification,
+                'country'       => $user->country
             ]);
-
-            $firebase = new FirebaseService();
-
-            $tokens = AppUser::whereNotNull('fcm_token')
-                ->select('id', 'fcm_token')
-                ->get();
-
-            foreach ($tokens as $token) {
-
-                $firebase->sendNotification(
-                    $token->fcm_token,
-                    "New Post",
-                    "A new post has been created",
-                    $imageForNotification ? Helper::showImage($imageForNotification, true) : null
-                );
-            }
 
             DB::commit();
 
-            return response()->json([
-                'status' => true,
+            // instant response
+            $response = response()->json([
+                'status'  => true,
                 'message' => 'Post created successfully',
-                // 'data' => $post->load('media')
             ]);
+
+            $response->send();
+
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+            $postCountry = $user->country;
+            // notifications after response
+            $firebase = new FirebaseService();
+
+
+            AppUser::whereNotNull('fcm_token')
+                ->where('country', $postCountry)
+                ->select('fcm_token')
+                ->chunk(100, function ($users) use ($firebase, $imageForNotification) {
+
+                    foreach ($users as $userToken) {
+
+                        try {
+
+                            $firebase->sendNotification(
+                                $userToken->fcm_token,
+                                "New Post",
+                                "A new post has been created",
+                                $imageForNotification
+                                    ? Helper::showImage($imageForNotification, true)
+                                    : null
+                            );
+                        } catch (\Exception $e) {
+
+                            \Log::error('FCM Error: ' . $e->getMessage());
+                        }
+                    }
+                });
+
+            exit;
         } catch (\Exception $e) {
+
             DB::rollBack();
 
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => $e->getMessage()
             ], 500);
         }
     }
+
+
 
     public function hotPosts(Request $request)
     {
@@ -245,6 +375,7 @@ class MomentController extends Controller
                 'time_ago' => $post->created_at->diffForHumans(),
                 'is_liked' => $isLiked,
                 'user' => [
+                    'id' => $post->user?->id,
                     'name' => $post->user?->name,
                     'gender' => $post->user?->gender,
                     'image' => $post->user?->image
@@ -317,6 +448,7 @@ class MomentController extends Controller
                 'is_liked' => $isLiked,
 
                 'user' => [
+                    'id' => $post->user?->id,
                     'name' => $post->user?->name,
                     'gender' => $post->user?->gender,
                     'image' => $post->user?->image

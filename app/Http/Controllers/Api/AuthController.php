@@ -29,6 +29,8 @@ use App\Models\Agency;
 use App\Models\BdUser;
 use App\Models\Host;
 use App\Models\CoinSeller;
+use App\Models\PremiumNumber;
+use App\Models\StoreUids;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -122,7 +124,7 @@ class AuthController extends Controller
             $roles = [];
 
             // BD override (highest priority)
-            if (BdUser::where('user_id', $user->id)->where('status', 1)->exists()) {
+            if (BdUser::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                 $roles = ['bd'];
             } else {
 
@@ -130,11 +132,11 @@ class AuthController extends Controller
                     $roles[] = 'admin';
                 }
 
-                if (Agency::where('user_id', $user->id)->where('status', 1)->exists()) {
+                if (Agency::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
                     $roles[] = 'agency';
                 }
 
-                if (Host::where('user_id', $user->id)->where('status', 1)->exists()) {
+                if (Host::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                     $roles[] = 'host';
                 }
 
@@ -263,14 +265,89 @@ class AuthController extends Controller
     {
         $uid = $request->uid;
 
-        $hasUid = AppUser::where('uid', $uid)->first();
+        // $hasUid = AppUser::where('uid', $uid)->first();
+        // if (!$hasUid) {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'User ID does not exist'
+        //     ]);
+        // }
+
+        $uid = trim($request->uid);
+        
+
+        $hasUid = null;
+
+        /*
+|--------------------------------------------------------------------------
+| 1. Premium UID Login
+|--------------------------------------------------------------------------
+*/
+        $premiumUid = PremiumNumber::where('premium_number', $uid)
+            ->where('end_at', '>', now())
+            ->latest()
+            ->first();
+
+        if ($premiumUid) {
+            $hasUid = AppUser::find($premiumUid->user_id);
+        }
+
+        
+
+        /*
+|--------------------------------------------------------------------------
+| 2. Store UID Login
+|--------------------------------------------------------------------------
+*/
+        if (!$hasUid) {
+
+            $storeUid = StoreUids::where('unique_id', $uid)->first();
+
+            if ($storeUid) {
+
+                $activeUser = AppUser::where('active_uid_id', $storeUid->id)
+                    ->first();
+
+                if ($activeUser) {
+
+                    $hasValidPurchase = DB::table('item_deliveries')
+                        ->where('recipient', $activeUser->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    $hasValidGift = DB::table('item_gift_transactions')
+                        ->where('receiver_id', $activeUser->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    if ($hasValidPurchase || $hasValidGift) {
+                        $hasUid = $activeUser;
+                        
+                    }
+                }
+            }
+        }
+
+        /*
+|--------------------------------------------------------------------------
+| 3. System Generated UID Login
+|--------------------------------------------------------------------------
+*/
+        if (!$hasUid) {
+            $hasUid = AppUser::where('uid', $uid)->first();
+        }
+
         if (!$hasUid) {
             return response()->json([
                 'status' => false,
                 'message' => 'User ID does not exist'
             ]);
         }
-
+// dd($hasUid);
         if ($hasUid->is_blacklisted) {
             return response()->json([
                 'status' => false,
@@ -310,7 +387,7 @@ class AuthController extends Controller
         $roles = [];
 
         // BD override (highest priority)
-        if (BdUser::where('user_id', $hasUid->id)->where('status', 1)->exists()) {
+        if (BdUser::where('user_id', $hasUid->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
             $roles = ['bd'];
         } else {
 
@@ -318,11 +395,11 @@ class AuthController extends Controller
                 $roles[] = 'admin';
             }
 
-            if (Agency::where('user_id', $hasUid->id)->where('status', 1)->exists()) {
+            if (Agency::where('user_id', $hasUid->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
                 $roles[] = 'agency';
             }
 
-            if (Host::where('user_id', $hasUid->id)->where('status', 1)->exists()) {
+            if (Host::where('user_id', $hasUid->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                 $roles[] = 'host';
             }
 
@@ -580,7 +657,7 @@ class AuthController extends Controller
         $roles = [];
 
         // BD override (highest priority)
-        if (BdUser::where('user_id', $user->id)->where('status', 1)->exists()) {
+        if (BdUser::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
             $roles = ['bd'];
         } else {
 
@@ -588,11 +665,11 @@ class AuthController extends Controller
                 $roles[] = 'admin';
             }
 
-            if (Agency::where('user_id', $user->id)->where('status', 1)->exists()) {
+            if (Agency::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
                 $roles[] = 'agency';
             }
 
-            if (Host::where('user_id', $user->id)->where('status', 1)->exists()) {
+            if (Host::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                 $roles[] = 'host';
             }
 
@@ -682,10 +759,10 @@ class AuthController extends Controller
 
         $token = $hasPhone->createToken('auth_token')->plainTextToken;
 
-                $roles = [];
+        $roles = [];
 
         // BD override (highest priority)
-        if (BdUser::where('user_id', $hasPhone->id)->where('status', 1)->exists()) {
+        if (BdUser::where('user_id', $hasPhone->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
             $roles = ['bd'];
         } else {
 
@@ -693,11 +770,11 @@ class AuthController extends Controller
                 $roles[] = 'admin';
             }
 
-            if (Agency::where('user_id', $hasPhone->id)->where('status', 1)->exists()) {
+            if (Agency::where('user_id', $hasPhone->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
                 $roles[] = 'agency';
             }
 
-            if (Host::where('user_id', $hasPhone->id)->where('status', 1)->exists()) {
+            if (Host::where('user_id', $hasPhone->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                 $roles[] = 'host';
             }
 

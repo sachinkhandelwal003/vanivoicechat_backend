@@ -22,25 +22,33 @@ class ReportController extends Controller
     {
         if ($request->ajax()) {
             $data = PostReport::with(['user', 'post'])->latest();
-            return Datatables::of($data)
-                ->addIndexColumn()
-                ->addColumn('user', function ($row) {
-                    if (!$row->user) return '-';
 
+            return Datatables::of($data)
+
+                ->addIndexColumn()
+
+                ->addColumn('user', function ($row) {
+
+                    if (!$row->user) {return '-';}
+                
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/avatar.png');
-
+                
                     return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '" class="rounded-circle" width="40" height="40">
-                        <div>
-                            <div class="fw-bold">' . e($row->user->name) . '</div>
-                            <small class="text-muted">' . e($row->user->uid) . '</small>
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
+                
+                            <img src="'.$image.'" width="40" height="40" class="rounded-circle">
+                
+                            <div>
+                                <div class="fw-bold">'.e($row->user->name).'</div>
+                                <small class="text-muted">'.e($row->user->uid).'</small>
+                            </div>
+                
                         </div>
-                    </div>
-                ';
+                    ';
                 })
+
                 ->addColumn('post_title', function ($row) {
                     return $row->post ? $row->post->description : 'N/A';
                 })

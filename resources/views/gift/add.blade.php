@@ -236,7 +236,7 @@
 
         document.getElementById('svgaFile').addEventListener('change', function() {
             if (this.files.length > 0) {
-                document.getElementById('svgaPath').value = this.files[0].name;
+                document.getElementById('svgaPath').value = '';
             }
         });
 
