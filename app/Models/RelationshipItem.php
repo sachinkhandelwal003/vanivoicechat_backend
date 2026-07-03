@@ -19,6 +19,7 @@ class RelationshipItem extends Model
         'ring',
         'avatar',
         'frame',
+        'frame_animation',
         'badge',
         'background',
         'required_coins',

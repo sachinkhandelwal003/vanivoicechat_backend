@@ -72,7 +72,7 @@
                                 <option value="vip">VIP</option>
                                 <option value="theme">Theme</option>
                                 <option value="entry">Entry</option>
-                                <option value="entry_tags">Entry Tag</option>
+                                <option value="entry_tag">Entry Tag</option>
                                 <option value="frame">Frame</option>
                                 <option value="chat_bubble">Chat Bubble</option>
                                 <option value="profile_card">Profile Card</option>
@@ -129,7 +129,7 @@
                         <option value="vip">VIP</option>
                         <option value="theme">Theme</option>
                         <option value="entry">Entry</option>
-                        <option value="entry_tags">Entry Tag</option>
+                        <option value="entry_tag">Entry Tag</option>
                         <option value="frame">Frame</option>
                         <option value="chat_bubble">Chat Bubble</option>
                         <option value="profile_card">Profile Card</option>

@@ -14,4 +14,9 @@ class WCLevel extends Model
         'level',
         'exp'
     ];
+
+    public function levelData()
+    {
+        return $this->belongsTo( Level::class, 'level', 'level');
+    }
 }

@@ -10,7 +10,7 @@ class StoreUids extends Model
     use HasFactory;
 
     protected $table = 'store_uids';
-    protected $fillable = ['rank_id', 'pattern_id', 'visibility_type', 'unique_id', 'needcoin', 'validity', 'badge', 'rank_badge','status'];
+    protected $fillable = ['rank_id', 'pattern_id', 'visibility_type', 'unique_id', 'needcoin', 'validity', 'badge', 'rank_badge','rank_badge_color','status'];
     protected $casts = [
         'needcoin' => 'array',
         'validity' => 'array',

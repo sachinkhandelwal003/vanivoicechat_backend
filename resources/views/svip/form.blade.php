@@ -1,154 +1,94 @@
 @extends('layouts.app')
 
 @section('content')
+
 <style>
-    .privilege-card {
-        display: block;
+    .preview-img {
+        width: 90px;
+        height: 90px;
+        object-fit: contain;
         border: 1px solid #ddd;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: 0.3s;
-        background: #fff;
-        position: relative;
-    }
-
-    .privilege-card input {
-        position: absolute;
-        opacity: 0;
-    }
-
-    .privilege-card .card-body {
-        padding: 20px 10px;
-    }
-
-    .privilege-card .icon {
-        font-size: 20px;
-        color: #999;
-    }
-
-    .privilege-card .title {
-        font-size: 14px;
-        font-weight: 500;
-    }
-
-    .privilege-card:hover {
-        border-color: #7367f0;
-        transform: translateY(-3px);
-    }
-
-    .privilege-card input:checked+.card-body {
-        background: linear-gradient(135deg, #7367f0, #9c8cff);
-        color: #fff;
-        border-radius: 12px;
-    }
-
-    .privilege-card input:checked+.card-body .icon {
-        color: #fff;
-    }
-
-
-    .color-picker {
-        width: 60px;
-        height: 42px;
-        padding: 2px;
         border-radius: 8px;
-        border: 1px solid #ced4da;
-        cursor: pointer;
+        padding: 5px;
+        background: #f8f9fa;
+        margin-top: 8px;
     }
 
-    /* Chrome / Edge */
-    .color-picker::-webkit-color-swatch {
-        border-radius: 6px;
-        border: none;
+    .svga-preview {
+        width: 120px;
+        height: 120px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f8f9fa;
+        margin-top: 8px;
     }
 
-    .color-picker::-webkit-color-swatch-wrapper {
-        padding: 0;
-    }
-
-    /* Firefox */
-    .color-picker::-moz-color-swatch {
-        border-radius: 6px;
-        border: none;
+    .section-title {
+        font-weight: 600;
+        margin-bottom: 10px;
+        border-left: 4px solid #7367f0;
+        padding-left: 10px;
     }
 </style>
 
 <div class="card mb-3">
-
-    <div class="card-header">
-        <div class="row flex-between-end">
-            <div class="col-auto align-self-center">
-                <h5 class="mb-0">
-                    {{ isset($svip) ? 'Edit' : 'Add' }} SVIP
-                </h5>
-            </div>
-            <div class="col-auto ms-auto">
-                <a href="{{ route('svip') }}" class="btn btn-outline-secondary">
-                    <i class="fa fa-arrow-left me-1"></i> Back
-                </a>
-            </div>
-        </div>
+    <div class="card-header d-flex justify-content-between">
+        <h5>{{ isset($svip) ? 'Edit' : 'Add' }} SVIP</h5>
+        <a href="{{ route('svip') }}" class="btn btn-outline-secondary">Back</a>
     </div>
 
     <div class="card-body">
 
-        @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
-
-        @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-        @endif
-
-        @if ($errors->any())
-        <div class="alert alert-danger">
-            <ul class="mb-0">
-                @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-        @endif
-
-        <form
-            action="{{ isset($svip) ? route('svip.update', $svip->id) : route('svip.add') }}"
-            method="POST"
-            enctype="multipart/form-data">
+        <form action="{{ isset($svip) ? route('svip.update',$svip->id) : route('svip.add') }}"
+            method="POST" enctype="multipart/form-data">
             @csrf
 
-            <div class="row g-4">
+            {{-- BASIC --}}
+            <div class="section-title">Basic Info</div>
+            <div class="row mb-3">
 
-                <!-- NAME -->
-                <div class="col-md-6">
-                    <label class="form-label">Name</label>
-                    <input type="text" name="name" class="form-control"
-                        value="{{ old('name', $svip->name ?? '') }}">
+                <div class="col-md-4">
+                    <label>Name</label>
+                    <input type="text" name="name"
+                        class="form-control @error('name') is-invalid @enderror"
+                        value="{{ old('name',$svip->name ?? '') }}">
+                    @error('name') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
 
-                <!-- COINS -->
-                <div class="col-md-3">
-                    <label class="form-label">Coins</label>
-                    <input type="number" name="need_coins" class="form-control"
-                        value="{{ old('need_coins', $svip->need_coins ?? '') }}">
+                <div class="col-md-4">
+                    <label>Coins</label>
+                    <input type="number" name="need_coins"
+                        class="form-control @error('need_coins') is-invalid @enderror"
+                        value="{{ old('need_coins',$svip->need_coins ?? 0) }}">
+                    @error('need_coins') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
 
-                <!-- DAYS -->
-                <div class="col-md-3">
-                    <label class="form-label">Days</label>
-                    <input type="number" name="days" class="form-control"
-                        value="{{ old('days', $svip->days ?? '') }}">
+                <div class="col-md-4">
+                    <label>Days</label>
+                    <input type="number" name="days"
+                        class="form-control @error('days') is-invalid @enderror"
+                        value="{{ old('days',$svip->days ?? '') }}">
+                    @error('days') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
 
-                <div class="col-md-3">
-                    <label class="form-label">Background Color</label>
+            </div>
+
+            {{-- COLOR --}}
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label>Background Color</label>
+
                     @php
                     $selectedColor = old('color', $svip->color ?? '#6b2dd7');
                     @endphp
+
                     <div class="d-flex align-items-center gap-2">
                         <input type="color"
                             name="color"
                             id="svip_color"
-                            class="color-picker" value="{{ $selectedColor }}">
+                            class="form-control form-control-color @error('color') is-invalid @enderror"
+                            value="{{ $selectedColor }}"
+                            style="width:60px;">
 
                         <input type="text"
                             id="svip_color_text"
@@ -156,139 +96,300 @@
                             value="{{ $selectedColor }}"
                             readonly>
                     </div>
+
+                    @error('color') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
-
-                @php
-                $uploadFields = [
-                ['label' => 'Medal', 'name' => 'medal'],
-                ['label' => 'Medal GIF', 'name' => 'medal_gif'],
-                ['label' => 'Title', 'name' => 'title'],
-                ['label' => 'Bubble', 'name' => 'bubble'],
-                ['label' => 'Headwear', 'name' => 'headwear'],
-                ['label' => 'Entry', 'name' => 'entry'],
-                ];
-                @endphp
-
-                @foreach($uploadFields as $field)
-                <div class="col-md-4">
-                    <div class="border rounded-3 p-3">
-
-                        <label class="form-label">{{ $field['label'] }}</label>
-
-                        <input type="file" name="{{ $field['name'] }}"
-                            class="d-none image-input" id="{{ $field['name'] }}">
-
-                        <label for="{{ $field['name'] }}"
-                            class="upload-box w-100 d-flex align-items-center justify-content-center text-center"
-                            style="height:140px; cursor:pointer; border:2px dashed #ccc;">
-
-                            <img
-                                src="{{ isset($svip) && $svip->{$field['name']} 
-                                    ? asset('storage/'.$svip->{$field['name']}) 
-                                    : '' }}"
-                                class="preview-image {{ isset($svip) && $svip->{$field['name']} ? '' : 'd-none' }}"
-                                style="width:100%; height:100%; object-fit:cover;">
-
-                            <div class="upload-placeholder {{ isset($svip) && $svip->{$field['name']} ? 'd-none' : '' }}">
-                                <small>Click to upload</small>
-                            </div>
-
-                        </label>
-
-                    </div>
-                </div>
-                @endforeach
-
-                <!-- PRIVILEGES -->
-                <div class="col-md-12">
-                    <label class="form-label fw-bold mb-2">Privileges</label>
-
-                    <div class="row">
-                        @forelse($privileges as $p)
-                        <div class="col-md-3 mb-3">
-
-                            <label class="privilege-card w-100">
-                                <input type="checkbox" name="privileges[]" value="{{ $p->id }}"
-                                    {{ in_array($p->id, $selectedPrivileges) ? 'checked' : '' }}>
-
-                                <div class="card-body text-center">
-                                    <div class="icon mb-2">
-
-                                        @if($p->icon)
-                                        <img src="{{ asset('storage/'.$p->icon) }}" width="40" height="40" style="object-fit:contain;">
-                                        @else
-                                        <i class="fa fa-star"></i>
-                                        @endif
-
-                                    </div>
-                                    <div class="title">{{ $p->name }}</div>
-                                </div>
-                            </label>
-
-                        </div>
-                        @empty
-                        <div class="col-md-12">
-                            <p class="text-danger">No privileges found</p>
-                        </div>
-                        @endforelse
-                    </div>
-                </div>
-
             </div>
 
-            <div class="mt-4 text-end">
+            {{-- MEDAL --}}
+            <div class="section-title">Medal / Title / Bubble</div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Medal</label>
+                    <input type="file" name="medal"
+                        class="form-control image-input @error('medal') is-invalid @enderror">
+                    @error('medal') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->medal ? asset('storage/'.$svip->medal):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->medal?'':'d-none' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label>Medal Animation</label>
+                    <input type="file" name="medal_gif"
+                        class="form-control image-input @error('medal_gif') is-invalid @enderror">
+                    @error('medal_gif') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    @if(isset($svip) && $svip->medal_gif)
+                    <small class="text-muted d-block mt-1">
+                        Current file: {{ basename($svip->medal_gif) }}
+                    </small>
+                    @endif
+
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Title</label>
+                    <input type="file" name="title"
+                        class="form-control image-input @error('title') is-invalid @enderror">
+                    @error('title') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->title ? asset('storage/'.$svip->title):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->title?'':'d-none' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Bubble</label>
+                    <input type="file" name="bubble"
+                        class="form-control image-input @error('bubble') is-invalid @enderror">
+                    @error('bubble') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->bubble ? asset('storage/'.$svip->bubble):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->bubble?'':'d-none' }}">
+                </div>
+            </div>
+
+            {{-- HEADWEAR --}}
+            <div class="section-title">Headwear</div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Headwear</label>
+                    <input type="file" name="headwear"
+                        class="form-control image-input @error('headwear') is-invalid @enderror">
+                    @error('headwear') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->headwear ? asset('storage/'.$svip->headwear):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->headwear?'':'d-none' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label>Headwear Animation</label>
+                    <input type="file" name="headwear_animation"
+                        class="form-control image-input @error('headwear_animation') is-invalid @enderror">
+                    @error('headwear_animation') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    @if(isset($svip) && $svip->headwear_animation)
+                    <small class="text-muted d-block mt-1">
+                        Current file: {{ basename($svip->headwear_animation) }}
+                    </small>
+                    @endif
+                </div>
+            </div>
+
+            {{-- ENTRY --}}
+            <div class="section-title">Entry Assets</div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Entry</label>
+                    <input type="file" name="entry"
+                        class="form-control image-input @error('entry') is-invalid @enderror">
+                    @error('entry') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->entry ? asset('storage/'.$svip->entry):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->entry?'':'d-none' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label>Entry Animation</label>
+                    <input type="file" name="entry_animation"
+                        class="form-control image-input @error('entry_animation') is-invalid @enderror">
+                    @error('entry_animation') <small class="text-danger">{{ $message }}</small> @enderror
+                    @if(isset($svip) && $svip->entry_animation)
+                    <small class="text-muted d-block mt-1">
+                        Current file: {{ basename($svip->entry_animation) }}
+                    </small>
+                    @endif
+                </div>
+            </div>
+
+            {{-- KEYS --}}
+            <div class="section-title">Entry Keys</div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label>Image Key</label>
+                    <input type="text" name="img_key"
+                        class="form-control @error('img_key') is-invalid @enderror"
+                        value="{{ old('img_key',$svip->img_key ?? '') }}">
+                    @error('img_key') <small class="text-danger">{{ $message }}</small> @enderror
+                </div>
+
+                <div class="col-md-4">
+                    <label>Text Key</label>
+                    <input type="text" name="text_key"
+                        class="form-control @error('text_key') is-invalid @enderror"
+                        value="{{ old('text_key',$svip->text_key ?? '') }}">
+                    @error('text_key') <small class="text-danger">{{ $message }}</small> @enderror
+                </div>
+
+                <div class="col-md-4">
+                    <label>Frame Key</label>
+                    <input type="text" name="frame_key"
+                        class="form-control @error('frame_key') is-invalid @enderror"
+                        value="{{ old('frame_key',$svip->frame_key ?? '') }}">
+                    @error('frame_key') <small class="text-danger">{{ $message }}</small> @enderror
+                </div>
+            </div>
+
+            <div class="section-title">Entrance Assets</div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Vehicle Image</label>
+                    <input type="file" name="entrance_image"
+                        class="form-control image-input @error('entrance_image') is-invalid @enderror">
+                    @error('entrance_image') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->entrance_image ? asset('storage/'.$svip->entrance_image):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->entrance_image?'':'d-none' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label>Vehicle Animation</label>
+                    <input type="file" name="entrance_animation"
+                        class="form-control image-input @error('entrance_animation') is-invalid @enderror">
+                    @error('entrance_animation') <small class="text-danger">{{ $message }}</small> @enderror
+                    @if(isset($svip) && $svip->entrance_animation)
+                    <small class="text-muted d-block mt-1">
+                        Current file: {{ basename($svip->entrance_animation) }}
+                    </small>
+                    @endif
+                </div>
+            </div>
+
+            <div class="section-title">Voice Assets</div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Voice Image</label>
+                    <input type="file" name="voice_image"
+                        class="form-control image-input @error('voice_image') is-invalid @enderror">
+                    @error('voice_image') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->voice_image ? asset('storage/'.$svip->voice_image):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->voice_image?'':'d-none' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label>Voice Animation</label>
+                    <input type="file" name="voice_animation"
+                        class="form-control image-input @error('voice_animation') is-invalid @enderror">
+                    @error('voice_animation') <small class="text-danger">{{ $message }}</small> @enderror
+                    @if(isset($svip) && $svip->voice_animation)
+                    <small class="text-muted d-block mt-1">
+                        Current file: {{ basename($svip->voice_animation) }}
+                    </small>
+                    @endif
+                </div>
+            </div>
+
+            <div class="section-title">Profile Card Assets</div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label>Profile Card Image</label>
+                    <input type="file" name="profile_card"
+                        class="form-control image-input @error('profile_card') is-invalid @enderror">
+                    @error('profile_card') <small class="text-danger">{{ $message }}</small> @enderror
+
+                    <img src="{{ isset($svip)&&$svip->profile_card ? asset('storage/'.$svip->profile_card):'' }}"
+                        class="preview-img {{ isset($svip)&&$svip->profile_card?'':'d-none' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label>Profile Card Animation</label>
+                    <input type="file" name="profile_animation"
+                        class="form-control image-input @error('profile_animation') is-invalid @enderror">
+                    @error('profile_animation') <small class="text-danger">{{ $message }}</small> @enderror
+                    @if(isset($svip) && $svip->profile_animation)
+                    <small class="text-muted d-block mt-1">
+                        Current file: {{ basename($svip->profile_animation) }}
+                    </small>
+                    @endif
+                </div>
+            </div>
+
+            {{-- PRIVILEGES --}}
+            <div class="section-title">Privileges</div>
+
+            <div class="row mb-3">
+                @foreach($privileges as $p)
+                <div class="col-md-3 mb-2">
+
+                    <label class="d-flex align-items-center gap-2">
+                        <input type="checkbox"
+                            name="privileges[]"
+                            value="{{ $p->id }}"
+                            {{ in_array($p->id,$selectedPrivileges ?? []) ? 'checked' : '' }}>
+
+                        {{ $p->name }}
+                    </label>
+
+                </div>
+                @endforeach
+            </div>
+
+            {{-- validation error --}}
+            @error('privileges')
+            <small class="text-danger">{{ $message }}</small>
+            @enderror
+
+            <div class="text-end">
                 <button class="btn btn-primary">
                     {{ isset($svip) ? 'Update' : 'Save' }}
                 </button>
             </div>
 
         </form>
-
     </div>
 </div>
+
 @endsection
+
+@section('js')
+
+<script src="https://cdn.jsdelivr.net/npm/svgaplayerweb@2.3.1/build/svga.min.js"></script>
 
 @section('js')
 <script>
     document.querySelectorAll('.image-input').forEach(input => {
         input.addEventListener('change', function() {
             let file = this.files[0];
-            let container = this.closest('.border');
-            let preview = container.querySelector('.preview-image');
-            let placeholder = container.querySelector('.upload-placeholder');
+            let preview = this.parentElement.querySelector('.preview-img');
 
-            if (file) {
+            if (file && preview) {
                 let reader = new FileReader();
+
                 reader.onload = function(e) {
                     preview.src = e.target.result;
                     preview.classList.remove('d-none');
-                    placeholder.classList.add('d-none');
                 };
+
                 reader.readAsDataURL(file);
             }
         });
     });
-</script>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const colorInput = document.getElementById('svip_color');
-        const colorText = document.getElementById('svip_color_text');
-
-        colorText.value = colorInput.value;
-
-        colorInput.addEventListener('input', function() {
-            colorText.value = this.value;
-        });
-    });
 
     document.addEventListener('DOMContentLoaded', function() {
         const colorInput = document.getElementById('svip_color');
         const colorText = document.getElementById('svip_color_text');
 
-        colorInput.addEventListener('input', function() {
-            colorText.value = this.value;
-        });
+        if (colorInput && colorText) {
+            colorText.value = colorInput.value;
+
+            colorInput.addEventListener('input', function() {
+                colorText.value = this.value;
+            });
+        }
     });
 </script>
+@endsection
+
 @endsection

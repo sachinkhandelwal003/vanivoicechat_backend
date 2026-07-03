@@ -58,7 +58,7 @@
                 <!-- LEVEL -->
                 <div class="col-md-4">
                     <label class="form-label">Level</label>
-                    <input type="text" name="level" class="form-control"
+                    <input type="number" name="level" class="form-control"
                         value="{{ old('level', $level->level ?? '') }}">
                 </div>
 

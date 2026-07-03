@@ -19,6 +19,7 @@ class Agency extends Model
         'country_id',
         'whatsapp_number',
         'briefing',
+        'invite_status',
         'status'
     ];
 
@@ -43,5 +44,20 @@ class Agency extends Model
     public function country()
     {
         return $this->belongsTo(Country::class, 'country_id');
+    }
+
+    public function admin()
+    {
+        return $this->belongsTo(AdminAccount::class, 'admin_id', 'id');
+    }
+
+    public function hosts()
+    {
+        return $this->hasMany(Host::class, 'agency_id');
+    }
+
+    public function hostReports()
+    {
+        return $this->hasMany(HostMonthlyReport::class);
     }
 }

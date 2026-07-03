@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\TreasureLevel;
 use App\Models\TreasureLevelReward;
+use App\Models\TreasureLevelClaims;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -28,11 +29,15 @@ class TreasureLevelController extends Controller
                     return number_format($row->target_points);
                 })
                 ->addColumn('chest_image', function ($row) {
-                    if (!$row->chest_image) {
-                        return '-';
-                    }
 
-                    return '<img src="' . asset('storage/' . $row->chest_image) . '" width="55" height="55" style="object-fit:contain;border-radius:8px;">';
+                    if (!$row->chest_image) {return '-';}
+
+                    $image = asset('storage/' . $row->chest_image);
+
+                    return '
+                        <img src="'.$image.'" width="55" height="55" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;object-fit:contain;border-radius:8px;">
+                    ';
                 })
                 ->addColumn('status', function ($row) {
                     if ($row->status == 1) {
@@ -345,7 +350,7 @@ class TreasureLevelController extends Controller
                     ->get();
                 break;
 
-            case 'entry_tags':
+            case 'entry_tag':
                 $items = DB::table('entry_tags')
                     ->select('id', 'name', 'icon')
                     ->where('status', 1)
@@ -363,6 +368,148 @@ class TreasureLevelController extends Controller
             'status' => true,
             'data' => $items
         ]);
+    }
+
+
+
+    public function rewardList(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = TreasureLevelClaims::with(['room', 'user', 'reward', 'levelInfo'])->latest();
+
+            return DataTables::of($query)
+
+                ->addColumn('room', function ($row) {
+
+                    if (!$row->room) {
+                        return '-';
+                    }
+
+                    $image = $row->room->image
+                        ? Helper::showImage($row->room->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="'.$image.'"
+                                 class="rounded-circle"
+                                 width="40"
+                                 height="40">
+
+                            <div>
+                                <div class="fw-bold">
+                                    '.e($row->room->room_name).'
+                                </div>
+
+                                <small class="text-muted">
+                                    Room ID : '.e($row->room->room_id).'
+                                </small>
+                            </div>
+                        </div>
+                    ';
+                })
+
+                ->addColumn('user', function ($row) {
+
+                    if (!$row->user) {return '-';}
+
+                    $image = $row->user->image
+                        ? Helper::showImage($row->user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+
+                            <div>
+                                <div class="fw-bold">
+                                    '.e($row->user->name).'
+                                </div>
+
+                                <small class="text-muted">
+                                    '.e($row->user->uid).'
+                                </small>
+                            </div>
+                        </div>
+                    ';
+                })
+
+                ->addColumn('reward', function ($row) {
+
+                    if ($row->reward_type == 'coins') {
+
+                        return '
+                            <span class="badge badge-light-success fs--1">
+                                💰 '.$row->coins.' Coins
+                            </span>
+                        ';
+                    }
+
+                    if ($row->reward && $row->reward->reward_image) {
+
+                        return '
+                        <div class="d-flex align-items-center gap-2">
+
+                            <img src="'.Helper::showImage($row->reward->reward_image, true).'"
+                                 width="45"
+                                 height="45"
+                                 style="border-radius:8px;object-fit:cover;">
+
+                            <div>
+                                <div class="fw-bold">
+                                    '.ucwords(str_replace('_', ' ', $row->reward_type)).'
+                                </div>
+
+                                <small class="text-muted">
+                                    '.$row->valid_days.' Days
+                                </small>
+                            </div>
+
+                        </div>';
+                    }
+
+                    return ucwords(str_replace('_', ' ', $row->reward_type));
+                })
+
+                ->editColumn('created_at', function ($row) {
+                    return $row->created_at
+                        ? \Carbon\Carbon::parse($row->created_at)->timezone('Asia/Kolkata')->format('d-M-Y h:i A')
+                        : '-';
+                })
+
+                ->addColumn('level', function ($row) {
+                    return $row->levelInfo ? 'Level ' . $row->levelInfo->level : '-';
+                })
+
+                ->addColumn('action', function ($row) {
+
+                    return '
+                    <div class="dropup text-center">
+                        <button class="btn btn-sm btn-light rounded-pill px-3"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+
+                        <div class="dropdown-menu dropdown-menu-end p-2">
+                            <button class="dropdown-item text-danger delete"
+                                data-id="' . $row->id . '">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>';
+                })
+
+                ->rawColumns(['room', 'user', 'reward', 'level', 'action'])
+                ->make(true);
+        }
+
+        return view('treasure_levels.rewards');
+    }
+
+    public function deleteReward(Request $request)
+    {
+        return Helper::deleteRecord(new TreasureLevelClaims, $request->id);
     }
 
     private function getRewardItemImagePath($type, $itemId)
@@ -411,7 +558,7 @@ class TreasureLevelController extends Controller
                 $column = 'image'; // check if correct
                 break;
 
-            case 'entry_tags':
+            case 'entry_tag':
                 $table = 'entry_tags';
                 $column = 'icon';
                 break;

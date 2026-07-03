@@ -14,7 +14,10 @@ class Medal extends Model
     protected $fillable = [
         'title',
         'type',
+        'level',
+        'target_value',
         'icon',
+        'sort',
         'status'
     ];
 

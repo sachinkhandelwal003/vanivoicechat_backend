@@ -34,7 +34,7 @@
                 <thead>
                     <tr>
                         <th>Medal</th>
-                        <th>GIF</th>
+                        <!-- <th>GIF</th> -->
                         <th>Name</th>
                         <th>Coins</th>
                         <th>Days</th>
@@ -63,7 +63,7 @@
             order: [[6, 'desc']],
             columns: [
                 { data: 'medal', name: 'medal', orderable: false, searchable: false },
-                { data: 'medal_gif', name: 'medal_gif', orderable: false, searchable: false },
+                // { data: 'medal_gif', name: 'medal_gif', orderable: false, searchable: false },
                 { data: 'name', name: 'name' },
                 { data: 'need_coins', name: 'need_coins' },
                 { data: 'days', name: 'days' },

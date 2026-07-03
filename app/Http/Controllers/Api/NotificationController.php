@@ -17,7 +17,7 @@ class NotificationController extends Controller
 
     public function __construct()
     {
-        $this->middleware(['auth:api']);
+        $this->middleware(['auth:sanctum']);
 
         $this->middleware(function ($request, $next) {
             $user = Auth::guard('api')->user();
@@ -33,7 +33,7 @@ class NotificationController extends Controller
         });
     }
 
-    public function getNotifications()
+    public function getNotifications11()
     {
         $userId = Auth::id();
 
@@ -53,11 +53,53 @@ class NotificationController extends Controller
                 ? Helper::showImage($notification->image, true)
                 : null;
 
-             $notification->formatted_time = \Carbon\Carbon::parse($notification->created_at)
-        ->format('m/d H:i');
+            $notification->formatted_time = \Carbon\Carbon::parse($notification->created_at)
+                ->format('m/d H:i');
 
             return $notification;
         });
+
+        return response()->json([
+            'status' => true,
+            'notifications' => $notifications
+        ]);
+    }
+
+    public function getNotifications()
+    {
+        $user = Auth::user();
+
+        $userCountry = strtolower(trim($user->country));
+
+        $notifications = Notification::where(
+
+            function ($query) use ($user, $userCountry) {
+
+                // Personal notifications
+
+                $query->where('receiver_id', $user->id);
+
+                // Country notifications
+
+                $query->orWhere(function ($q)
+                use ($userCountry) {
+
+                    $q->whereNull('receiver_id')
+                        ->whereRaw('LOWER(country) = ?', [$userCountry]);
+                });
+            }
+        )->latest()
+            ->paginate(20);
+
+        $notifications
+            ->getCollection()
+            ->transform(function ($notification) {
+
+                $notification->icon = $notification->icon ? asset($notification->icon) : null;
+                $notification->image = $notification->image ? Helper::showImage($notification->image, true) : null;
+                $notification->formatted_time = \Carbon\Carbon::parse($notification->created_at)->format('m/d H:i');
+                return $notification;
+            });
 
         return response()->json([
             'status' => true,

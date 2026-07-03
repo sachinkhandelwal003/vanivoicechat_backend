@@ -107,6 +107,26 @@
                     </div>
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label fw-bold"> Slice Rect <span class="text-danger">*</span></label>
+                    <input type="text" name="slice_rect"
+                        class="form-control @error('slice_rect') is-invalid @enderror"
+                        value="{{ old('slice_rect') }}">
+                    @error('slice_rect')
+                    <small class="text-danger">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold"> Padding Rect <span class="text-danger">*</span></label>
+                    <input type="text" name="padding_rect"
+                        class="form-control @error('padding_rect') is-invalid @enderror"
+                        value="{{ old('padding_rect') }}">
+                    @error('padding_rect')
+                    <small class="text-danger">{{ $message }}</small>
+                    @enderror
+                </div>
+
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Status</label>

@@ -45,7 +45,7 @@
                         <th>Level</th>
                         <th>Required Exp</th>
                         <th>Icon</th>
-                        <th>Entry Effect</th>
+                        <!-- <th>Entry Effect</th> -->
                         <th>Created Date</th>
                         <th width="100px">Action</th>
                     </tr>
@@ -78,7 +78,7 @@
                 { data: 'level', name: 'level' },
                 { data: 'required_exp', name: 'required_exp' },
                 { data: 'icon', name: 'icon', orderable: false, searchable: false },
-                { data: 'entry_effect', name: 'entry_effect', orderable: false, searchable: false },
+                //{ data: 'entry_effect', name: 'entry_effect', orderable: false, searchable: false },
                 { data: 'created_at', name: 'created_at' },
                 { data: 'action', name: 'action', orderable: false, searchable: false }
             ]

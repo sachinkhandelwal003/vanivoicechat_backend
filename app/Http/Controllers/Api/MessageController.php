@@ -10,19 +10,22 @@ use App\Models\Message;
 use App\Models\SupportMessage;
 use App\Models\SupportConversation;
 use App\Models\OfficialNotification;
+use App\Models\NotificationRead;
+use App\Models\ChatReport;
+use App\Models\Notification;
+use App\Models\UserBlock;
+use App\Models\StoreUids;
+use App\Models\PremiumNumber;
+use App\Events\MessageSent;
+use App\Events\MessageDeleted;
+use App\Events\SupportMessageSent;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use App\Events\MessageSent;
-use App\Events\MessageDeleted;
-use App\Events\SupportMessageSent;
-use App\Models\ChatReport;
-use App\Models\Notification;
-use App\Models\UserBlock;
+use Carbon\Carbon;
 use App\Services\FirebaseService;
 
 class MessageController extends Controller
@@ -83,12 +86,11 @@ class MessageController extends Controller
         }
 
         $receiverUser = AppUser::find($receiver);
+        $senderUser = Auth::user();
         $icon = asset('friend-request.png');
 
         if ($receiverUser && $receiverUser->fcm_token) {
             $firebase = new FirebaseService();
-
-            $senderUser = Auth::user();
 
             $firebase->sendNotification(
                 $receiverUser->fcm_token,
@@ -105,7 +107,8 @@ class MessageController extends Controller
             'title' => 'New Friend Request',
             'message' => $senderUser->name . " sent you a friend request",
             'type' => 'friend request',
-            'icon' => 'friend-request.png'
+            'icon' => 'friend-request.png',
+            'country' => auth()->user()->country,
         ]);
 
         return response()->json([
@@ -214,7 +217,7 @@ class MessageController extends Controller
             ->values();
 
         $users = AppUser::whereIn('id', $friends)
-            ->select('id', 'uid', 'name', 'gender', 'image')
+            ->select('id', 'uid', 'name', 'gender', 'image', 'active_uid_id')
             ->get()
             ->map(function ($item) use ($userId) {
 
@@ -225,9 +228,64 @@ class MessageController extends Controller
                 $blockedByUser = UserBlock::where('blocker_id', $item->id)
                     ->where('blocked_user_id', $userId)
                     ->exists();
+
+                $displayUid = $item->uid;
+                $uidBadge = null;
+                $uidBadgeColor = null;
+
+                // Premium UID
+                $premiumUid = PremiumNumber::where('user_id', $item->id)
+                    ->where('end_at', '>', now())
+                    ->latest()
+                    ->first();
+
+                if ($premiumUid) {
+
+                    $displayUid = $premiumUid->premium_number;
+
+                    $uidBadge = asset('storage/1000175794.png');
+                    $uidBadgeColor = '#fcd01c';
+                } else {
+
+                    // Store UID
+                    if ($item->active_uid_id) {
+
+                        $storeUid = StoreUids::find($item->active_uid_id);
+
+                        if ($storeUid) {
+
+                            $hasValidPurchase = DB::table('item_deliveries')
+                                ->where('recipient', $item->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            $hasValidGift = DB::table('item_gift_transactions')
+                                ->where('receiver_id', $item->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            if ($hasValidPurchase || $hasValidGift) {
+
+                                $displayUid = $storeUid->unique_id;
+
+                                $uidBadge = !empty($storeUid->rank_badge)
+                                    ? Helper::showImage($storeUid->rank_badge, true)
+                                    : null;
+                                $uidBadgeColor = $storeUid->rank_color ?? null;
+                            }
+                        }
+                    }
+                }
                 return [
                     'id' => $item->id,
-                    'uid' => $item->uid,
+                    // 'uid' => $item->uid,
+                    'uid' => $displayUid,
+                    'uid_badge' => $uidBadge,
+                    'uid_badge_color' => $uidBadgeColor,
                     'name' => $item->name,
                     'gender' => $item->gender,
                     'image' => Helper::showImage($item->image, true),
@@ -327,6 +385,12 @@ class MessageController extends Controller
     {
         $userId = Auth::id();
 
+        $systemNotificationCount = Notification::where('type', 'post')
+            ->whereDoesntHave('reads', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
+            ->count();
+
         $chats = Message::select(
             DB::raw('
                 CASE 
@@ -376,6 +440,7 @@ class MessageController extends Controller
 
         return response()->json([
             'status' => true,
+            'system_notification_count' => $systemNotificationCount,
             'data' => $chatList
         ]);
     }
@@ -747,6 +812,26 @@ class MessageController extends Controller
             'status' => true,
             'message' => 'Blocked users list',
             'data' => $data
+        ]);
+    }
+
+    public function markSystentNotificationRead()
+    {
+        $userId = Auth::id();
+
+        $notifications = Notification::where('type', 'post')
+            ->pluck('id');
+
+        foreach ($notifications as $notificationId) {
+
+            NotificationRead::firstOrCreate([
+                'notification_id' => $notificationId,
+                'user_id' => $userId
+            ]);
+        }
+
+        return response()->json([
+            'status' => true
         ]);
     }
 }

@@ -40,15 +40,15 @@ class Helper
     }
 
     function generateInviteCode($length = 8)
-{
-    $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    {
+        $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-    do {
-        $code = substr(str_shuffle($characters), 0, $length);
-    } while (AppUser::where('invite_code', $code)->exists());
+        do {
+            $code = substr(str_shuffle($characters), 0, $length);
+        } while (AppUser::where('invite_code', $code)->exists());
 
-    return $code;
-}
+        return $code;
+    }
     public static function deleteFile($filename = '')
     {
         $filename = str_replace(asset('storage'), '', $filename);
@@ -275,4 +275,78 @@ class Helper
         return $response->send();
     }
 
+    public static function getUserRoleBadges($userId)
+    {
+        $badges = [];
+
+        // if (\App\Models\AdminAccount::where('user_id', $userId)
+        //     ->where('status', 1)
+        //     ->exists()
+        // ) {
+        //     $badges[] = [
+        //         'type' => 'admin',
+        //         'title' => 'Admin',
+        //         'icon' => asset('role_badge/admin.png')
+        //     ];
+        // }
+
+        if (\App\Models\BdUser::where('user_id', $userId)
+            ->where('status', 1)
+            ->where('is_dashboard_access', 1)
+            ->exists()
+        ) {
+            $badges[] = [
+                'type' => 'bd',
+                'title' => 'BD',
+                'icon' => asset('storage/role_badge/bd.webp')
+            ];
+        }
+
+        if (\App\Models\Agency::where('user_id', $userId)
+            ->where('status', 1)
+            ->exists()
+        ) {
+            $badges[] = [
+                'type' => 'agency',
+                'title' => 'Agency',
+                'icon' => asset('storage/role_badge/agency.webp')
+            ];
+        }
+
+        if (
+            \App\Models\Host::where('user_id', $userId)
+            ->where('status', 1)
+            ->where('is_dashboard_access', 1)
+            ->exists()
+        ) {
+            $badges[] = [
+                'type' => 'host',
+                'title' => 'Host',
+                'icon' => asset('storage/role_badge/host.webp')
+            ];
+        }
+
+        $coinSeller = \App\Models\CoinSeller::where('user_id', $userId)
+            ->where('status', 1)
+            ->first();
+
+        if ($coinSeller) {
+
+            if ((int) $coinSeller->is_merchant === 1) {
+                $badges[] = [
+                    'type' => 'merchant',
+                    'title' => 'Merchant',
+                    'icon' => asset('storage/role_badge/merchant.webp')
+                ];
+            } else {
+                $badges[] = [
+                    'type' => 'coinseller',
+                    'title' => 'Coin Seller',
+                    'icon' => asset('storage/role_badge/coinseller.webp')
+                ];
+            }
+        }
+
+        return $badges;
+    }
 }

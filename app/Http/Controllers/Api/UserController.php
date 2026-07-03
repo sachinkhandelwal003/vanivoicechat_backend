@@ -13,6 +13,16 @@ use App\Models\Agency;
 use App\Models\BdUser;
 use App\Models\Host;
 use App\Models\CoinSeller;
+use App\Models\UserMedal;
+use App\Models\WCLevel;
+use App\Models\Room;
+use App\Models\RelationshipInvitation;
+use App\Models\StoreUids;
+use App\Models\PremiumNumber;
+use App\Models\Frame;
+use App\Models\Vip;
+use App\Models\Svip;
+use App\Models\RelationshipItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,14 +32,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
-
 class UserController extends Controller
 {
     public function __construct()
     {
         $this->middleware(["auth:api"]);
     }
-
 
     public function profileRegistration(Request $request)
     {
@@ -38,6 +46,7 @@ class UserController extends Controller
             'gender' => 'required',
             'birthdate' => 'required',
             'country' => 'required',
+            'invite_code' => 'nullable|string',
             'image'     => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
 
@@ -58,6 +67,29 @@ class UserController extends Controller
             $data['image'] = Helper::saveFile($request->file('image'), 'profile_image');
         }
 
+        if ($request->filled('invite_code')) {
+            if (!empty($user->referred_by)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invite code already used'
+                ], 422);
+            }
+            $referrer = AppUser::where('invite_code', $request->invite_code)
+                ->where('id', '!=', $user->id)
+                ->first();
+
+            if (!$referrer) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid invite code'
+                ], 422);
+            }
+
+            $referrer->increment('total_points', 1000);
+
+            $data['referred_by'] = $referrer->id;
+        }
+
         $user->update($data);
 
         return response()->json([
@@ -65,74 +97,6 @@ class UserController extends Controller
             'message' => 'User Details Saved Successfully',
         ]);
     }
-
-    // public function getUserDetails()
-    // {
-    //     $user = Auth::user();
-    //     $userId = Auth::id();
-    //     $image = null;
-
-    //     if ($user->image) {
-    //         if (Str::startsWith($user->image, ['http://', 'https://'])) {
-    //             $image = $user->image;
-    //         } else {
-    //             $image = Helper::showImage($user->image, true);
-    //         }
-    //     }
-
-    //     if (BdUser::where('user_id', $user->id)->where('status', 1)->exists()) {
-    //         $roles = ['bd'];
-    //     } else {
-
-    //         if (AdminAccount::where('user_id', $user->id)->where('status', 1)->exists()) {
-    //             $roles[] = 'admin';
-    //         }
-
-    //         if (Agency::where('user_id', $user->id)->where('status', 1)->exists()) {
-    //             $roles[] = 'agency';
-    //         }
-
-    //         if (Host::where('user_id', $user->id)->where('status', 1)->exists()) {
-    //             $roles[] = 'host';
-    //         }
-
-    //         // Coin Seller / Merchant logic
-    //         $coinSeller = CoinSeller::where('user_id', $user->id)
-    //             ->where('status', 1)
-    //             ->first();
-
-    //         if ($coinSeller) {
-    //             if ($coinSeller->is_merchant == 1) {
-    //                 $roles[] = 'merchant';
-    //             } else {
-    //                 $roles[] = 'coinseller';
-    //             }
-    //         }
-
-    //         if (empty($roles)) {
-    //             $roles[] = 'user';
-    //         }
-    //     }
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'message' => 'User Details fethed Successfuly',
-    //         'data' =>  [
-    //             'id' => $user->id,
-    //             'uid' => $user->uid,
-    //             'name' => $user->name,
-    //             'email' => $user->email,
-    //             'gender' => $user->gender,
-    //             'image' => $image,
-    //             'following' => DB::table('user_follows')->where('follower_id', $userId)->count(),
-    //             'fans' => DB::table('user_follows')->where('following_id', $userId)->count(),
-    //             'visitors'  => DB::table('profile_visitors')->where('user_id', $userId)->count(),
-    //             'user_roles' => $roles
-    //         ]
-    //     ]);
-    // }
-
-
 
     public function getUserDetails(Request $request)
     {
@@ -161,7 +125,15 @@ class UserController extends Controller
                 ? (int) $request->user_id
                 : (int) $authUser->id;
 
-            $user = AppUser::find($userId);
+            // $user = AppUser::find($userId);
+
+            $roomId  = Room::where('user_id', $userId)->first();
+
+            $user = AppUser::with([
+                'countryData:id,name,iso',
+                'activeCard:id,name,icon,gif',
+                'activeFrame:id,name,icon,gif'
+            ])->find($userId);
 
             if (!$user) {
                 return response()->json([
@@ -179,21 +151,26 @@ class UserController extends Controller
                     $image = Helper::showImage($user->image, true);
                 }
             }
+            $flag = null;
+
+            if ($user->countryData && $user->countryData->iso) {
+                $flag = 'https://flagcdn.com/w40/' . strtolower($user->countryData->iso) . '.png';
+            }
 
             $roles = [];
 
-            if (BdUser::where('user_id', $user->id)->where('status', 1)->exists()) {
+            if (BdUser::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                 $roles = ['bd'];
             } else {
                 if (AdminAccount::where('user_id', $user->id)->where('status', 1)->exists()) {
                     $roles[] = 'admin';
                 }
 
-                if (Agency::where('user_id', $user->id)->where('status', 1)->exists()) {
+                if (Agency::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
                     $roles[] = 'agency';
                 }
 
-                if (Host::where('user_id', $user->id)->where('status', 1)->exists()) {
+                if (Host::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
                     $roles[] = 'host';
                 }
 
@@ -243,18 +220,332 @@ class UserController extends Controller
                     ->exists();
             }
 
+            $wealthLevel = WCLevel::with([
+                'levelData' => function ($q) {
+                    $q->where('type', 'wealth');
+                }
+            ])
+                ->where('user_id', $userId)
+                ->where('type', 'wealth')
+                ->first();
+
+
+
+            $charmLevel = WCLevel::with([
+                'levelData' => function ($q) {
+                    $q->where('type', 'charm');
+                }
+            ])
+                ->where('user_id', $userId)
+                ->where('type', 'charm')
+                ->first();
+
+
+
+            $equippedMedals = UserMedal::with('medal')
+                ->where('user_id', $userId)
+                ->where('is_equipped', 1)
+                ->orderBy('slot_no')
+                ->get()
+                ->map(function ($item) {
+
+                    return [
+                        'id' => $item->medal->id,
+                        'name' => $item->medal->title,
+                        'icon' => Helper::showImage($item->medal->icon, true)
+                    ];
+                })
+                ->values();
+
+            $cpRelation = RelationshipInvitation::with([
+                'sender:id,uid,name,image,active_frame_id',
+                'receiver:id,uid,name,image,active_frame_id',
+
+                'sender.activeFrame:id,name,icon,gif',
+                'receiver.activeFrame:id,name,icon,gif',
+            ])
+
+                ->where('status', 'accept')
+                ->whereRaw('LOWER(type)=?', ['cp'])
+                ->where(function ($q) use ($userId) {
+                    $q->where('sender_id', $userId)
+                        ->orWhere('receiver_id', $userId);
+                })
+                ->latest()->first();
+
+
+            $cpData = null;
+
+            if ($cpRelation) {
+
+                $partner = (int) $cpRelation->sender_id === (int) $userId ? $cpRelation->receiver : $cpRelation->sender;
+
+                $partnerFrame = null;
+
+                if ($partner && $partner->active_frame_id) {
+
+                    if ($partner->active_frame_type === 'vip') {
+
+                        $vip = Vip::find($partner->active_frame_id);
+
+                        if ($vip) {
+                            $partnerFrame = [
+                                'id' => $vip->id,
+                                'name' => $vip->name,
+                                'icon' => asset('storage/' . $vip->image_frame),
+                                'svga' => !empty($vip->image_frame_animation)
+                                    ? asset('storage/' . $vip->image_frame_animation)
+                                    : null,
+                            ];
+                        }
+                    } elseif ($partner->active_frame_type === 'svip') {
+
+                        $svip = Svip::find($partner->active_frame_id);
+
+                        if ($svip) {
+                            $partnerFrame = [
+                                'id' => $svip->id,
+                                'name' => $svip->name,
+                                'icon' => !empty($svip->headwear)
+                                    ? asset('storage/' . $svip->headwear)
+                                    : null,
+                                'svga' => !empty($svip->headwear_animation)
+                                    ? asset('storage/' . $svip->headwear_animation)
+                                    : null,
+                            ];
+                        }
+                    } elseif (in_array($partner->active_frame_type, [
+                        'cp',
+                        'brother',
+                        'sister',
+                        'confident'
+                    ])) {
+
+                        $relationItem = RelationshipItem::find($partner->active_frame_id);
+
+                        if ($relationItem) {
+                            $partnerFrame = [
+                                'id' => $relationItem->id,
+                                'name' => $relationItem->name,
+                                'icon' => !empty($relationItem->frame)
+                                    ? Helper::showImage($relationItem->frame, true)
+                                    : null,
+                                'svga' => !empty($relationItem->frame_animation)
+                                    ? Helper::showImage($relationItem->frame_animation, true)
+                                    : null,
+                            ];
+                        }
+                    } else {
+
+                        $frame = Frame::find($partner->active_frame_id);
+
+                        if ($frame) {
+                            $partnerFrame = [
+                                'id' => $frame->id,
+                                'name' => $frame->name,
+                                'icon' => !empty($frame->icon)
+                                    ? Helper::showImage($frame->icon, true)
+                                    : null,
+                                'svga' => !empty($frame->gif)
+                                    ? Helper::showImage($frame->gif, true)
+                                    : null,
+                            ];
+                        }
+                    }
+                }
+                $cpData = [
+                    'id' => $partner?->id,
+                    'uid' => $partner?->uid,
+                    'name' => $partner?->name,
+                    'image' => !empty($partner?->image) ? Helper::showImage($partner->image, true) : null,
+                    'days' => (int) \Carbon\Carbon::parse($cpRelation->created_at)->diffInDays(now()),
+                    'cp-heart' => asset('storage/cp-heart.png'),
+
+                    // 'frame' => $partner?->activeFrame ? [
+                    //     'id' => $partner->activeFrame->id,
+                    //     'name' => $partner->activeFrame->name,
+                    //     'icon' => !empty($partner->activeFrame->icon)
+                    //         ? Helper::showImage($partner->activeFrame->icon, true) : null,
+
+                    //     'svga' => !empty($partner->activeFrame->gif)
+                    //         ? Helper::showImage($partner->activeFrame->gif, true) : null,
+                    // ] : null,
+
+                    'frame' => $partnerFrame,
+                ];
+            }
+
+            $displayUid = $user->uid;
+            $uidBadge = null;
+            $uidBadgeColor = null;
+
+            // Premium UID
+            $premiumUid = PremiumNumber::where('user_id', $user->id)
+                ->where('end_at', '>', now())
+                ->latest()
+                ->first();
+
+            if ($premiumUid) {
+
+                $displayUid = $premiumUid->premium_number;
+
+                $uidBadge = asset('storage/1000175794.png');
+                $uidBadgeColor = '#fcd01c';
+            } else {
+
+                // Store UID
+                if ($user->active_uid_id) {
+
+                    $storeUid = StoreUids::find($user->active_uid_id);
+
+                    if ($storeUid) {
+
+                        $hasValidPurchase = DB::table('item_deliveries')
+                            ->where('recipient', $user->id)
+                            ->where('type', 'id')
+                            ->where('item_id', $storeUid->id)
+                            ->where('end_at', '>', now())
+                            ->exists();
+
+                        $hasValidGift = DB::table('item_gift_transactions')
+                            ->where('receiver_id', $user->id)
+                            ->where('type', 'id')
+                            ->where('item_id', $storeUid->id)
+                            ->where('end_at', '>', now())
+                            ->exists();
+
+                        if ($hasValidPurchase || $hasValidGift) {
+
+                            $displayUid = $storeUid->unique_id;
+
+                            $uidBadge = !empty($storeUid->rank_badge)
+                                ? Helper::showImage($storeUid->rank_badge, true)
+                                : null;
+                            $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+
+                        }
+                    }
+                }
+            }
+
+
+            $frameData = null;
+
+            if ($user->active_frame_id) {
+
+                /*
+    |--------------------------------------------------------------------------
+    | STORE FRAME
+    |--------------------------------------------------------------------------
+    */
+                if ($user->active_frame_type === 'store' || empty($user->active_frame_type)) {
+
+                    $frame = Frame::find($user->active_frame_id);
+
+                    if ($frame) {
+                        $frameData = [
+                            'id' => $frame->id,
+                            'name' => $frame->name,
+                            'icon' => !empty($frame->icon)
+                                ? Helper::showImage($frame->icon, true)
+                                : null,
+
+                            'svga' => !empty($frame->gif)
+                                ? Helper::showImage($frame->gif, true)
+                                : null,
+                        ];
+                    }
+                }
+
+                /*
+    |--------------------------------------------------------------------------
+    | VIP FRAME
+    |--------------------------------------------------------------------------
+    */ elseif ($user->active_frame_type === 'vip') {
+
+                    $vip = Vip::find($user->active_frame_id);
+
+                    if ($vip) {
+                        $frameData = [
+                            'id' => $vip->id,
+                            'name' => $vip->name,
+                            'icon' => !empty($vip->image_frame)
+                                ? asset('storage/' . $vip->image_frame)
+                                : null,
+
+                            'svga' => !empty($vip->image_frame_animation)
+                                ? asset('storage/' . $vip->image_frame_animation)
+                                : null,
+                        ];
+                    }
+                }
+
+                /*
+    |--------------------------------------------------------------------------
+    | SVIP FRAME
+    |--------------------------------------------------------------------------
+    */ elseif ($user->active_frame_type === 'svip') {
+
+                    $svip = Svip::find($user->active_frame_id);
+
+                    if ($svip) {
+                        $frameData = [
+                            'id' => $svip->id,
+                            'name' => $svip->name,
+                            'icon' => !empty($svip->headwear)
+                                ? asset('storage/' . $svip->headwear)
+                                : null,
+
+                            'svga' => !empty($svip->headwear_animation)
+                                ? asset('storage/' . $svip->headwear_animation)
+                                : null,
+                        ];
+                    }
+                }
+
+                /*
+    |--------------------------------------------------------------------------
+    | CP FRAME
+    |--------------------------------------------------------------------------
+    */ elseif ($user->active_frame_type === 'cp') {
+
+                    $relationItem = RelationshipItem::find($user->active_frame_id);
+
+                    if ($relationItem) {
+                        $frameData = [
+                            'id' => $relationItem->id,
+                            'name' => $relationItem->name,
+                            'icon' => !empty($relationItem->frame)
+                                ? Helper::showImage($relationItem->frame, true)
+                                : null,
+
+                            'svga' => !empty($relationItem->frame_animation)
+                                ? Helper::showImage($relationItem->frame_animation, true)
+                                : null,
+                        ];
+                    }
+                }
+            }
+
             return response()->json([
                 'status' => true,
                 'message' => 'User Details fethed Successfuly',
                 'data' =>  [
                     'is_own_profile' => $isOwnProfile,
-
                     'id' => $user->id,
-                    'uid' => $user->uid,
+                    'room_id' => $roomId ? $roomId->id : null,
+                    // 'uid' => $user->uid,
+                    'uid' => $displayUid,
+                    'uid_badge' => $uidBadge,
+                    'uid_badge_color' => $uidBadgeColor,
                     'name' => $user->name,
                     'email' => $user->email,
                     'gender' => $user->gender,
                     'image' => $image,
+                    'flag' => $flag,
+                    'signature' => $user->signature,
+
+                    'cp_relation' => $cpData,
 
                     'following' => DB::table('user_follows')
                         ->where('follower_id', $userId)
@@ -272,6 +563,41 @@ class UserController extends Controller
 
                     'is_following' => $isFollowing,
                     'is_friend' => $isFriend,
+                    'role_badges' => Helper::getUserRoleBadges($user->id),
+
+                    'wealth_level' => [
+                        'level' => $wealthLevel?->level ?? 1,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage($wealthLevel->levelData->icon, true) : null
+                    ],
+
+                    'charm_level' => [
+                        'level' => $charmLevel?->level ?? 1,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage($charmLevel->levelData->icon, true)
+                            : null
+                    ],
+
+                    'medals' => $equippedMedals,
+
+                    'profile_card' => $user->activeCard ? [
+                        'id' => $user->activeCard->id,
+                        'name' => $user->activeCard->name,
+                        'icon' => !empty($user->activeCard->icon) ? Helper::showImage($user->activeCard->icon, true) : null,
+                        'svga' => !empty($user->activeCard->gif) ? Helper::showImage($user->activeCard->gif, true) : null,
+                    ] : null,
+
+                    // 'frame' => $user->activeFrame ? [
+                    //     'id' => $user->activeFrame->id,
+                    //     'name' => $user->activeFrame->name,
+                    //     'icon' => !empty($user->activeFrame->icon) ? Helper::showImage($user->activeFrame->icon, true) : null,
+                    //     'svga' => !empty($user->activeFrame->gif) ? Helper::showImage($user->activeFrame->gif, true) : null,
+                    // ] : null,
+
+                    'frame' => $frameData,
+
+
+
                 ]
             ]);
         } catch (\Exception $e) {
@@ -293,8 +619,6 @@ class UserController extends Controller
             'is_bind' => !is_null($user->is_email_bind),
         ]);
     }
-
-
     public function followUser(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -470,15 +794,37 @@ class UserController extends Controller
 
     // public function getUserPosts(Request $request)
     // {
+    //     $validator = Validator::make($request->all(), [
+    //         'user_id' => 'nullable|integer|exists:app_users,id',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $validator->errors()
+    //         ], 422);
+    //     }
+
     //     try {
-    //         $userId = auth()->id();
+    //         $authUser = Auth::user();
+
+    //         if (!$authUser) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Unauthenticated'
+    //             ], 401);
+    //         }
+
+    //         // user_id aaye to other user posts, warna auth user posts
+    //         $userId = $request->filled('user_id')
+    //             ? (int) $request->user_id
+    //             : (int) $authUser->id;
 
     //         $posts = Post::where('user_id', $userId)
     //             ->with(['topic', 'media'])
     //             ->orderBy('created_at', 'desc')
     //             ->get()
     //             ->map(function ($post) {
-
     //                 $post->topic_name = $post->topic->name ?? null;
     //                 unset($post->topic);
 
@@ -494,7 +840,11 @@ class UserController extends Controller
     //         return response()->json([
     //             'status' => true,
     //             'message' => 'Posts fetched successfully',
-    //             'data' => $posts
+    //             'data' => [
+    //                 'is_own_profile' => (int) $authUser->id === (int) $userId,
+    //                 'user_id' => $userId,
+    //                 'posts' => $posts
+    //             ]
     //         ], 200);
     //     } catch (\Exception $e) {
     //         return response()->json([
@@ -503,7 +853,6 @@ class UserController extends Controller
     //         ], 500);
     //     }
     // }
-
 
 
     public function getUserPosts(Request $request)
@@ -520,6 +869,7 @@ class UserController extends Controller
         }
 
         try {
+
             $authUser = Auth::user();
 
             if (!$authUser) {
@@ -529,46 +879,75 @@ class UserController extends Controller
                 ], 401);
             }
 
-            // user_id aaye to other user posts, warna auth user posts
             $userId = $request->filled('user_id')
-                ? (int) $request->user_id
-                : (int) $authUser->id;
+                ? $request->user_id
+                : $authUser->id;
 
             $posts = Post::where('user_id', $userId)
-                ->with(['topic', 'media'])
-                ->orderBy('created_at', 'desc')
+                ->with([
+                    'topic',
+                    'media',
+                    'user',
+                ])
+                ->withCount([
+                    'comments',
+                    'likes'
+                ])
+                ->latest()
                 ->get()
-                ->map(function ($post) {
-                    $post->topic_name = $post->topic->name ?? null;
-                    unset($post->topic);
+                ->map(function ($post) use ($authUser) {
 
-                    if ($post->media) {
-                        foreach ($post->media as $media) {
-                            $media->file_path = Helper::showImage($media->file_path ?? null, true);
-                        }
-                    }
+                    return [
+                        'id' => $post->id,
+                        'topic_name' => $post->topic->name ?? null,
+                        'description' => $post->description,
+                        'comments_count' => $post->comments_count,
+                        'likes_count' => $post->likes_count,
 
-                    return $post;
+                        'time_ago' => Carbon::parse(
+                            $post->created_at
+                        )->diffForHumans(),
+
+                        'is_liked' => $post->likes()
+                            ->where('user_id', $authUser->id)
+                            ->exists(),
+
+                        'user' => [
+                            'id' => $post->user->id,
+                            'name' => $post->user->name,
+                            'gender' => $post->user->gender,
+                            'image' => Helper::showImage(
+                                $post->user->image,
+                                true
+                            ),
+                        ],
+
+                        'media' => $post->media->map(function ($media) {
+
+                            return [
+                                'file_type' => $media->file_type,
+                                'file_url' => Helper::showImage(
+                                    $media->file_path,
+                                    true
+                                ),
+                            ];
+                        })->values(),
+                    ];
                 });
 
             return response()->json([
                 'status' => true,
                 'message' => 'Posts fetched successfully',
-                'data' => [
-                    'is_own_profile' => (int) $authUser->id === (int) $userId,
-                    'user_id' => $userId,
-                    'posts' => $posts
-                ]
+                'data' => $posts
             ], 200);
         } catch (\Exception $e) {
+
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage()
             ], 500);
         }
     }
-
-
     public function uploadAlbum(Request $request)
     {
         $request->validate([
@@ -603,31 +982,6 @@ class UserController extends Controller
             ], 500);
         }
     }
-
-    // public function getMyAlbum()
-    // {
-    //     $user = Auth::user();
-
-    //     $album = DB::table('user_albums')
-    //         ->where('app_user_id', $user->id)
-    //         ->whereNull('deleted_at')
-    //         ->latest()
-    //         ->get()
-    //         ->map(function ($item) {
-    //             return [
-    //                 'id' => $item->id,
-    //                 'file' => Helper::showImage($item->file, true),
-    //                 'type' => $item->file_type,
-    //                 'created_at' => $item->created_at
-    //             ];
-    //         });
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'data' => $album
-    //     ]);
-    // }
-
 
 
     public function getMyAlbum(Request $request)
@@ -688,7 +1042,6 @@ class UserController extends Controller
         }
     }
 
-
     public function deleteAlbum($id)
     {
         $user = Auth::user();
@@ -716,123 +1069,6 @@ class UserController extends Controller
             'message' => 'Deleted successfully'
         ]);
     }
-
-    // public function getProfileOverview(Request $request)
-    // {
-    //     try {
-    //         $user = Auth::user();
-
-    //         // MEDAL (LEVEL)
-    //         $level = DB::table('user_level')
-    //             ->where('grade', $user->user_level)
-    //             ->first();
-
-    //         $medal = $level ? [
-    //             'id' => $level->id,
-    //             'name' => $level->name,
-    //             'icon' => Helper::showImage($level->icon, true),
-    //             'avatar_corner' => Helper::showImage($level->avatar_corner, true),
-    //         ] : null;
-
-    //         // FRAMES
-    //         $frameIds = DB::table('item_gift_transactions')
-    //             ->where('receiver_id', $user->id)
-    //             ->where('type', 'frame')
-    //             ->pluck('item_id')
-    //             ->unique();
-
-    //         $frames = DB::table('frames')
-    //             ->whereIn('id', $frameIds)
-    //             ->get()
-    //             ->map(function ($f) {
-    //                 return [
-    //                     'id' => $f->id,
-    //                     'name' => $f->name,
-    //                     'icon' => Helper::showImage($f->icon, true),
-    //                     'gif' => Helper::showImage($f->gif, true),
-    //                 ];
-    //             });
-
-    //         // VEHICLES (car type)
-    //         $vehicleIds = DB::table('item_gift_transactions')
-    //             ->where('receiver_id', $user->id)
-    //             ->where('type', 'car')
-    //             ->pluck('item_id')
-    //             ->unique();
-
-    //         $vehicles = DB::table('cars')
-    //             ->whereIn('id', $vehicleIds)
-    //             ->get()
-    //             ->map(function ($v) {
-    //                 return [
-    //                     'id' => $v->id,
-    //                     'name' => $v->name,
-    //                     'icon' => Helper::showImage($v->icon, true),
-    //                     'gif' => Helper::showImage($v->gif ?? null, true),
-    //                 ];
-    //             });
-
-    //         // GUARDIANS
-    //         $guardians = DB::table('item_gift_transactions')
-    //             ->select('sender_id', DB::raw('SUM(total_coins) as total'))
-    //             ->where('receiver_id', $user->id)
-    //             ->groupBy('sender_id')
-    //             ->orderByDesc('total')
-    //             ->limit(3)
-    //             ->get()
-    //             ->map(function ($g) {
-    //                 $u = DB::table('app_users')->where('id', $g->sender_id)->first();
-
-    //                 return [
-    //                     'id' => $u->id ?? null,
-    //                     'name' => $u->name ?? null,
-    //                     'image' => Helper::showImage($u->image ?? null, true),
-    //                     'coins' => (int)$g->total
-    //                 ];
-    //             });
-
-    //         // ALBUM
-    //         $album = DB::table('user_albums')
-    //             ->where('app_user_id', $user->id)
-    //             ->whereNull('deleted_at')
-    //             ->latest()
-    //             ->limit(6)
-    //             ->get()
-    //             ->map(function ($m) {
-    //                 return [
-    //                     'id' => $m->id,
-    //                     'file' => Helper::showImage($m->file, true),
-    //                     'type' => $m->file_type
-    //                 ];
-    //             });
-
-    //         // GIFTS
-    //         $gifts = DB::table('item_gift_transactions')
-    //             ->where('receiver_id', $user->id)
-    //             ->latest()
-    //             ->limit(5)
-    //             ->get();
-
-    //         return response()->json([
-    //             'status' => true,
-    //             'data' => [
-    //                 'guardian' => $guardians,
-    //                 'album' => $album,
-    //                 'frames' => $frames,
-    //                 'vehicles' => $vehicles,
-    //                 'medal' => $medal,
-    //                 'gifts' => $gifts
-    //             ]
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
-
 
     public function getProfileOverview(Request $request)
     {
@@ -872,16 +1108,33 @@ class UserController extends Controller
             }
 
             // MEDAL / LEVEL
-            $level = DB::table('user_level')
-                ->where('grade', $user->user_level)
-                ->first();
+            // $level = DB::table('user_level')
+            //     ->where('grade', $user->user_level)
+            //     ->first();
 
-            $medal = $level ? [
-                'id' => $level->id,
-                'name' => $level->name,
-                'icon' => Helper::showImage($level->icon, true),
-                'avatar_corner' => Helper::showImage($level->avatar_corner, true),
-            ] : null;
+            // $medal = $level ? [
+            //     'id' => $level->id,
+            //     'name' => $level->name,
+            //     'icon' => Helper::showImage($level->icon, true),
+            //     'avatar_corner' => Helper::showImage($level->avatar_corner, true),
+            // ] : null;
+
+            $medal = UserMedal::with('medal')
+                ->where('user_id', $user->id)
+                ->where('is_equipped', 1)
+                ->orderBy('slot_no')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->medal->id,
+                        'name' => $item->medal->title,
+                        'icon' => Helper::showImage(
+                            $item->medal->icon,
+                            true
+                        ),
+                    ];
+                })
+                ->values();
 
             $now = now();
 
@@ -1058,7 +1311,6 @@ class UserController extends Controller
         }
     }
 
-
     public function getProfile(Request $request): JsonResponse
     {
         try {
@@ -1098,7 +1350,6 @@ class UserController extends Controller
             ], 500);
         }
     }
-
 
     public function updateProfile(Request $request): JsonResponse
     {
@@ -1200,6 +1451,162 @@ class UserController extends Controller
     }
 
 
+    // public function getUserRelationships(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'user_id' => 'nullable|integer|exists:app_users,id',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $validator->errors()
+    //         ], 422);
+    //     }
+
+    //     try {
+    //         $authUser = Auth::user();
+
+    //         if (!$authUser) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Unauthenticated'
+    //             ], 401);
+    //         }
+
+    //         $profileUserId = $request->filled('user_id')
+    //             ? (int) $request->user_id
+    //             : (int) $authUser->id;
+
+    //         $profileUser = DB::table('app_users')
+    //             ->where('id', $profileUserId)
+    //             ->first();
+
+    //         if (!$profileUser) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'User not found'
+    //             ], 404);
+    //         }
+
+    //         $relationships = [
+    //             'cp' => [
+    //                 'count' => 0,
+    //                 'data' => null,
+    //             ],
+    //             'brother' => [
+    //                 'count' => 0,
+    //                 'data' => [],
+    //             ],
+    //             'sister' => [
+    //                 'count' => 0,
+    //                 'data' => [],
+    //             ],
+    //             'confidant' => [
+    //                 'count' => 0,
+    //                 'data' => [],
+    //             ],
+    //         ];
+
+    //         $relations = DB::table('relationship_invitations as ri')
+    //             ->leftJoin('relationship_items as item', 'item.id', '=', 'ri.relationship_item_id')
+    //             ->where('ri.status', 'accept')
+    //             ->where(function ($q) use ($profileUserId) {
+    //                 $q->where('ri.sender_id', $profileUserId)
+    //                     ->orWhere('ri.receiver_id', $profileUserId);
+    //             })
+    //             ->select(
+    //                 'ri.*',
+    //                 'item.name as relationship_name',
+    //                 'item.frame as relationship_frame',
+    //                 'item.background as relationship_background'
+    //             )
+    //             ->orderByDesc('ri.updated_at')
+    //             ->get();
+
+    //         foreach ($relations as $relation) {
+    //             $otherUserId = ((int) $relation->sender_id === (int) $profileUserId)
+    //                 ? (int) $relation->receiver_id
+    //                 : (int) $relation->sender_id;
+
+    //             $otherUser = DB::table('app_users')
+    //                 ->where('id', $otherUserId)
+    //                 ->first();
+
+    //             if (!$otherUser) {
+    //                 continue;
+    //             }
+
+    //             $type = strtolower(trim($relation->type));
+
+    //             if (in_array($type, ['cp', 'couple'])) {
+    //                 $typeKey = 'cp';
+    //             } elseif ($type === 'brother') {
+    //                 $typeKey = 'brother';
+    //             } elseif ($type === 'sister') {
+    //                 $typeKey = 'sister';
+    //             } elseif (in_array($type, ['confidant', 'confident', 'confidential'])) {
+    //                 $typeKey = 'confidant';
+    //             } else {
+    //                 continue;
+    //             }
+
+    //             $days = $relation->updated_at
+    //                 ? Carbon::parse($relation->updated_at)->diffInDays(now())
+    //                 : 0;
+
+    //             $item = [
+    //                 'invitation_id' => $relation->id,
+    //                 'relationship_item_id' => $relation->relationship_item_id,
+    //                 'relationship_name' => $relation->relationship_name,
+    //                 'relationship_frame' => Helper::showImage($relation->relationship_frame ?? null, true),
+    //                 'relationship_background' => Helper::showImage($relation->relationship_background ?? null, true),
+    //                 'type' => $typeKey,
+    //                 'days' => $days,
+    //                 'days_text' => $days . ' days',
+    //                 'user' => [
+    //                     'id' => $otherUser->id,
+    //                     'uid' => $otherUser->uid ?? null,
+    //                     'name' => $otherUser->name ?? null,
+    //                     'image' => Helper::showImage($otherUser->image ?? null, true),
+    //                     'gender' => $otherUser->gender ?? null,
+    //                     'country' => $otherUser->country ?? null,
+    //                 ],
+    //             ];
+
+    //             if ($typeKey === 'cp') {
+    //                 // Couple sirf ek hoga, latest accepted relation show hoga
+    //                 if ($relationships['cp']['data'] === null) {
+    //                     $relationships['cp']['data'] = $item;
+    //                     $relationships['cp']['count'] = 1;
+    //                 }
+    //             } else {
+    //                 // Brother, Sister, Confidant multiple ho sakte hain
+    //                 $relationships[$typeKey]['data'][] = $item;
+    //             }
+    //         }
+
+    //         $relationships['brother']['count'] = count($relationships['brother']['data']);
+    //         $relationships['sister']['count'] = count($relationships['sister']['data']);
+    //         $relationships['confidant']['count'] = count($relationships['confidant']['data']);
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Relationship details fetched successfully',
+    //             'data' => [
+    //                 'is_own_profile' => (int) $authUser->id === (int) $profileUserId,
+    //                 'user_id' => $profileUserId,
+    //                 'relationships' => $relationships,
+    //             ]
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function getUserRelationships(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1223,6 +1630,8 @@ class UserController extends Controller
                 ], 401);
             }
 
+            // Profile User
+
             $profileUserId = $request->filled('user_id')
                 ? (int) $request->user_id
                 : (int) $authUser->id;
@@ -1238,53 +1647,88 @@ class UserController extends Controller
                 ], 404);
             }
 
+            //  Default CP Item
+
+            $defaultCp = DB::table('relationship_items')
+                ->where('status', 1)
+                ->whereRaw('LOWER(type)=?', ['cp'])
+                ->orderBy('required_coins')
+                ->first();
+
+            // Default Response
+
             $relationships = [
                 'cp' => [
                     'count' => 0,
-                    'data' => null,
+                    'data' => [
+                        'invitation_id' => null,
+                        'type' => 'cp',
+                        'days' => 0,
+                        'days_text' => '0 days',
+                        'gift_coins' => 0,
+
+                        'current_level' => [
+                            'id' => $defaultCp->id ?? null,
+                            'name' => $defaultCp->name ?? null,
+                            'required_coins' => $defaultCp->required_coins ?? 0,
+                            'frame' => Helper::showImage($defaultCp->frame ?? null, true),
+                            'background' => Helper::showImage($defaultCp->background ?? null, true),
+                        ],
+
+                        'owner_user' => [
+                            'id' => $profileUser->id,
+                            'uid' => $profileUser->uid ?? null,
+                            'name' => $profileUser->name ?? null,
+                            'image' => Helper::showImage($profileUser->image ?? null, true),
+                            'gender' => $profileUser->gender ?? null,
+                            'country' => $profileUser->country ?? null,
+                        ],
+
+                        'related_user' => null,
+                    ],
                 ],
+
                 'brother' => [
                     'count' => 0,
                     'data' => [],
                 ],
+
                 'sister' => [
                     'count' => 0,
                     'data' => [],
                 ],
+
                 'confidant' => [
                     'count' => 0,
                     'data' => [],
                 ],
             ];
 
+            // Accepted Relations
+
             $relations = DB::table('relationship_invitations as ri')
-                ->leftJoin('relationship_items as item', 'item.id', '=', 'ri.relationship_item_id')
                 ->where('ri.status', 'accept')
-                ->where(function ($q) use ($profileUserId) {
+                ->where(function ($q)
+                use ($profileUserId) {
                     $q->where('ri.sender_id', $profileUserId)
                         ->orWhere('ri.receiver_id', $profileUserId);
                 })
-                ->select(
-                    'ri.*',
-                    'item.name as relationship_name',
-                    'item.frame as relationship_frame',
-                    'item.background as relationship_background'
-                )
-                ->orderByDesc('ri.updated_at')
-                ->get();
+                ->orderByDesc('ri.updated_at')->get();
 
             foreach ($relations as $relation) {
-                $otherUserId = ((int) $relation->sender_id === (int) $profileUserId)
-                    ? (int) $relation->receiver_id
-                    : (int) $relation->sender_id;
 
-                $otherUser = DB::table('app_users')
-                    ->where('id', $otherUserId)
-                    ->first();
+                // Related User
+
+                $otherUserId = ((int) $relation->sender_id === (int) $profileUserId)
+                    ? (int) $relation->receiver_id : (int) $relation->sender_id;
+
+                $otherUser = DB::table('app_users')->where('id', $otherUserId)->first();
 
                 if (!$otherUser) {
                     continue;
                 }
+
+                // Type Mapping
 
                 $type = strtolower(trim($relation->type));
 
@@ -1300,20 +1744,76 @@ class UserController extends Controller
                     continue;
                 }
 
-                $days = $relation->updated_at
-                    ? Carbon::parse($relation->updated_at)->diffInDays(now())
-                    : 0;
+                // Pair Gift Coins
+
+                $giftCoins = DB::table('gift_transactions')
+                    ->where(function ($q)
+                    use ($profileUserId, $otherUserId) {
+                        $q->where(function ($sub)
+                        use ($profileUserId, $otherUserId) {
+                            $sub->where('sender_id', $profileUserId)
+                                ->where('receiver_id', $otherUserId);
+                        })->orWhere(function ($sub)
+                        use ($profileUserId, $otherUserId) {
+                            $sub->where('sender_id', $otherUserId)
+                                ->where('receiver_id', $profileUserId);
+                        });
+                    })
+                    ->sum('total_value');
+
+                // Current Level
+
+                $currentLevel = DB::table('relationship_items')->where('status', 1)
+                    ->whereRaw('LOWER(type)=?', [$typeKey])
+                    ->where('required_coins', '<=', $giftCoins)
+                    ->orderByDesc('required_coins')
+                    ->first();
+
+                if (!$currentLevel) {
+
+                    $currentLevel = DB::table('relationship_items')
+                        ->where('status', 1)
+                        ->whereRaw('LOWER(type)=?', [$typeKey])
+                        ->orderBy('required_coins')
+                        ->first();
+                }
+
+                // Accepted Days
+
+                $days = max(
+                    1,
+                    (int) Carbon::parse($relation->updated_at)
+                        ->startOfDay()
+                        ->diffInDays(now()->startOfDay())
+                );
+
+                // Response Item
 
                 $item = [
                     'invitation_id' => $relation->id,
-                    'relationship_item_id' => $relation->relationship_item_id,
-                    'relationship_name' => $relation->relationship_name,
-                    'relationship_frame' => Helper::showImage($relation->relationship_frame ?? null, true),
-                    'relationship_background' => Helper::showImage($relation->relationship_background ?? null, true),
                     'type' => $typeKey,
                     'days' => $days,
                     'days_text' => $days . ' days',
-                    'user' => [
+                    'gift_coins' => (int) $giftCoins,
+
+                    'current_level' => [
+                        'id' => $currentLevel->id ?? null,
+                        'name' => $currentLevel->name ?? null,
+                        'required_coins' => $currentLevel->required_coins ?? 0,
+                        'frame' => Helper::showImage($currentLevel->frame ?? null, true),
+                        'background' => Helper::showImage($currentLevel->background ?? null, true),
+                    ],
+
+                    // 'owner_user' => [
+                    //     'id' => $profileUser->id,
+                    //     'uid' => $profileUser->uid ?? null,
+                    //     'name' => $profileUser->name ?? null,
+                    //     'image' => Helper::showImage($profileUser->image ?? null,true),
+                    //     'gender' => $profileUser->gender ?? null,
+                    //     'country' => $profileUser->country ?? null,
+                    // ],
+
+                    'related_user' => [
                         'id' => $otherUser->id,
                         'uid' => $otherUser->uid ?? null,
                         'name' => $otherUser->name ?? null,
@@ -1323,25 +1823,28 @@ class UserController extends Controller
                     ],
                 ];
 
+                // CP only one
+
                 if ($typeKey === 'cp') {
-                    // Couple sirf ek hoga, latest accepted relation show hoga
-                    if ($relationships['cp']['data'] === null) {
-                        $relationships['cp']['data'] = $item;
-                        $relationships['cp']['count'] = 1;
-                    }
+                    $relationships['cp']['data'] = $item;
+                    $relationships['cp']['count'] = 1;
                 } else {
-                    // Brother, Sister, Confidant multiple ho sakte hain
                     $relationships[$typeKey]['data'][] = $item;
                 }
             }
 
+            // Counts
+
             $relationships['brother']['count'] = count($relationships['brother']['data']);
+
             $relationships['sister']['count'] = count($relationships['sister']['data']);
+
             $relationships['confidant']['count'] = count($relationships['confidant']['data']);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Relationship details fetched successfully',
+                'message' =>
+                'Relationship details fetched successfully',
                 'data' => [
                     'is_own_profile' => (int) $authUser->id === (int) $profileUserId,
                     'user_id' => $profileUserId,
@@ -1349,9 +1852,11 @@ class UserController extends Controller
                 ]
             ], 200);
         } catch (\Exception $e) {
+
             return response()->json([
                 'status' => false,
-                'message' => $e->getMessage()
+                'message' =>
+                $e->getMessage()
             ], 500);
         }
     }

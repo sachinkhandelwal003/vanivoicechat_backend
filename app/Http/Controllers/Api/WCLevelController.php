@@ -14,7 +14,7 @@ class WCLevelController extends Controller
     {
         try {
 
-            $type = $request->type ?? 'wealth'; 
+            $type = $request->type ?? 'wealth';
 
             $user = Auth::user();
 
@@ -30,41 +30,60 @@ class WCLevelController extends Controller
 
             $currentExp = $userLevel->exp ?? 0;
 
-            $currentLevel = $levels->where('required_exp', '<=', $currentExp)->last();
+            $currentLevel = $userLevel->level ?? 1;
 
-            $nextLevel = $levels->where('required_exp', '>', $currentExp)->first();
+            $nextLevel = $levels->where('level', '>', $currentLevel)->first();
+
+            $wealthLevel = DB::table('wc_levels')
+                ->where('user_id', $user->id)
+                ->where('type', 'wealth')
+                ->first();
+
+            $charmLevel = DB::table('wc_levels')->where('user_id', $user->id)->where('type', 'charm')->first();
 
             $description = DB::table('wc_level_settings')
                 ->where('type', $type)
                 ->value('description');
 
-            $levelList = $levels->map(function ($item) use ($currentExp) {
+            $levelList = $levels->map(function ($item) use ($currentLevel) {
                 return [
                     'id' => $item->id,
                     'level' => $item->level,
                     'required_exp' => (int)$item->required_exp,
                     'icon' => Helper::showImage($item->icon, true),
-                    'entry_effect' => Helper::showImage($item->entry_effect, true),
+                    // 'entry_effect' => Helper::showImage($item->entry_effect, true),
 
-                    'is_unlocked' => $currentExp >= $item->required_exp
+                    'is_unlocked' => $currentLevel >= $item->level
                 ];
             });
 
             return response()->json([
                 'status' => true,
                 'message' => 'Level data fetched successfully',
+                'user' => [
+                    'id' => $user->id,
+                    'uid' => $user->uid,
+                    'name' => $user->name,
+                    'image' => Helper::showImage($user->image, true),
+                ],
 
                 'data' => [
                     'type' => $type,
-
+                    'user_levels' => [
+                        'wealth' => [
+                            'level' => $wealthLevel->level ?? 1,
+                            'exp' => (int) ($wealthLevel->exp ?? 0)
+                        ],
+                        'charm' => [
+                            'level' => $charmLevel->level ?? 1,
+                            'exp' => (int) ($charmLevel->exp ?? 0)
+                        ]
+                    ],
                     'current_exp' => (int)$currentExp,
-
-                    'current_level' => $currentLevel ? $currentLevel->level : 'LEVEL 1',
-
+                    'current_level' => (int) $currentLevel,
+                    'next_level' => $nextLevel ? (int)$nextLevel->level : null,
                     'next_level_exp' => $nextLevel ? (int)$nextLevel->required_exp : null,
-
                     'description' => $description,
-
                     'levels' => $levelList
                 ]
             ]);

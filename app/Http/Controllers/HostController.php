@@ -32,26 +32,35 @@ class HostController extends Controller
                 ->addIndexColumn()
 
                 ->addColumn('user', function ($row) {
-                    if (!$row->user) return '-';
+
+                    if (!$row->user) {
+                        return '-';
+                    }
 
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/avatar.png');
 
                     return '
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                             data-user-id="' . $row->user->id . '" style="cursor:pointer;">
+
                             <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+
                             <div>
                                 <div class="fw-bold">' . e($row->user->name) . '</div>
                                 <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
                             </div>
+
                         </div>
                     ';
                 })
 
                 ->addColumn('agency', function ($row) {
 
-                    if (!$row->agency || !$row->agency->user) return '-';
+                    if (!$row->agency || !$row->agency->user) {
+                        return '-';
+                    }
 
                     $agencyUser = $row->agency->user;
 
@@ -60,16 +69,23 @@ class HostController extends Controller
                         : asset('assets/img/avatar.png');
 
                     return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '" width="40" height="40" class="rounded-circle">
-                        <div>
-                            <div class="fw-bold">' . e($agencyUser->name) . '</div>
-                            <small class="text-muted">UID: ' . e($agencyUser->uid) . '</small>
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                             data-user-id="' . $agencyUser->id . '" style="cursor:pointer;">
+                
+                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                
+                            <div>
+                                <div class="fw-bold">' . e($agencyUser->name) . '</div>
+                                <small class="text-muted">UID: ' . e($agencyUser->uid) . '</small>
+                            </div>
+                
                         </div>
-                    </div>';
+                    ';
                 })
 
-                ->addColumn('country', fn($row) => $row->country->name ?? '-')
+                ->addColumn('country', function ($row) {
+                    return '<span class="badge bg-light text-dark border">' . $row->country->name . '</span>';
+                })
 
                 ->editColumn('status', function ($row) {
                     return $row->status
@@ -105,7 +121,7 @@ class HostController extends Controller
                     </div>';
                 })
 
-                ->rawColumns(['user', 'agency', 'created_at', 'status', 'action'])
+                ->rawColumns(['user', 'agency', 'country', 'created_at', 'status', 'action'])
                 ->make(true);
         }
 
@@ -128,61 +144,182 @@ class HostController extends Controller
     public function save(Request $request, $id = null)
     {
         $rules = [
-            'user_uid' => 'required|exists:app_users,uid',
-            'country_id' => 'required|exists:countries,id',
-            'status' => 'required|in:0,1',
+
+            'user_uid' =>
+            'required|exists:app_users,uid',
+
+            'country_id' =>
+            'required|exists:countries,id',
+
+            'status' =>
+            'required|in:0,1',
         ];
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make(
+            $request->all(),
+            $rules
+        );
 
         if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+
+            return back()
+                ->withErrors($validator)
+                ->withInput();
         }
 
         return DB::transaction(function () use ($request, $id) {
 
-            $host = $id ? Host::find($id) : new Host();
+            /*
+        |--------------------------------------------------------------------------
+        | Find Host
+        |--------------------------------------------------------------------------
+        */
 
-            $user = AppUser::where('uid', $request->user_uid)->first();
-            $userId = $user->id;
+            $host = $id
+                ? Host::find($id)
+                : new Host();
 
-            // $existsInAdmin = AdminAccount::where('user_id', $userId)->exists();
-            // $existsInAgency = Agency::where('user_id', $userId)->exists();
-            $existsInHost = Host::where('user_id', $userId)
-                ->when($id, fn($q) => $q->where('id', '!=', $id))
-                ->exists();
+            /*
+        |--------------------------------------------------------------------------
+        | Find User
+        |--------------------------------------------------------------------------
+        */
 
-            $existsInBd = BdUser::where('user_id', $userId)->exists();
+            $user = AppUser::where(
+                'uid',
+                $request->user_uid
+            )->first();
 
-            $role = null;
+            if (!$user) {
 
-            // if ($existsInAdmin) $role = 'Admin';
-            // if ($existsInAgency) $role = 'Agency';
-            if ($existsInHost) $role = 'Host';
-            elseif ($existsInBd) $role = 'BD';
-
-            if ($role) {
-                return back()->with('error', "User already exists as $role");
+                return back()->with(
+                    'error',
+                    'User not found'
+                );
             }
 
-            $agency = $request->agency_uid
-                ? Agency::whereHas(
-                    'user',
+            $userId = $user->id;
+
+            /*
+        |--------------------------------------------------------------------------
+        | Existing Host Check
+        |--------------------------------------------------------------------------
+        */
+
+            $existsInHost = Host::where(
+                'user_id',
+                $userId
+            )
+
+                ->when(
+                    $id,
                     fn($q) =>
-                    $q->where('uid', $request->agency_uid)
-                )->first()
-                : null;
+                    $q->where(
+                        'id',
+                        '!=',
+                        $id
+                    )
+                )
+
+                ->exists();
+
+            if ($existsInHost) {
+
+                return back()->with(
+                    'error',
+                    'User already exists as Host'
+                );
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Agency Check
+        |--------------------------------------------------------------------------
+        | Agency already includes Host permissions
+        |--------------------------------------------------------------------------
+        */
+
+            $existsInAgency = Agency::where(
+                'user_id',
+                $userId
+            )->exists();
+
+            if ($existsInAgency) {
+
+                return back()->with(
+                    'error',
+                    'User already has Agency role. Agency users cannot be assigned Host role.'
+                );
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Agency UID
+        |--------------------------------------------------------------------------
+        */
+
+            $agency = null;
+
+            if ($request->filled('agency_uid')) {
+
+                $agencyUser = AppUser::where(
+                    'uid',
+                    $request->agency_uid
+                )->first();
+
+                if (!$agencyUser) {
+
+                    return back()->with(
+                        'error',
+                        'Agency user not found'
+                    );
+                }
+
+                $agency = Agency::where(
+                    'user_id',
+                    $agencyUser->id
+                )->first();
+
+                if (!$agency) {
+
+                    return back()->with(
+                        'error',
+                        'Agency not found'
+                    );
+                }
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Save Host
+        |--------------------------------------------------------------------------
+        */
 
             $host->fill([
-                'user_id' => $user->id,
-                'agency_id' => $agency->id ?? null,
-                'country_id' => $request->country_id,
-                'status' => $request->status,
+
+                'user_id' =>
+                $user->id,
+
+                'agency_id' =>
+                $agency->id ?? null,
+
+                'country_id' =>
+                $request->country_id,
+
+                'status' =>
+                $request->status,
+                'invite_status' =>'accept',
+
             ])->save();
 
             return redirect()
                 ->route('host')
-                ->with('success', $id ? 'Host updated successfully' : 'Host added successfully');
+                ->with(
+                    'success',
+                    $id
+                        ? 'Host updated successfully'
+                        : 'Host added successfully'
+                );
         });
     }
 
@@ -192,7 +329,7 @@ class HostController extends Controller
     }
 
 
-    
+
     public function transferForm($id)
     {
         $host = Host::with(['user', 'agency'])->findOrFail($id);

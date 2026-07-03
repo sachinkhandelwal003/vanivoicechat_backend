@@ -50,7 +50,7 @@
                         <label class="form-label fw-bold">User ID</label>
 
                         <input type="text" name="uid"
-                            value="{{ old('uid', $pNumber->user_id) }}"
+                            value="{{ old('uid', $pNumber->uid) }}"
                             class="form-control @error('uid') is-invalid @enderror">
 
                         @error('uid')

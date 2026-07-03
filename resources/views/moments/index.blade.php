@@ -15,8 +15,13 @@
         border-bottom: 1px solid #dee2e6;
     }
 
-    .post-list-table img,
+    /* .post-list-table img,
     .post-list-table video {
+        display: block;
+        margin: 0 auto;
+    } */
+
+    .post-preview-media {
         display: block;
         margin: 0 auto;
     }

@@ -22,4 +22,14 @@ class RoomRewardClaim extends Model
         'system_commission',
         'owner_reward_coins'
     ];
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class, 'room_id');
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(AppUser::class, 'owner_id');
+    }
 }

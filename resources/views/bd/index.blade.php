@@ -28,6 +28,7 @@
                     <tr>
                         <th>User</th>
                         <th>Admin</th>
+                        <th>Agency</th>
                         <th>Country</th>
                         <th>WhatsApp</th>
                         <th>Status</th>
@@ -46,26 +47,57 @@
 <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
 
 <script>
-    $(function () {
+    $(function() {
 
         var table = $('.table-datatable').DataTable({
             processing: true,
             serverSide: true,
             ajax: "{{ route('bd-user') }}",
-            order: [[5, 'desc']],
-            columns: [
-                { data: 'user', name: 'user', orderable: false },
-                { data: 'admin', name: 'admin', orderable: false },
-                { data: 'country', name: 'country' },
-                { data: 'whatsapp_number', name: 'whatsapp_number' },
-                { data: 'status', name: 'status' },
-                { data: 'time', name: 'time' },
-                { data: 'action', name: 'action', orderable: false, searchable: false }
+            order: [
+                [5, 'desc']
+            ],
+            columns: [{
+                    data: 'user',
+                    name: 'user',
+                    orderable: false
+                },
+                {
+                    data: 'admin',
+                    name: 'admin',
+                    orderable: false
+                },
+                {
+                    data: 'agency_count',
+                    name: 'agency_count',
+                    searchable: false
+                },
+                {
+                    data: 'country',
+                    name: 'country'
+                },
+                {
+                    data: 'whatsapp_number',
+                    name: 'whatsapp_number'
+                },
+                {
+                    data: 'status',
+                    name: 'status'
+                },
+                {
+                    data: 'time',
+                    name: 'time'
+                },
+                {
+                    data: 'action',
+                    name: 'action',
+                    orderable: false,
+                    searchable: false
+                }
             ]
         });
 
         // DELETE
-        $(document).on('click', ".delete", function () {
+        $(document).on('click', ".delete", function() {
             var id = $(this).data('id');
 
             Swal.fire(deleteMessageSwalConfig).then((result) => {
@@ -77,7 +109,7 @@
                             id: id,
                             _token: "{{ csrf_token() }}"
                         },
-                        success: function (data) {
+                        success: function(data) {
                             if (data.status) {
                                 Swal.fire('', data.message, "success");
                                 table.draw();
@@ -90,6 +122,56 @@
             });
         });
 
+    });
+</script>
+
+<script>
+    $(document).on('click', '.convert-admin', function() {
+
+        let id = $(this).data('id');
+
+        Swal.fire({
+            title: 'Convert To Admin?',
+            text: 'BD role will be removed and Admin role will be assigned.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes Convert'
+        }).then((result) => {
+
+            if (result.isConfirmed) {
+
+                $.ajax({
+
+                    url: '/bd-user/' + id + '/convert-admin',
+
+                    type: 'POST',
+
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+
+                    success: function(res) {
+
+                        Swal.fire(
+                            'Success',
+                            res.message,
+                            'success'
+                        );
+
+                        $('.table-datatable').DataTable().ajax.reload();
+                    },
+
+                    error: function(xhr) {
+
+                        Swal.fire(
+                            'Error',
+                            xhr.responseJSON.message,
+                            'error'
+                        );
+                    }
+                });
+            }
+        });
     });
 </script>
 @endsection

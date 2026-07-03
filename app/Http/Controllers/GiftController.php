@@ -31,12 +31,28 @@ class GiftController extends Controller
 
             return DataTables::of($query)
                 ->addIndexColumn()
+                // ->editColumn('cover', function ($row) {
+                //     return '<img src="' . asset('storage/' . $row->cover) . '" width="40">';
+                // })
                 ->editColumn('cover', function ($row) {
-                    return '<img src="' . asset('storage/' . $row->cover) . '" width="40">';
+
+                    $image = asset('storage/' . $row->cover);
+
+                    return '
+                        <img src="'.$image.'"
+                             width="40"
+                             height="40"
+                             class="image-preview"
+                             data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
+
                 })
+
                 ->editColumn('status', function ($row) {
                     return $row['status'] == 1 ? '<small class="badge fw-semi-bold rounded-pill status badge-light-success"> Active</small>' : '<small class="badge fw-semi-bold rounded-pill status badge-light-danger"> Inactive</small>';
                 })
+
                 ->addColumn('action', function ($row) {
                     $btn = '<div class="dropdown">
                     <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
@@ -79,20 +95,45 @@ class GiftController extends Controller
             'logo'      => 'required|in:gift,lucky,cp,national,activity',
             'name'      => 'required|string|max:255',
 
-            'cover'     => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'cover'     => 'required|image|mimes:jpg,jpeg,png,webp',
             'price'     => 'required|numeric',
             'status'    => 'required|in:0,1',
 
-            'animation_type'     => 'required_if:gift_type,luxury|in:gif,svga',
-            'gif_image'          => 'nullable|file|mimes:gif|max:4096',
+            'animation_type'     => 'required_if:gift_type,luxury|nullable|in:gif,svga',
+            'gif_image'          => 'nullable|file|mimes:gif',
 
-            'svga_file'          => 'nullable|file|mimes:svga|max:10240',
+            // svga me mimes mat lagao
+            'svga_file'          => 'nullable|file',
             'svga_path'          => 'nullable|string',
 
             'animation_duration' => 'nullable|numeric|min:0',
         ];
 
         $validator = Validator::make($request->all(), $rules);
+
+        $validator->after(function ($validator) use ($request) {
+
+            if ($request->gift_type === 'luxury' && $request->animation_type === 'svga') {
+
+                if ($request->hasFile('svga_file')) {
+                    $ext = strtolower($request->file('svga_file')->getClientOriginalExtension());
+
+                    if ($ext !== 'svga') {
+                        $validator->errors()->add('svga_file', 'Please upload only .svga file');
+                    }
+                }
+
+                if (!$request->hasFile('svga_file') && empty($request->svga_path)) {
+                    $validator->errors()->add('svga_path', 'Please upload SVGA file or enter full SVGA URL');
+                }
+            }
+
+            if ($request->gift_type === 'luxury' && $request->animation_type === 'gif') {
+                if (!$request->hasFile('gif_image')) {
+                    $validator->errors()->add('gif_image', 'Please upload a GIF file');
+                }
+            }
+        });
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
@@ -410,47 +451,52 @@ class GiftController extends Controller
                 ->addIndexColumn()
 
                 ->addColumn('sender', function ($row) {
-                    $image = asset('default.png');
 
-                    if (!empty($row->sender?->image)) {
-                        $image = \Str::startsWith($row->sender->image, ['http://', 'https://'])
-                            ? $row->sender->image
-                            : \Helper::showImage($row->sender->image, true);
-                    }
+                    if (!$row->sender) {return '-';}
 
-                    $name = $row->sender->name ?? '-';
-                    $uid  = $row->sender->uid ?? '-';
+                    $image = $row->sender->image
+                        ? Helper::showImage($row->sender->image, true)
+                        : asset('assets/img/avatar.png');
 
                     return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '" width="45" height="45" style="border-radius:50%; object-fit:cover;">
-                        <div>
-                            <div class="fw-bold">' . e($name) . '</div>
-                            <small class="text-muted">' . e($uid) . '</small>
-                        </div>
-                    </div>
-                ';
-                })
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                             data-user-id="'.$row->sender->id.'"
+                             style="cursor:pointer;">
 
+                            <img src="'.$image.'"
+                                 width="45"
+                                 height="45"
+                                 class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">'.$row->sender->name.'</div>
+                                <small class="text-muted">'.$row->sender->uid.'</small>
+                            </div>
+
+                        </div>
+                    ';
+                })
+                
                 ->addColumn('number_of_gifts', function ($row) {
+
                     $giftImage = '';
 
-                    if ($row->gift) {
-                        if (!empty($row->gift->file_path)) {
-                            $giftImage = \Helper::showImage($row->gift->file_path, true);
-                        } elseif (!empty($row->gift->cover)) {
-                            $giftImage = \Helper::showImage($row->gift->cover, true);
-                        }
+                    if ($row->gift && !empty($row->gift->cover)) {
+                        $giftImage = Helper::showImage($row->gift->cover, true);
                     }
 
                     $multiplier = $row->multiplier ?? 1;
 
                     return '
-                    <div class="d-flex align-items-center gap-1">
-                        ' . ($giftImage ? '<img src="' . $giftImage . '" width="28" height="28" style="object-fit:contain;">' : '') . '
-                        <span>x' . $multiplier . '</span>
-                    </div>
-                ';
+                        <div class="d-flex align-items-center gap-1">
+                            <img src="'.$giftImage.'"
+                                 width="35"
+                                 height="35"
+                                 style="object-fit:cover;border-radius:6px;">
+
+                            <span>x'.$multiplier.'</span>
+                        </div>
+                    ';
                 })
 
                 ->addColumn('number_of_recipients', function ($row) {

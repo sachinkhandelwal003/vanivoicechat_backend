@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\RoomRewardSlab;
+use App\Models\RoomRewardClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
@@ -18,7 +19,7 @@ class RoomRewardSlabController extends Controller
 
             $query = RoomRewardSlab::orderBy('sort_order', 'asc')
                 ->orderBy('room_contribution', 'asc');
-            
+
 
             return DataTables::of($query)
                 ->addIndexColumn()
@@ -28,7 +29,7 @@ class RoomRewardSlabController extends Controller
                         ? $row->created_at->timezone('Asia/Kolkata')->format('d M Y, h:i A')
                         : '-';
                 })
-                  ->editColumn('status', function ($row) {
+                ->editColumn('status', function ($row) {
                     return $row['status'] == 1 ? '<small class="badge fw-semi-bold rounded-pill status badge-light-success"> Enable</small>' : '<small class="badge fw-semi-bold rounded-pill status badge-light-danger"> Disable</small>';
                 })
                 ->addColumn('action', function ($row) {
@@ -49,7 +50,7 @@ class RoomRewardSlabController extends Controller
                     </div>';
                 })
 
-                ->rawColumns(['status','action'])
+                ->rawColumns(['status', 'action'])
                 ->make(true);
         }
 
@@ -123,5 +124,126 @@ class RoomRewardSlabController extends Controller
     public function delete()
     {
         return Helper::deleteRecord(new RoomRewardSlab, $request->id);
+    }
+
+
+
+
+    public function claims(Request $request)
+    {
+        if ($request->ajax()) {
+
+            // $query = RoomRewardClaim::latest();
+            $query = RoomRewardClaim::with(['room', 'owner'])->latest();
+
+            return DataTables::of($query)
+
+                ->addColumn('owner_id', function ($row) {
+
+                    if (!$row->owner) {
+                        return '-';
+                    }
+
+                    $image = $row->owner->image
+                        ? Helper::showImage($row->owner->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="' . $image . '"
+                                 class="rounded-circle"
+                                 width="40"
+                                 height="40">
+
+                            <div>
+                                <div class="fw-bold">
+                                    ' . e($row->owner->name) . '
+                                </div>
+
+                                <small class="text-muted">
+                                    ' . e($row->owner->uid) . '
+                                </small>
+                            </div>
+                        </div>
+                    ';
+                })
+
+                ->addColumn('room_id', function ($row) {
+
+                    if (!$row->room) {
+                        return '-';
+                    }
+
+                    $image = $row->room->image
+                        ? Helper::showImage($row->room->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="' . $image . '"
+                                 class="rounded-circle"
+                                 width="40"
+                                 height="40">
+
+                            <div>
+                                <div class="fw-bold">
+                                    ' . e($row->room->room_name) . '
+                                </div>
+
+                                <small class="text-muted">
+                                    Room ID : ' . e($row->room->id) . '
+                                </small>
+                            </div>
+                        </div>
+                    ';
+                })
+
+                ->editColumn('is_claimed', function ($row) {
+
+                    return $row->is_claimed == 1
+                        ? '<small class="badge fw-semi-bold rounded-pill badge-light-success">Claimed</small>'
+                        : '<small class="badge fw-semi-bold rounded-pill badge-light-warning">Pending</small>';
+                })
+
+                ->editColumn('claimed_at', function ($row) {
+
+                    return $row->claimed_at
+                        ? date('d M Y, h:i A', strtotime($row->claimed_at))
+                        : '-';
+                })
+
+                ->editColumn('created_at', function ($row) {
+
+                    return $row->created_at
+                        ? $row->created_at->format('d M Y, h:i A')
+                        : '-';
+                })
+
+                ->addColumn('action', function ($row) {
+
+                    return '
+                    <div class="dropup text-center">
+                        <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+
+                        <div class="dropdown-menu dropdown-menu-end p-2">
+                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>';
+                })
+
+                ->rawColumns(['room_id', 'owner_id', 'is_claimed', 'action'])
+                ->make(true);
+        }
+
+        return view('room_reward_slabs.room-reward-claims');
+    }
+
+    public function deleteClaim(Request $request)
+    {
+        return Helper::deleteRecord(new RoomRewardClaim, $request->id);
     }
 }

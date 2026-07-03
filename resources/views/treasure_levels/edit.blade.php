@@ -73,7 +73,7 @@
                                 <option value="vip" {{ $reward->reward_type == 'vip' ? 'selected' : '' }}>VIP</option>
                                 <option value="theme" {{ $reward->reward_type == 'theme' ? 'selected' : '' }}>Theme</option>
                                 <option value="entry" {{ $reward->reward_type == 'entry' ? 'selected' : '' }}>Entry</option>
-                                <option value="entry_tags" {{ $reward->reward_type == 'entry_tags' ? 'selected' : '' }}>Entry Tag</option>
+                                <option value="entry_tag" {{ $reward->reward_type == 'entry_tag' ? 'selected' : '' }}>Entry Tag</option>
                                 <option value="frame" {{ $reward->reward_type == 'frame' ? 'selected' : '' }}>Frame</option>
                                 <option value="chat_bubble" {{ $reward->reward_type == 'chat_bubble' ? 'selected' : '' }}>Chat Bubble</option>
                                 <option value="profile_card" {{ $reward->reward_type == 'profile_card' ? 'selected' : '' }}>Profile Card</option>
@@ -133,7 +133,7 @@
                     <option value="vip">VIP</option>
                     <option value="theme">Theme</option>
                     <option value="entry">Entry</option>
-                    <option value="entry_tags">Entry Tag</option>
+                    <option value="entry_tag">Entry Tag</option>
                     <option value="frame">Frame</option>
                     <option value="chat_bubble">Chat Bubble</option>
                     <option value="profile_card">Profile Card</option>

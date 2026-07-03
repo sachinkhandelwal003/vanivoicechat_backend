@@ -31,15 +31,28 @@ class SvipController extends Controller
                 ->addIndexColumn()
 
                 ->editColumn('medal', function ($row) {
-                    return $row->medal
-                        ? '<img src="' . asset('storage/' . $row->medal) . '" width="40">'
-                        : '-';
+
+                    if (!$row->medal) {return '-';
+                    }
+
+                    $image = asset('storage/' . $row->medal);
+
+                    return '
+                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;border-radius:6px;object-fit:cover;">
+                    ';
                 })
 
                 ->editColumn('medal_gif', function ($row) {
-                    return $row->medal_gif
-                        ? '<img src="' . asset('storage/' . $row->medal_gif) . '" width="50" height="50" style="object-fit:contain;">'
-                        : '-';
+
+                    if (!$row->medal_gif) {return '-';}
+
+                    $image = asset('storage/' . $row->medal_gif);
+
+                    return '
+                        <img src="'.$image.'" width="50" height="50" class="image-preview" data-image="'.$image.'"
+                             style="cursor:pointer;object-fit:contain;">
+                    ';
                 })
 
                 ->editColumn('created_at', function ($row) {
@@ -104,22 +117,111 @@ class SvipController extends Controller
         return view('svip.form', compact('svip', 'privileges', 'selectedPrivileges'));
     }
 
+    // public function save(Request $request, $id = null)
+    // {
+    //     $rules = [
+    //         'name' => 'required|string|max:100',
+    //         'need_coins' => 'required|integer',
+    //         'days' => 'nullable|integer',
+    //         'color' => 'nullable',
+
+    //         'medal' => 'nullable|image',
+    //         'medal_gif' => 'nullable|mimes:gif',
+    //         'title' => 'nullable|image',
+    //         'bubble' => 'nullable|image',
+    //         'headwear' => 'nullable|image',
+    //         'entry' => 'nullable|image',
+
+    //         'privileges' => 'nullable|array'
+    //     ];
+
+    //     $validator = Validator::make($request->all(), $rules);
+
+    //     if ($validator->fails()) {
+    //         return redirect()->back()->withErrors($validator)->withInput();
+    //     }
+
+    //     return DB::transaction(function () use ($request, $id) {
+
+    //         $svip = $id ? Svip::find($id) : new Svip();
+
+    //         if ($id && !$svip) {
+    //             return redirect()->back()->with('error', 'SVIP not found');
+    //         }
+
+    //         $data = $request->only([
+    //             'name',
+    //             'need_coins',
+    //             'days',
+    //             'color'
+    //         ]);
+
+    //         // FILE UPLOADS
+    //         foreach (['medal', 'medal_gif', 'title', 'bubble', 'headwear', 'entry'] as $file) {
+
+    //             if ($request->hasFile($file)) {
+
+    //                 if ($id && $svip->$file && file_exists(public_path($svip->$file))) {
+    //                     @unlink(public_path($svip->$file));
+    //                 }
+
+    //                 $data[$file] = Helper::saveFile($request->file($file), 'svip');
+    //             }
+    //         }
+
+    //         $svip->fill($data)->save();
+
+    //         // PRIVILEGES SYNC
+    //         if ($request->has('privileges')) {
+
+    //             SvipLevelPrivilege::where('svip_id', $svip->id)->delete();
+
+    //             foreach ($request->privileges as $privilegeId) {
+    //                 SvipLevelPrivilege::create([
+    //                     'svip_id' => $svip->id,
+    //                     'privilege_id' => $privilegeId,
+    //                     'is_active' => 1
+    //                 ]);
+    //             }
+    //         }
+
+    //         return redirect()
+    //             ->route('svip')
+    //             ->with('success', $id ? 'Updated successfully' : 'Created successfully');
+    //     });
+    // }
+
+
     public function save(Request $request, $id = null)
     {
         $rules = [
-            'name' => 'required|string|max:100',
+            'name'       => 'required|string|max:100',
             'need_coins' => 'required|integer',
-            'days' => 'nullable|integer',
-            'color' => 'nullable',
+            'days'       => 'nullable|integer',
+            'color'      => 'nullable|string|max:55',
+            'status'     => 'nullable|in:0,1',
 
-            'medal' => 'nullable|image',
-            'medal_gif' => 'nullable|mimes:gif',
-            'title' => 'nullable|image',
-            'bubble' => 'nullable|image',
-            'headwear' => 'nullable|image',
-            'entry' => 'nullable|image',
+            'img_key'   => 'nullable|string|max:55',
+            'text_key'  => 'nullable|string|max:55',
+            'frame_key' => 'nullable|string|max:55',
 
-            'privileges' => 'nullable|array'
+            'medal'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'medal_gif'          => 'nullable',
+            'title'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'bubble'             => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'headwear'           => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'headwear_animation' => 'nullable',
+            'entry'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'entry_animation'    => 'nullable',
+            'entrance_image'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'entrance_animation'    => 'nullable',
+            'voice_image'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'voice_animation'    => 'nullable',
+            'profile_card'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'profile_animation'    => 'nullable',
+
+            'privileges'   => 'nullable|array',
+            'privileges.*' => 'integer|exists:svip_privileges,id',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -140,16 +242,41 @@ class SvipController extends Controller
                 'name',
                 'need_coins',
                 'days',
-                'color'
+                'color',
+                'status',
+                'img_key',
+                'text_key',
+                'frame_key',
             ]);
 
-            // FILE UPLOADS
-            foreach (['medal', 'medal_gif', 'title', 'bubble', 'headwear', 'entry'] as $file) {
+            $data['status'] = $request->input('status', 1);
 
+            $uploadFields = [
+                'medal',
+                'medal_gif',
+                'title',
+                'bubble',
+                'headwear',
+                'headwear_animation',
+                'entry',
+                'entry_animation',
+                'entrance_image',
+                'entrance_animation',
+                'voice_image',
+                'voice_animation',
+                'profile_card',
+                'profile_animation',
+            ];
+
+            foreach ($uploadFields as $file) {
                 if ($request->hasFile($file)) {
 
-                    if ($id && $svip->$file && file_exists(public_path($svip->$file))) {
-                        @unlink(public_path($svip->$file));
+                    if ($id && !empty($svip->$file)) {
+                        $oldPath = public_path('storage/' . $svip->$file);
+
+                        if (file_exists($oldPath)) {
+                            @unlink($oldPath);
+                        }
                     }
 
                     $data[$file] = Helper::saveFile($request->file($file), 'svip');
@@ -158,16 +285,14 @@ class SvipController extends Controller
 
             $svip->fill($data)->save();
 
-            // PRIVILEGES SYNC
-            if ($request->has('privileges')) {
+            SvipLevelPrivilege::where('svip_id', $svip->id)->delete();
 
-                SvipLevelPrivilege::where('svip_id', $svip->id)->delete();
-
+            if ($request->filled('privileges')) {
                 foreach ($request->privileges as $privilegeId) {
                     SvipLevelPrivilege::create([
-                        'svip_id' => $svip->id,
+                        'svip_id'      => $svip->id,
                         'privilege_id' => $privilegeId,
-                        'is_active' => 1
+                        'is_active'    => 1,
                     ]);
                 }
             }
@@ -177,7 +302,6 @@ class SvipController extends Controller
                 ->with('success', $id ? 'Updated successfully' : 'Created successfully');
         });
     }
-
     public function delete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new Svip, $request->id);

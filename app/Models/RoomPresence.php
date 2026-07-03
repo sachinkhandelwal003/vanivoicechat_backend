@@ -13,6 +13,7 @@ class RoomPresence extends Model
         'room_id',
         'user_id',
         'joined_at',
+        'last_ping_at'
     ];
 
     public function user()

@@ -36,21 +36,25 @@ class FamilyController extends Controller
                 ->addIndexColumn()
 
                 ->addColumn('user_info', function ($row) {
-                    if (!$row->user) return '-';
+
+                    if (!$row->user) {return '-';}
 
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/default-vani.png');
 
                     return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '" class="rounded-circle" width="40" height="40">
-                        <div>
-                            <div class="fw-bold">' . e($row->user->name) . '</div>
-                            <small class="text-muted">ID: ' . e($row->user->uid) . '</small>
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
+
+                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+
+                            <div>
+                                <div class="fw-bold">'.e($row->user->name).'</div>
+                                <small class="text-muted">ID: '.e($row->user->uid).'</small>
+                            </div>
+
                         </div>
-                    </div>
-                ';
+                    ';
                 })
 
                 ->addColumn('family_info', function ($row) {
@@ -154,20 +158,24 @@ class FamilyController extends Controller
 
                 ->addColumn('member', function ($row) {
 
-                    if (!$row->user) return '-';
-
+                    if (!$row->user) {return '-';}
+                
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/default-vani.png');
-
+                
                     return '
-                        <div class="d-flex align-items-center gap-2">
-                            <img src="' . $image . '" class="rounded-circle" width="40" height="40">
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
+                
+                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+                
                             <div>
-                                <div class="fw-bold">' . e($row->user->name) . '</div>
-                                <small class="text-muted"> ID: ' . e($row->user->uid) . '</small>
+                                <div class="fw-bold">'.e($row->user->name).'</div>
+                                <small class="text-muted">ID: '.e($row->user->uid).'</small>
                             </div>
-                        </div>';
+                
+                        </div>
+                    ';
                 })
 
                 ->addColumn('family', function ($row) {

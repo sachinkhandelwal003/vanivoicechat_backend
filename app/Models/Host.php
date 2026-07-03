@@ -15,6 +15,8 @@ class Host extends Model
         'user_id',
         'agency_id',
         'country_id',
+        'invite_status',
+        'is_dashboard_access',
         'status',
     ];
 
@@ -42,5 +44,10 @@ class Host extends Model
         return $this->status
             ? '<span class="badge bg-success">Approved</span>'
             : '<span class="badge bg-danger">Pending</span>';
+    }
+
+    public function monthlyReports()
+    {
+        return $this->hasMany(HostMonthlyReport::class);
     }
 }

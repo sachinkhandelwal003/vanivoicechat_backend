@@ -145,6 +145,16 @@
                     </label>
                 </div>
 
+                 <div class="mb-3 col-4">
+                    <label class="form-label fw-bold">Rank Badge Color <span class="text-danger">*</span></label>
+                    <input type="color" name="rank_badge_color"
+                        class="form-control @error('rank_badge_color') is-invalid @enderror"
+                        value="{{ old('rank_badge_color', $storeUid->rank_badge_color) }}">
+                    @error('rank_badge_color')
+                    <small class="text-danger">{{ $message }}</small>
+                    @enderror
+                </div>
+
                 {{-- Status --}}
                 <div class="mb-3">
                     <label class="form-label fw-bold">Status</label>

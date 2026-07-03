@@ -30,6 +30,8 @@
                         <th>User</th>
                         <th>Country</th>
                         <th>WhatsApp</th>
+                        <th>BD</th>
+                        <th>Agency</th>
                         <th>Status</th>
                         <th>Time (Created / Updated)</th>
                         <th width="100px">Action</th>
@@ -57,6 +59,8 @@
                 { data: 'user', name: 'user', orderable: false },
                 { data: 'country', name: 'country', orderable: false },
                 { data: 'whatsapp_number', name: 'whatsapp_number' },
+                {data: 'bd_count', name: 'bd_count', searchable: false},
+                {data: 'agency_count', name: 'agency_count', searchable: false},
                 { data: 'status', name: 'status' },
                 { data: 'time', name: 'time', orderable: false, searchable: false },
                 { data: 'action', name: 'action', orderable: false, searchable: false }

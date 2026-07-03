@@ -59,7 +59,11 @@ use App\Http\Controllers\SvipController;
 use App\Http\Controllers\WCLevelController;
 use App\Http\Controllers\RoomRewardSlabController;
 use App\Http\Controllers\AppRuleController;
+use App\Http\Controllers\RedEnvelopeController;
 use App\Http\Controllers\TreasureLevelController;
+use App\Http\Controllers\HostPolicyController;
+use App\Http\Controllers\SettlementLogController;
+use App\Http\Controllers\ManualMoneyController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -85,9 +89,26 @@ Route::get('clear-all', function () {
     return '<h1>Clear All</h1>';
 });
 
+Route::get('/route-list', function () {
+
+    $routes = collect(\Route::getRoutes())->map(function ($route) {
+
+        return [
+            'uri' => $route->uri(),
+            'methods' => $route->methods(),
+            'name' => $route->getName(),
+            'action' => $route->getActionName(),
+            'middleware' => $route->gatherMiddleware(),
+        ];
+    });
+
+    return response()->json($routes);
+});
+
 Route::get('invite-index', [HomeController::class, 'storeIndex'])->name('store.index');
 Route::get('/privacy-policy', [HomeController::class, 'privacyPolicy'])->name('privacy.policy');
 Route::get('/delete-app-user', [HomeController::class, 'deleteAccount']);
+Route::get('/user-profile/{id}', [AppUserController::class, 'userProfile'])->name('user.profile');
 
 // Admin & Sub-Admin Routes
 Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(function () {
@@ -155,6 +176,7 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('medals/add/{id?}', 'form')->name('medals.form')->middleware('isAllow:104,can_edit');
         Route::post('medals/add/{id?}', 'store')->name('medals.store')->middleware('isAllow:104,can_edit');
         Route::delete('medals/delete', 'delete')->name('medals.delete')->middleware('isAllow:104,can_delete');
+        Route::get('user-medals', 'userMedals')->name('user.medals')->middleware('isAllow:104,can_view');
     });
 
     Route::controller(AdminAccountController::class)->group(function () {
@@ -189,6 +211,8 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
         Route::get('bd-user/transfer/{id}', 'transferForm')->name('bd-user.transfer.form');
         Route::post('bd-user/transfer/{id}', 'transferSave')->name('bd-user.transfer.save');
+
+        Route::post('bd-user/{id}/convert-admin', 'convertToAdmin')->name('bd-user.convert-admin');
     });
 
     Route::controller(CoinSellerController::class)->group(function () {
@@ -207,6 +231,9 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('merchant/add/{id?}', 'merchantSave')->name('merchant.save')->middleware('isAllow:104,can_add');
         Route::post('merchant/remove', 'removeMerchant')->name('merchant.remove')->middleware('isAllow:104,can_delete');
         Route::delete('merchant/delete', 'merchantDelete')->name('merchant.delete')->middleware('isAllow:104,can_delete');
+
+        Route::get('/coin-conversion-rate', 'coinConversionRate')->name('coin-conversion-rate')->middleware('isAllow:104,can_view');
+        Route::post('/coin-conversion-rate/update', 'coinConversionRateUpdate')->name('coin-conversion-rate.update')->middleware('isAllow:104,can_add');
     });
 
     Route::controller(SvipController::class)->group(function () {
@@ -380,7 +407,10 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('treasure-levels/{id}/edit',  'edit')->name('treasure-levels.edit');
         Route::post('treasure-levels/{id}/update',  'update')->name('treasure-levels.update');
         Route::delete('treasure-levels/delete', 'destroy')->name('treasure-levels.destroy');
-        Route::get('treasure-levels/get-reward-items','getRewardItems')->name('treasure-levels.getRewardItems');
+        Route::get('treasure-levels/get-reward-items', 'getRewardItems')->name('treasure-levels.getRewardItems');
+
+        Route::get('treasure-level-rewards', 'rewardList')->name('treasure-level-rewards');
+        Route::delete('treasure-level-rewards/delete', 'deleteReward')->name('treasure-level-rewards.delete');
     });
 
     // ----------------------- Cars Routes ----------------------------------------------------
@@ -399,6 +429,7 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('relationship-item/add', 'save')->name('relationship.item.add')->middleware('isAllow:104,can_add');
         Route::delete('relationship-item', 'delete')->name('relationship.item.delete')->middleware('isAllow:104,can_delete');
         Route::post('relationship-item/update/{id}', 'save')->name('relationship.item.update')->middleware('isAllow:104,can_edit');
+        Route::get('relationship-user-relations', 'userRelationshipList')->name('relationship.user.relation.list')->middleware('isAllow:104,can_edit');
     });
 
     // ----------------------- Customer Support Routes ----------------------------------------------------
@@ -541,9 +572,19 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('room/{id}', 'update')->name('room.edit')->middleware('isAllow:104,can_edit');
         Route::delete('room', 'delete')->name('room')->middleware('isAllow:104,can_delete');
 
+        Route::get('user-room-music', 'userMusics')->name('user_room.music');
+        Route::get('user-room-musics/{id}', 'getUserMusicList')->name('user.music.list');
+        Route::get('/user-themes', 'userThemes')->name('user.themes');
+
         Route::get('room-members/{room_id}', 'members')->name('room.members')->middleware('isAllow:104,can_view');
         Route::get('room-members-ajax/{room_id}', 'membersAjax')->name('room.members.ajax');
         Route::get('room-view/{id}', 'view')->name('room.view');
+    });
+
+    Route::controller(RedEnvelopeController::class)->group(function () {
+        Route::get('/red-envelope', 'index')->name('red.envelope')->middleware('isAllow:104,can_view');
+        Route::get('/red-envelope/{id}/claims', 'claims')->name('red.envelope.claims')->middleware('isAllow:104,can_view');
+        Route::delete('/red-envelope/{id}', 'destroy')->name('red.envelope.delete')->middleware('isAllow:104,can_view');
     });
 
     // --------------------------------- User Level Routes ---------------------------------
@@ -633,6 +674,9 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('room-reward-slabs/{id}', 'edit')->name('room_reward_slabs.edit')->middleware('isAllow:104,can_edit');
         Route::post('room-reward-slabs/{id}', 'update')->name('room_reward_slabs.edit')->middleware('isAllow:104,can_edit');
         Route::delete('room-reward-slabs', 'delete')->name('room_reward_slabs')->middleware('isAllow:104,can_delete');
+
+        Route::get('room-reward-claims', 'claims')->name('room_reward_claims')->middleware('isAllow:104,can_view');
+        Route::delete('room-reward-claims/delete', 'deleteClaim')->name('room_reward_claims.delete')->middleware('isAllow:104,can_delete');
     });
 
     // ----------------------- App User Routes ----------------------------------------------------
@@ -643,6 +687,10 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('user/add/{id?}', 'save')->name('user.save')->middleware('isAllow:104,can_edit');
         Route::delete('delete-user', 'Delete')->name('delete.appuser')->middleware('isAllow:104,can_delete');
 
+        Route::get('user-albums', 'userAlbums')->name('user.albums')->middleware('isAllow:104,can_view');
+        Route::get('user-items', 'userItems')->name('user.items')->middleware('isAllow:104,can_view');
+        Route::get('user-items/{id}', 'getUserItems')->name('user.items.list');
+        Route::get('/post-reports', 'postReportList')->name('user.post.reports');
 
         Route::post('/user/disable', 'disable')->name('user.disable');
         Route::post('/user/activate', 'activate')->name('user.activate');
@@ -656,6 +704,31 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
         Route::get('user/report', 'userIndex')->name('user.report')->middleware('isAllow:104,can_view');
         Route::delete('user/delete', 'userDestroy')->name('user.destroy')->middleware('isAllow:104,can_delete');
+    });
+
+    // ----------------------- Host Policy ----------------------------------------------------
+    Route::controller(HostPolicyController::class)->group(function () {
+        Route::get('host/host-policy', 'index')->name('host-policy')->middleware('isAllow:104,can_view');
+        Route::get('host/host-policy/form/{id?}', 'form')->name('host-policy.form')->middleware('isAllow:104,can_delete');
+
+        Route::post('host/host-policy/save/{id?}', 'save')->name('host-policy.save')->middleware('isAllow:104,can_view');
+        Route::delete('host/host-policy/delete', 'delete')->name('host-policy.delete')->middleware('isAllow:104,can_delete');
+    });
+
+
+    // ----------------------- Settlement Log  ----------------------------------------------------
+    Route::controller(SettlementLogController::class)->group(function () {
+        Route::get('settlement/settlement-log', 'index')->name('settlement-log')->middleware('isAllow:104,can_view');
+        Route::post('settlement/run-host-salary', 'runHostSalary')->name('settlement.run-host-salary')->middleware('isAllow:104,can_view');
+
+    });
+
+    // ----------------------- Manual Money  ----------------------------------------------------
+    Route::controller(ManualMoneyController::class)->group(function () {
+        Route::get('manual_transfer', 'index')->name('manual-transfer.index')->middleware('isAllow:104,can_view');
+        Route::get('manual_transfer/form', 'manualTransfer')->name('manual-transfer.form')->middleware('isAllow:104,can_view');
+        Route::post('manual_transfer/save', 'manualTransferSave')->name('manual-transfer.save')->middleware('isAllow:104,can_view');
+
     });
 
     // ----------------------- Feed Back Routes ----------------------------------------------------
