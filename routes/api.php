@@ -130,6 +130,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/buy-item', [StoreController::class, 'buyItem']);
 
     Route::get('/invite-cms', [InviteController::class, 'cmsData']);
+    Route::get('send/invite/code', [InviteController::class, 'sendInviteCode']);
+    Route::get('/invited-users', [InviteController::class, 'invitedUsers']);
 
     Route::post('/store/password', [AuthController::class, 'setPassword']);
     Route::post('/bind-email', [AuthController::class, 'bindEmail']);

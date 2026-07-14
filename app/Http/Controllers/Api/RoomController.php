@@ -30,6 +30,7 @@ use App\Models\StoreUids;
 use App\Models\PremiumNumber;
 use App\Models\Vip;
 use App\Models\Svip;
+use App\Models\SvipTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -5212,6 +5213,25 @@ class RoomController extends Controller
                         'message' => 'Admin cannot remove another admin from seat',
                     ], 403);
                 }
+            }
+
+            // Check "Avoid Being Kicked" privilege
+            $cannotBeKicked = SvipTransaction::where('user_id', $targetUserId)
+                ->where('end_at', '>=', now())
+                ->whereHas('svip.privileges', function ($q) {
+                    $q->where('svip_privileges.slug', 'avoid_being_kicked')
+                        ->where('svip_level_privileges.is_active', 1);
+                })
+                ->exists();
+
+            if ($cannotBeKicked) {
+
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This user cannot be removed from the seat because of the SVIP privilege.',
+                ], 403);
             }
 
             $seatNo = (int) $seat->seat_no;

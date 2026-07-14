@@ -6,6 +6,9 @@ use Closure;
 use App\Models\Company;
 use App\Models\Room;
 use App\Models\RoomSeat;
+use App\Models\AppUser;
+use App\Models\PremiumNumber;
+use App\Models\StoreUids;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -17,6 +20,8 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Twilio\Rest\Client;
+use Illuminate\Support\Facades\DB;
+
 
 class Helper
 {
@@ -348,5 +353,137 @@ class Helper
         }
 
         return $badges;
+    }
+
+    public static function findUserByAnyUid($uid)
+    {
+        // System UID
+        $user = AppUser::where('uid', $uid)->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        // Premium UID
+        $premium = PremiumNumber::where('premium_number', $uid)
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>', now());
+            })
+            ->latest()
+            ->first();
+
+        if ($premium) {
+            $user = AppUser::find($premium->user_id);
+
+            if ($user) {
+                return $user;
+            }
+        }
+
+        // Store UID
+        $storeUid = StoreUids::where('unique_id', $uid)->first();
+
+        if ($storeUid) {
+
+            $delivery = DB::table('item_deliveries')
+                ->where('type', 'id')
+                ->where('item_id', $storeUid->id)
+                ->where(function ($q) {
+                    $q->whereNull('end_at')
+                        ->orWhere('end_at', '>', now());
+                })
+                ->latest()
+                ->first();
+
+            if ($delivery) {
+                return AppUser::find($delivery->recipient);
+            }
+
+            $gift = DB::table('item_gift_transactions')
+                ->where('type', 'id')
+                ->where('item_id', $storeUid->id)
+                ->where(function ($q) {
+                    $q->whereNull('end_at')
+                        ->orWhere('end_at', '>', now());
+                })
+                ->latest()
+                ->first();
+
+            if ($gift) {
+                return AppUser::find($gift->receiver_id);
+            }
+        }
+
+        return null;
+    }
+
+    public static function getDisplayUidData($user)
+    {
+        if (!$user) {
+            return [
+                'uid' => null,
+                'badge' => null,
+                'badge_color' => null,
+            ];
+        }
+
+        $response = [
+            'uid' => $user->uid,
+            'badge' => null,
+            'badge_color' => null,
+        ];
+
+        // Premium
+        $premium = PremiumNumber::where('user_id', $user->id)
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>', now());
+            })
+            ->latest()
+            ->first();
+
+        if ($premium) {
+            $response['uid'] = $premium->premium_number;
+            $response['badge'] = asset('storage/1000175794.png');
+            $response['badge_color'] = '#fcd01c';
+
+            return $response;
+        }
+
+        // Store UID
+        if ($user->active_uid_id) {
+
+            $storeUid = StoreUids::find($user->active_uid_id);
+
+            if ($storeUid) {
+
+                $valid = DB::table('item_deliveries')
+                    ->where('recipient', $user->id)
+                    ->where('type', 'id')
+                    ->where('item_id', $storeUid->id)
+                    ->where('end_at', '>', now())
+                    ->exists()
+
+                    ||
+
+                    DB::table('item_gift_transactions')
+                    ->where('receiver_id', $user->id)
+                    ->where('type', 'id')
+                    ->where('item_id', $storeUid->id)
+                    ->where('end_at', '>', now())
+                    ->exists();
+
+                if ($valid) {
+                    $response['uid'] = $storeUid->unique_id;
+                    $response['badge'] = !empty($storeUid->rank_badge)
+                        ? Helper::showImage($storeUid->rank_badge, true)
+                        : null;
+                    $response['badge_color'] = $storeUid->badge_color;
+                }
+            }
+        }
+
+        return $response;
     }
 }

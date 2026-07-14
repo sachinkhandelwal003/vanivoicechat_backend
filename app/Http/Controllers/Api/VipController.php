@@ -104,22 +104,21 @@ class VipController extends Controller
 
             $svip = Svip::findOrFail($request->svip_id);
 
-            if ($user->total_points < $svip->need_coins) {
+            if ($user->buy_coins_wallet < $svip->need_coins) {
 
                 DB::rollBack();
 
                 return response()->json([
                     'status' => false,
-                    'message' => 'Insufficient coins.'
+                    'message' => 'You do not have enough SVIP Points.'
                 ]);
             }
 
             // Remove previous active SVIP
-            SvipTransaction::where('user_id', $user->id)
-                ->delete();
+            SvipTransaction::where('user_id', $user->id)->delete();
 
             // Deduct coins
-            $user->decrement('total_points', $svip->need_coins);
+            $user->decrement('buy_coins_wallet', $svip->need_coins);
 
             $transaction = SvipTransaction::create([
                 'user_id'    => $user->id,

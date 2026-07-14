@@ -71,17 +71,123 @@ class HostController extends Controller
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
                              data-user-id="' . $agencyUser->id . '" style="cursor:pointer;">
-                
+
                             <img src="' . $image . '" width="40" height="40" class="rounded-circle">
-                
+
                             <div>
                                 <div class="fw-bold">' . e($agencyUser->name) . '</div>
                                 <small class="text-muted">UID: ' . e($agencyUser->uid) . '</small>
                             </div>
-                
+
                         </div>
                     ';
                 })
+
+
+
+//                 ->addColumn('user', function ($row) {
+
+//     if (!$row->user) {
+//         return '-';
+//     }
+
+//     $user = $row->user;
+
+//     $image = $user->image
+//         ? Helper::showImage($user->image, true)
+//         : asset('assets/img/avatar.png');
+
+//     $uidData = Helper::getDisplayUidData($user);
+
+//     $badgeHtml = '';
+
+//     if (!empty($uidData['badge'])) {
+//         $badgeHtml = '
+//             <img src="' . $uidData['badge'] . '"
+//                  width="16"
+//                  height="16"
+//                  style="margin-right:4px;vertical-align:middle;">
+//         ';
+//     }
+
+//     $uidColor = $uidData['badge_color'] ?? '#6c757d';
+
+//     return '
+//         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+//              data-user-id="' . $user->id . '"
+//              style="cursor:pointer;">
+
+//             <img src="' . $image . '"
+//                  width="40"
+//                  height="40"
+//                  class="rounded-circle">
+
+//             <div>
+//                 <div class="fw-bold">' . e($user->name) . '</div>
+//                 <small class="text-muted">
+//                     UID:
+//                     ' . $badgeHtml . '
+//                     <span style="color:' . $uidColor . ';font-weight:600;">
+//                         ' . e($uidData['uid']) . '
+//                     </span>
+//                 </small>
+//             </div>
+
+//         </div>
+//     ';
+// })
+
+// ->addColumn('agency', function ($row) {
+
+//     if (!$row->agency || !$row->agency->user) {
+//         return '-';
+//     }
+
+//     $agencyUser = $row->agency->user;
+
+//     $image = $agencyUser->image
+//         ? Helper::showImage($agencyUser->image, true)
+//         : asset('assets/img/avatar.png');
+
+//     $uidData = Helper::getDisplayUidData($agencyUser);
+
+//     $badgeHtml = '';
+
+//     if (!empty($uidData['badge'])) {
+//         $badgeHtml = '
+//             <img src="' . $uidData['badge'] . '"
+//                  width="16"
+//                  height="16"
+//                  style="margin-right:4px;vertical-align:middle;">
+//         ';
+//     }
+
+//     $uidColor = $uidData['badge_color'] ?? '#6c757d';
+
+//     return '
+//         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+//              data-user-id="' . $agencyUser->id . '"
+//              style="cursor:pointer;">
+
+//             <img src="' . $image . '"
+//                  width="40"
+//                  height="40"
+//                  class="rounded-circle">
+
+//             <div>
+//                 <div class="fw-bold">' . e($agencyUser->name) . '</div>
+//                 <small class="text-muted">
+//                     UID:
+//                     ' . $badgeHtml . '
+//                     <span style="color:' . $uidColor . ';font-weight:600;">
+//                         ' . e($uidData['uid']) . '
+//                     </span>
+//                 </small>
+//             </div>
+
+//         </div>
+//     ';
+// })
 
                 ->addColumn('country', function ($row) {
                     return '<span class="badge bg-light text-dark border">' . $row->country->name . '</span>';
@@ -144,13 +250,8 @@ class HostController extends Controller
     public function save(Request $request, $id = null)
     {
         $rules = [
-
-            'user_uid' =>
-            'required|exists:app_users,uid',
-
-            'country_id' =>
-            'required|exists:countries,id',
-
+            'user_uid' => 'required',
+            'country_id' => 'required|exists:countries,id',
             'status' =>
             'required|in:0,1',
         ];
@@ -161,159 +262,74 @@ class HostController extends Controller
         );
 
         if ($validator->fails()) {
-
-            return back()
-                ->withErrors($validator)
-                ->withInput();
+            return back()->withErrors($validator)->withInput();
         }
 
         return DB::transaction(function () use ($request, $id) {
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find Host
-        |--------------------------------------------------------------------------
-        */
+            //   Find Host
+            $host = $id ? Host::find($id) : new Host();
 
-            $host = $id
-                ? Host::find($id)
-                : new Host();
-
-            /*
-        |--------------------------------------------------------------------------
-        | Find User
-        |--------------------------------------------------------------------------
-        */
-
-            $user = AppUser::where(
-                'uid',
-                $request->user_uid
-            )->first();
+            // Find User (System UID / Premium UID / Store UID)
+            $user = Helper::findUserByAnyUid($request->user_uid);
 
             if (!$user) {
-
-                return back()->with(
-                    'error',
-                    'User not found'
-                );
+                return back()->with('error', 'User not found');
             }
 
             $userId = $user->id;
 
-            /*
-        |--------------------------------------------------------------------------
-        | Existing Host Check
-        |--------------------------------------------------------------------------
-        */
-
-            $existsInHost = Host::where(
-                'user_id',
-                $userId
-            )
-
-                ->when(
-                    $id,
-                    fn($q) =>
-                    $q->where(
-                        'id',
-                        '!=',
-                        $id
-                    )
-                )
-
+            //  Existing Host Check
+            $existsInHost = Host::where('user_id', $userId)
+                ->when($id, fn($q) => $q->where('id', '!=', $id))
                 ->exists();
 
             if ($existsInHost) {
-
-                return back()->with(
-                    'error',
-                    'User already exists as Host'
-                );
+                return back()->with('error', 'User already exists as Host');
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Agency Check
-        |--------------------------------------------------------------------------
-        | Agency already includes Host permissions
-        |--------------------------------------------------------------------------
-        */
+            //   Agency Check
+            // Agency already includes Host permissions
 
-            $existsInAgency = Agency::where(
-                'user_id',
-                $userId
-            )->exists();
+            $existsInAgency = Agency::where('user_id', $userId)->exists();
 
             if ($existsInAgency) {
-
                 return back()->with(
                     'error',
                     'User already has Agency role. Agency users cannot be assigned Host role.'
                 );
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Agency UID
-        |--------------------------------------------------------------------------
-        */
+            // Agency UID
 
             $agency = null;
 
             if ($request->filled('agency_uid')) {
 
-                $agencyUser = AppUser::where(
-                    'uid',
-                    $request->agency_uid
-                )->first();
+                $agencyUser = Helper::findUserByAnyUid($request->agency_uid);
 
                 if (!$agencyUser) {
-
-                    return back()->with(
-                        'error',
-                        'Agency user not found'
-                    );
+                    return back()->with('error', 'Agency user not found');
                 }
 
-                $agency = Agency::where(
-                    'user_id',
-                    $agencyUser->id
-                )->first();
+                $agency = Agency::where('user_id', $agencyUser->id)->first();
 
                 if (!$agency) {
-
-                    return back()->with(
-                        'error',
-                        'Agency not found'
-                    );
+                    return back()->with('error', 'Agency not found');
                 }
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Save Host
-        |--------------------------------------------------------------------------
-        */
+            //  Save Host
 
             $host->fill([
-
-                'user_id' =>
-                $user->id,
-
-                'agency_id' =>
-                $agency->id ?? null,
-
-                'country_id' =>
-                $request->country_id,
-
-                'status' =>
-                $request->status,
-                'invite_status' =>'accept',
-
+                'user_id' => $user->id,
+                'agency_id' => $agency->id ?? null,
+                'country_id' => $request->country_id,
+                'status' => $request->status,
+                'invite_status' => 'accept',
             ])->save();
 
-            return redirect()
-                ->route('host')
+            return redirect()->route('host')
                 ->with(
                     'success',
                     $id
@@ -340,14 +356,20 @@ class HostController extends Controller
     public function transferSave(Request $request, $id)
     {
         $request->validate([
-            'agency_uid' => 'required|exists:app_users,uid'
+            'agency_uid' => 'required'
         ]);
 
         $host = Host::findOrFail($id);
 
-        $agency = Agency::whereHas('user', function ($q) use ($request) {
-            $q->where('uid', $request->agency_uid);
-        })->first();
+        //   Find Agency User (System UID / Premium UID / Store UID)
+
+        $agencyUser = Helper::findUserByAnyUid($request->agency_uid);
+
+        if (!$agencyUser) {
+            return back()->with('error', 'Agency user not found');
+        }
+
+        $agency = Agency::where('user_id', $agencyUser->id)->first();
 
         if (!$agency) {
             return back()->with('error', 'Agency not found');

@@ -75,17 +75,123 @@ class AgencyController extends Controller
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
                              data-user-id="' . $bd->id . '" style="cursor:pointer;">
-                
+
                             <img src="' . $image . '" width="40" height="40" class="rounded-circle">
-                
+
                             <div>
                                 <div class="fw-bold">' . e($bd->name) . '</div>
                                 <small class="text-muted">UID: ' . e($bd->uid) . '</small>
                             </div>
-                
+
                         </div>
                     ';
                 })
+
+
+
+    //             ->addColumn('user', function ($row) {
+
+    //                 if (!$row->user) {
+    //                     return '-';
+    //                 }
+
+    //                 $user = $row->user;
+
+    //                 $image = $user->image
+    //                     ? Helper::showImage($user->image, true)
+    //                     : asset('assets/img/avatar.png');
+
+    //                 $uidData = Helper::getDisplayUidData($user);
+
+    //                 $badgeHtml = '';
+
+    //                 if (!empty($uidData['badge'])) {
+    //                     $badgeHtml = '
+    //         <img src="' . $uidData['badge'] . '"
+    //              width="16"
+    //              height="16"
+    //              style="margin-right:4px;vertical-align:middle;">
+    //     ';
+    //                 }
+
+    //                 $uidColor = $uidData['badge_color'] ?? '#6c757d';
+
+    //                 return '
+    //     <div class="d-flex align-items-center gap-2 user-profile-trigger"
+    //          data-user-id="' . $user->id . '"
+    //          style="cursor:pointer;">
+
+    //         <img src="' . $image . '"
+    //              width="40"
+    //              height="40"
+    //              class="rounded-circle">
+
+    //         <div>
+    //             <div class="fw-bold">' . e($user->name) . '</div>
+    //             <small class="text-muted">
+    //                 UID:
+    //                 ' . $badgeHtml . '
+    //                 <span style="color:' . $uidColor . ';font-weight:600;">
+    //                     ' . e($uidData['uid']) . '
+    //                 </span>
+    //             </small>
+    //         </div>
+
+    //     </div>
+    // ';
+    //             })
+
+    //             ->addColumn('bd_user', function ($row) {
+
+    //                 if (!$row->bdUser || !$row->bdUser->user) {
+    //                     return '-';
+    //                 }
+
+    //                 $bd = $row->bdUser->user;
+
+    //                 $image = $bd->image
+    //                     ? Helper::showImage($bd->image, true)
+    //                     : asset('assets/img/avatar.png');
+
+    //                 $uidData = Helper::getDisplayUidData($bd);
+
+    //                 $badgeHtml = '';
+
+    //                 if (!empty($uidData['badge'])) {
+    //                     $badgeHtml = '
+    //         <img src="' . $uidData['badge'] . '"
+    //              width="16"
+    //              height="16"
+    //              style="margin-right:4px;vertical-align:middle;">
+    //     ';
+    //                 }
+
+    //                 $uidColor = $uidData['badge_color'] ?? '#6c757d';
+
+    //                 return '
+    //     <div class="d-flex align-items-center gap-2 user-profile-trigger"
+    //          data-user-id="' . $bd->id . '"
+    //          style="cursor:pointer;">
+
+    //         <img src="' . $image . '"
+    //              width="40"
+    //              height="40"
+    //              class="rounded-circle">
+
+    //         <div>
+    //             <div class="fw-bold">' . e($bd->name) . '</div>
+    //             <small class="text-muted">
+    //                 UID:
+    //                 ' . $badgeHtml . '
+    //                 <span style="color:' . $uidColor . ';font-weight:600;">
+    //                     ' . e($uidData['uid']) . '
+    //                 </span>
+    //             </small>
+    //         </div>
+
+    //     </div>
+    // ';
+    //             })
 
                 ->addColumn('host_count', function ($row) {
 
@@ -162,37 +268,22 @@ class AgencyController extends Controller
     public function save(Request $request, $id = null)
     {
         $rules = [
-
-            'user_uid' => 'required|exists:app_users,uid',
-
-            'admin_uid' => 'nullable|exists:app_users,uid',
-
+            'user_uid' => 'required',
+            'admin_uid' => 'nullable',
             'country_id' => 'required|exists:countries,id',
-
             'whatsapp_number' => 'nullable|string|max:20',
-
             'status' => 'required|in:0,1',
         ];
 
-        /*
-        |--------------------------------------------------------------------------
-        | If Agency Bound With BD
-        |--------------------------------------------------------------------------
-        */
+        //    If Agency Bound With BD
 
         if ($request->is_bd_bound) {
-
-            $rules['bd_user_uid'] =
-                'required|exists:app_users,uid';
+            $rules['bd_user_uid'] = 'required';
         }
 
-        $validator = Validator::make(
-            $request->all(),
-            $rules
-        );
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
-
             return redirect()
                 ->back()
                 ->withErrors($validator)
@@ -201,93 +292,38 @@ class AgencyController extends Controller
 
         return DB::transaction(function () use ($request, $id) {
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find Agency
-        |--------------------------------------------------------------------------
-        */
-
-            $agency = $id
-                ? Agency::find($id)
-                : new Agency();
+            //  Find Agency
+            $agency = $id ? Agency::find($id) : new Agency();
 
             if ($id && !$agency) {
 
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'Agency not found'
-                    );
+                return redirect()->back()->with('error', 'Agency not found');
             }
 
-            $oldUserId =
-                $agency->user_id ?? null;
+            $oldUserId = $agency->user_id ?? null;
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find User
-        |--------------------------------------------------------------------------
-        */
+            //   Find User (System UID / Premium UID / Store UID)
 
-            $user = AppUser::where(
-                'uid',
-                $request->user_uid
-            )->first();
+            $user = Helper::findUserByAnyUid($request->user_uid);
 
             if (!$user) {
-
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'User not found'
-                    );
+                return redirect()->back()->with('error', 'User not found');
             }
 
             $userId = $user->id;
 
-            /*
-        |--------------------------------------------------------------------------
-        | Check Existing Agency
-        |--------------------------------------------------------------------------
-        */
+            //   Check Existing Agency
 
-            $existsInAgency = Agency::where(
-                'user_id',
-                $userId
-            )
-
-                ->when(
-                    $id,
-                    fn($q) =>
-                    $q->where(
-                        'id',
-                        '!=',
-                        $id
-                    )
-                )
-
+            $existsInAgency = Agency::where('user_id', $userId)
+                ->when($id, fn($q) => $q->where('id', '!=', $id))
                 ->exists();
 
             if ($existsInAgency) {
-
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'User already exists as Agency'
-                    );
+                return redirect()->back()->with('error', 'User already exists as Agency');
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Host Restriction
-        |--------------------------------------------------------------------------
-        | Host connected under another agency
-        | cannot directly become agency
-        |--------------------------------------------------------------------------
-        */
+            // Host Restriction
+            // cannot directly become agency
 
             $host = Host::where('user_id', $userId)->where('status', 1)->first();
 
@@ -296,172 +332,86 @@ class AgencyController extends Controller
                     ->with('error', 'Host role must be removed before assigning Agency');
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | BD User
-        |--------------------------------------------------------------------------
-        */
-
-            $bdUser = $request->bd_user_uid
-                ? AppUser::where(
-                    'uid',
-                    $request->bd_user_uid
-                )->first()
-                : null;
+            // BD User (System UID / Premium UID / Store UID)
 
             $bdUserId = null;
 
-            if ($bdUser) {
+            if ($request->filled('bd_user_uid')) {
 
-                $bd = BdUser::where(
-                    'user_id',
-                    $bdUser->id
-                )->first();
+                $bdAppUser = Helper::findUserByAnyUid($request->bd_user_uid);
+
+                if (!$bdAppUser) {
+                    return redirect()->back()->with('error', 'BD user not found');
+                }
+
+                $bd = BdUser::where('user_id', $bdAppUser->id)->first();
 
                 if (!$bd) {
-
-                    return redirect()
-                        ->back()
-                        ->with(
-                            'error',
-                            'BD not found'
-                        );
+                    return redirect()->back()->with('error', 'BD not found');
                 }
 
                 $bdUserId = $bd->id;
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Admin User
-        |--------------------------------------------------------------------------
-        */
+            // Admin User (System UID / Premium UID / Store UID)
 
             $adminId = null;
 
             if ($request->filled('admin_uid')) {
 
-                $adminUser = AppUser::where(
-                    'uid',
-                    $request->admin_uid
-                )->first();
+                $adminUser = Helper::findUserByAnyUid($request->admin_uid);
 
                 if (!$adminUser) {
-
-                    return redirect()
-                        ->back()
-                        ->with(
-                            'error',
-                            'Admin user not found'
-                        );
+                    return redirect()->back()->with('error', 'Admin user not found');
                 }
 
-                $adminAccount = AdminAccount::where(
-                    'user_id',
-                    $adminUser->id
-                )->first();
+                $adminAccount = AdminAccount::where('user_id', $adminUser->id)->first();
 
                 if (!$adminAccount) {
-
-                    return redirect()
-                        ->back()
-                        ->with(
-                            'error',
-                            'Admin center not found'
-                        );
+                    return redirect()->back()->with('error', 'Admin center not found');
                 }
 
                 $adminId = $adminAccount->id;
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Save Agency
-        |--------------------------------------------------------------------------
-        */
+            //  Save Agency
 
             $agency->fill([
-
                 'user_id' => $user->id,
-
                 'admin_id' => $adminId,
-
-                'is_bd_bound' =>
-                $request->is_bd_bound ?? 0,
-
-                'bd_user_id' =>
-                $bdUserId,
-
-                'country_id' =>
-                $request->country_id,
-
-                'whatsapp_number' =>
-                $request->whatsapp_number,
-
-                'briefing' =>
-                $request->briefing,
-
-                'status' =>
-                $request->status,
-
-                'invite_status' =>
-                'accept',
-
+                'is_bd_bound' => $request->is_bd_bound ?? 0,
+                'bd_user_id' => $bdUserId,
+                'country_id' => $request->country_id,
+                'whatsapp_number' => $request->whatsapp_number,
+                'briefing' => $request->briefing,
+                'status' => $request->status,
+                'invite_status' => 'accept',
             ])->save();
 
-            /*
-        |--------------------------------------------------------------------------
-        | Agency Includes Host Access
-        |--------------------------------------------------------------------------
-        */
+            //  Agency Includes Host Access
 
             Host::updateOrCreate(
-
                 [
                     'user_id' => $user->id
                 ],
-
                 [
                     'agency_id' => $agency->id,
-
-                    'country_id' =>
-                    $request->country_id,
-
+                    'country_id' => $request->country_id,
                     'is_dashboard_access' => 0,
-
-                    'status' =>
-                    $request->status,
-                    'invite_status' =>
-                    'accept',
+                    'status' => $request->status,
+                    'invite_status' => 'accept',
                 ]
             );
 
-            /*
-        |--------------------------------------------------------------------------
-        | Remove Old Host
-        |--------------------------------------------------------------------------
-        */
+            // Remove Old Host
 
-            if (
-                $oldUserId
-                &&
-                $oldUserId != $userId
-            ) {
+            if ($oldUserId  && $oldUserId != $userId) {
 
-                $oldHost = Host::where(
-                    'user_id',
-                    $oldUserId
-                )
-
-                    ->where(
-                        'agency_id',
-                        $agency->id
-                    )
-
+                $oldHost = Host::where('user_id', $oldUserId)
+                    ->where('agency_id', $agency->id)
                     ->first();
 
                 if ($oldHost) {
-
                     $oldHost->delete();
                 }
             }

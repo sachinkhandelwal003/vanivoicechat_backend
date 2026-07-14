@@ -40,7 +40,7 @@ class HomeController extends Controller
             'app_name' => 'Vani Voice Chat',
             'company_name' => 'Vani Voice',
             'support_email' => 'voxiemeet@gmail.com',
-            'website_url' => url('https://vanivoicechat.kotiboxglobaltech.online/invite-index'),
+            'website_url' => url('https://vanivoicechat.com/invite-index'),
             'last_updated' => now()->format('d M Y'),
         ];
 
@@ -54,7 +54,7 @@ class HomeController extends Controller
             'app_name' => 'Vani Voice Chat',
             'company_name' => 'Vani Voice',
             'support_email' => 'voxiemeet@gmail.com',
-            'website_url' => url('https://vanivoicechat.kotiboxglobaltech.online/invite-index'),
+            'website_url' => url('https://vanivoicechat.com/invite-index'),
             'last_updated' => now()->format('d M Y'),
         ];
 

@@ -89,6 +89,10 @@ class PaymentController extends Controller
             DB::table('app_users')
                 ->where('id', $user->id)
                 ->increment('total_points', $coinsToAdd);
+            // add coins to user
+            DB::table('app_users')
+                ->where('id', $user->id)
+                ->increment('buy_coins_wallet', $coinsToAdd);
 
             DB::table('coin_transactions')->insert([
                 'user_id'    => $user->id,

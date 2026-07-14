@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class SvipController extends Controller
 {
@@ -32,25 +33,28 @@ class SvipController extends Controller
 
                 ->editColumn('medal', function ($row) {
 
-                    if (!$row->medal) {return '-';
+                    if (!$row->medal) {
+                        return '-';
                     }
 
                     $image = asset('storage/' . $row->medal);
 
                     return '
-                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="40" height="40" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
 
                 ->editColumn('medal_gif', function ($row) {
 
-                    if (!$row->medal_gif) {return '-';}
+                    if (!$row->medal_gif) {
+                        return '-';
+                    }
 
                     $image = asset('storage/' . $row->medal_gif);
 
                     return '
-                        <img src="'.$image.'" width="50" height="50" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="50" height="50" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;object-fit:contain;">
                     ';
                 })
@@ -116,81 +120,6 @@ class SvipController extends Controller
 
         return view('svip.form', compact('svip', 'privileges', 'selectedPrivileges'));
     }
-
-    // public function save(Request $request, $id = null)
-    // {
-    //     $rules = [
-    //         'name' => 'required|string|max:100',
-    //         'need_coins' => 'required|integer',
-    //         'days' => 'nullable|integer',
-    //         'color' => 'nullable',
-
-    //         'medal' => 'nullable|image',
-    //         'medal_gif' => 'nullable|mimes:gif',
-    //         'title' => 'nullable|image',
-    //         'bubble' => 'nullable|image',
-    //         'headwear' => 'nullable|image',
-    //         'entry' => 'nullable|image',
-
-    //         'privileges' => 'nullable|array'
-    //     ];
-
-    //     $validator = Validator::make($request->all(), $rules);
-
-    //     if ($validator->fails()) {
-    //         return redirect()->back()->withErrors($validator)->withInput();
-    //     }
-
-    //     return DB::transaction(function () use ($request, $id) {
-
-    //         $svip = $id ? Svip::find($id) : new Svip();
-
-    //         if ($id && !$svip) {
-    //             return redirect()->back()->with('error', 'SVIP not found');
-    //         }
-
-    //         $data = $request->only([
-    //             'name',
-    //             'need_coins',
-    //             'days',
-    //             'color'
-    //         ]);
-
-    //         // FILE UPLOADS
-    //         foreach (['medal', 'medal_gif', 'title', 'bubble', 'headwear', 'entry'] as $file) {
-
-    //             if ($request->hasFile($file)) {
-
-    //                 if ($id && $svip->$file && file_exists(public_path($svip->$file))) {
-    //                     @unlink(public_path($svip->$file));
-    //                 }
-
-    //                 $data[$file] = Helper::saveFile($request->file($file), 'svip');
-    //             }
-    //         }
-
-    //         $svip->fill($data)->save();
-
-    //         // PRIVILEGES SYNC
-    //         if ($request->has('privileges')) {
-
-    //             SvipLevelPrivilege::where('svip_id', $svip->id)->delete();
-
-    //             foreach ($request->privileges as $privilegeId) {
-    //                 SvipLevelPrivilege::create([
-    //                     'svip_id' => $svip->id,
-    //                     'privilege_id' => $privilegeId,
-    //                     'is_active' => 1
-    //                 ]);
-    //             }
-    //         }
-
-    //         return redirect()
-    //             ->route('svip')
-    //             ->with('success', $id ? 'Updated successfully' : 'Created successfully');
-    //     });
-    // }
-
 
     public function save(Request $request, $id = null)
     {
@@ -397,6 +326,24 @@ class SvipController extends Controller
                 'sort_order',
                 'status'
             ]);
+
+            $slug = Str::slug($request->name, '_');
+
+            $originalSlug = $slug;
+            $count = 1;
+
+            while (
+                SvipPrivilege::where('slug', $slug)
+                ->when($id, function ($q) use ($id) {
+                    $q->where('id', '!=', $id);
+                })
+                ->exists()
+            ) {
+                $slug = $originalSlug . '_' . $count;
+                $count++;
+            }
+
+            $data['slug'] = $slug;
 
             if ($request->hasFile('icon')) {
 

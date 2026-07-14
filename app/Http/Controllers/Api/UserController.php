@@ -23,6 +23,11 @@ use App\Models\Frame;
 use App\Models\Vip;
 use App\Models\Svip;
 use App\Models\RelationshipItem;
+use App\Models\InviteUser;
+use App\Models\InviteRewardHistory;
+use App\Models\RewardInviting;
+use App\Models\Notification;
+use App\Models\SvipTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +36,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use App\Services\FirebaseService;
 
 class UserController extends Controller
 {
@@ -68,12 +75,16 @@ class UserController extends Controller
         }
 
         if ($request->filled('invite_code')) {
+
+            // User can use invite code only once
             if (!empty($user->referred_by)) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Invite code already used'
                 ], 422);
             }
+
+            // Find inviter
             $referrer = AppUser::where('invite_code', $request->invite_code)
                 ->where('id', '!=', $user->id)
                 ->first();
@@ -85,9 +96,29 @@ class UserController extends Controller
                 ], 422);
             }
 
-            $referrer->increment('total_points', 1000);
+            // Prevent duplicate referral record
+            $alreadyExists = InviteUser::where('invited_user_id', $user->id)->exists();
 
+            if ($alreadyExists) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invite code already applied.'
+                ], 422);
+            }
+
+            // Save referral
+            InviteUser::create([
+                'inviter_id'      => $referrer->id,
+                'invited_user_id' => $user->id,
+                'invite_code'     => $request->invite_code,
+                'is_completed'    => 1,
+                'completed_at'    => now(),
+            ]);
+
+            // Save referrer on user table
             $data['referred_by'] = $referrer->id;
+
+            $this->checkInviteReward($referrer->id);
         }
 
         $user->update($data);
@@ -96,6 +127,67 @@ class UserController extends Controller
             'status' => true,
             'message' => 'User Details Saved Successfully',
         ]);
+    }
+
+    private function checkInviteReward($userId)
+    {
+        $completedInvites = InviteUser::where('inviter_id', $userId)
+            ->where('is_completed', 1)
+            ->count();
+
+        $rewards = RewardInviting::orderBy('target_person')->get();
+
+        foreach ($rewards as $reward) {
+
+            if ($completedInvites >= $reward->target_person) {
+
+                $alreadyRewarded = InviteRewardHistory::where('user_id', $userId)
+                    ->where('reward_inviting_id', $reward->id)
+                    ->exists();
+
+                if ($alreadyRewarded) {
+                    continue;
+                }
+
+                $user = AppUser::find($userId);
+
+                $user->increment('total_points', $reward->reward_coin);
+
+                InviteRewardHistory::create([
+                    'user_id'            => $userId,
+                    'reward_inviting_id' => $reward->id,
+                    'target_person'      => $reward->target_person,
+                    'reward_coin'        => $reward->reward_coin,
+                ]);
+
+                Notification::create([
+                    'sender_id'   => null,
+                    'receiver_id' => $user->id,
+                    'type'        => 'invite_reward',
+                    'title'       => 'Invite Reward',
+                    'message'     => "Congratulations! You have received {$reward->reward_coin} coins for successfully inviting {$reward->target_person} users.",
+                    'image'       => null,
+                    'country'     => $user->country,
+                ]);
+
+                if (!empty($user->fcm_token)) {
+
+                    $firebase = new FirebaseService();
+
+                    try {
+
+                        $firebase->sendNotification(
+                            $user->fcm_token,
+                            'Invite Reward',
+                            "Congratulations! You have received {$reward->reward_coin} coins for successfully inviting {$reward->target_person} users.",
+                            null
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('Invite Reward FCM Error: ' . $e->getMessage());
+                    }
+                }
+            }
+        }
     }
 
     public function getUserDetails(Request $request)
@@ -422,7 +514,6 @@ class UserController extends Controller
                                 ? Helper::showImage($storeUid->rank_badge, true)
                                 : null;
                             $uidBadgeColor = $storeUid->rank_badge_color ?? null;
-
                         }
                     }
                 }
@@ -738,16 +829,27 @@ class UserController extends Controller
             ]);
         }
 
-        ProfileVisitor::updateOrInsert(
-            [
-                'visitor_id' => $visitorId,
-                'user_id'    => $request->user_id
-            ],
-            [
-                'created_at' => now(),
-                'updated_at' => now()
-            ]
-        );
+        // Check Mysterious Visitor privilege
+        $isMysteriousVisitor = SvipTransaction::where('user_id', $visitorId)
+            ->where('end_at', '>=', now())
+            ->whereHas('svip.privileges', function ($q) {
+                $q->where('svip_privileges.slug', 'mysterious_visitor') // Mysterious Visitor
+                    ->where('svip_level_privileges.is_active', 1);
+            })
+            ->exists();
+
+        if (!$isMysteriousVisitor) {
+            ProfileVisitor::updateOrInsert(
+                [
+                    'visitor_id' => $visitorId,
+                    'user_id'    => $request->user_id
+                ],
+                [
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]
+            );
+        }
 
         return response()->json([
             'status' => true,
@@ -758,6 +860,21 @@ class UserController extends Controller
     public function profileVisitors()
     {
         $userId = Auth::id();
+
+        $currentSvip = SvipTransaction::with('svip.privileges')
+            ->where('user_id', $userId)
+            ->where('end_at', '>=', now())
+            ->first();
+
+        $hasVisitorPrivilege = false;
+
+        if ($currentSvip) {
+
+            $hasVisitorPrivilege = $currentSvip->svip->privileges
+                ->where('slug', 'visiting_traces') // Visiting Traces privilege slug
+                ->where('pivot.is_active', 1)
+                ->isNotEmpty();
+        }
 
         $visitors = ProfileVisitor::with('visitor')
             ->where('user_id', $userId)
@@ -774,8 +891,10 @@ class UserController extends Controller
                         : null,
                 ];
             });
+
         return response()->json([
             'status' => true,
+            'has_visitor_trace_privilege' => $hasVisitorPrivilege,
             'data'   => $visitors
         ]);
     }
@@ -1252,39 +1371,58 @@ class UserController extends Controller
                     ];
                 });
 
-            // GIFTS
-            $gifts = DB::table('gift_transactions as gt')
-                ->join('gifts as g', 'g.id', '=', 'gt.gift_id')
-                ->where('gt.receiver_id', $profileUserId)
-                ->select(
-                    'g.id',
-                    'g.name',
-                    'g.cover',
-                    'g.gif_image',
-                    DB::raw('SUM(gt.multiplier) as total_count'),
-                    DB::raw('SUM(gt.total_value) as total_coins')
-                )
-                ->groupBy('g.id', 'g.name', 'g.cover', 'g.gif_image')
-                ->orderByDesc('total_count')
-                ->limit(30)
-                ->get()
-                ->map(function ($gift) {
-                    return [
-                        'id' => $gift->id,
-                        'name' => $gift->name,
-                        'image' => Helper::showImage($gift->cover, true),
-                        'gif' => Helper::showImage($gift->gif_image ?? null, true),
-                        'count' => (int) $gift->total_count,
-                        'count_text' => 'x' . (int) $gift->total_count,
-                        'total_coins' => (int) $gift->total_coins,
-                    ];
-                });
+            $isOwnProfile = $authUser->id == $profileUserId;
+
+            $hideGiftRecord = false;
+
+            if (!$isOwnProfile) {
+
+                $hideGiftRecord = SvipTransaction::where('user_id', $profileUserId)
+                    ->where('end_at', '>=', now())
+                    ->whereHas('svip.privileges', function ($q) {
+                        $q->where('svip_privileges.slug', 'hide_gift_record') // Hide Gift Record
+                            ->where('svip_level_privileges.is_active', 1);
+                    })
+                    ->exists();
+            }
+            if ($hideGiftRecord) {
+
+                $gifts = collect([]);
+            } else {
+                // GIFTS
+                $gifts = DB::table('gift_transactions as gt')
+                    ->join('gifts as g', 'g.id', '=', 'gt.gift_id')
+                    ->where('gt.receiver_id', $profileUserId)
+                    ->select(
+                        'g.id',
+                        'g.name',
+                        'g.cover',
+                        'g.gif_image',
+                        DB::raw('SUM(gt.multiplier) as total_count'),
+                        DB::raw('SUM(gt.total_value) as total_coins')
+                    )
+                    ->groupBy('g.id', 'g.name', 'g.cover', 'g.gif_image')
+                    ->orderByDesc('total_count')
+                    ->limit(30)
+                    ->get()
+                    ->map(function ($gift) {
+                        return [
+                            'id' => $gift->id,
+                            'name' => $gift->name,
+                            'image' => Helper::showImage($gift->cover, true),
+                            'gif' => Helper::showImage($gift->gif_image ?? null, true),
+                            'count' => (int) $gift->total_count,
+                            'count_text' => 'x' . (int) $gift->total_count,
+                            'total_coins' => (int) $gift->total_coins,
+                        ];
+                    });
+            }
 
             return response()->json([
                 'status' => true,
                 'data' => [
                     'is_own_profile' => $authUser->id == $profileUserId,
-
+                    'hide_gift_record' => $hideGiftRecord,
                     'user' => [
                         'id' => $user->id,
                         'uid' => $user->uid ?? null,
@@ -1337,7 +1475,7 @@ class UserController extends Controller
                 ]
             ]);
         } catch (\Throwable $e) {
-            \Log::error('GET PROFILE API ERROR', [
+            Log::error('GET PROFILE API ERROR', [
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile(),
@@ -1368,7 +1506,7 @@ class UserController extends Controller
                 'gender' => ['sometimes', 'required', Rule::in(['Boy', 'Girl'])],
                 'birthdate' => 'sometimes|required|date|before:today',
                 'signature' => 'sometimes|nullable|string|max:255',
-                'image' => 'sometimes|required|image|mimes:jpg,jpeg,png,webp|max:5120',
+                'image' => 'sometimes|required|file|max:5120',
             ];
 
             $messages = [
@@ -1378,7 +1516,7 @@ class UserController extends Controller
                 'birthdate.required' => 'Birthday is required',
                 'birthdate.date' => 'Birthday must be a valid date',
                 'birthdate.before' => 'Birthday must be before today',
-                'image.image' => 'Avatar must be an image',
+                'image.file' => 'Avatar must be a file',
             ];
 
             $validator = Validator::make($request->all(), $rules, $messages);
@@ -1413,7 +1551,49 @@ class UserController extends Controller
                 $updatedFields[] = 'signature';
             }
 
+            // if ($request->hasFile('image')) {
+            //     if ($user->image && file_exists(storage_path('app/public/' . $user->image))) {
+            //         @unlink(storage_path('app/public/' . $user->image));
+            //     }
+
+            //     $user->image = Helper::saveFile($request->file('image'), 'profile_image');
+            //     $updatedFields[] = 'image';
+            // }
+
             if ($request->hasFile('image')) {
+
+                $extension = strtolower($request->file('image')->getClientOriginalExtension());
+
+                $normalExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+                $animatedExtensions = ['gif', 'svga'];
+
+                // Invalid file format
+                if (!in_array($extension, array_merge($normalExtensions, $animatedExtensions))) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Invalid image format.'
+                    ], 422);
+                }
+
+                // Animated profile privilege check
+                if (in_array($extension, $animatedExtensions)) {
+
+                    $hasAnimationProfilePrivilege = SvipTransaction::where('user_id', $user->id)
+                        ->where('end_at', '>=', now())
+                        ->whereHas('svip.privileges', function ($q) {
+                            $q->where('svip_privileges.slug', 'animation_profile')
+                                ->where('svip_level_privileges.is_active', 1);
+                        })
+                        ->exists();
+
+                    if (!$hasAnimationProfilePrivilege) {
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'SVIP Animation Profile privilege is required.'
+                        ], 403);
+                    }
+                }
+
                 if ($user->image && file_exists(storage_path('app/public/' . $user->image))) {
                     @unlink(storage_path('app/public/' . $user->image));
                 }
@@ -1421,6 +1601,7 @@ class UserController extends Controller
                 $user->image = Helper::saveFile($request->file('image'), 'profile_image');
                 $updatedFields[] = 'image';
             }
+
 
             if (empty($updatedFields)) {
                 return response()->json([
@@ -1436,7 +1617,7 @@ class UserController extends Controller
                 'message' => 'Profile updated successfully',
             ]);
         } catch (\Throwable $e) {
-            \Log::error('PROFILE UPDATE API ERROR', [
+            Log::error('PROFILE UPDATE API ERROR', [
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile(),
