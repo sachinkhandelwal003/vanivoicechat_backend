@@ -3,8 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\StaticPage;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use App\Helper\Helper;
+use App\Models\AppUser;
+use App\Models\StaticPage;
+use App\Models\InviteUser;
+use App\Models\InviteRewardHistory;
+use App\Models\RewardInviting;
 
 class InviteController extends Controller
 {
@@ -28,15 +36,15 @@ class InviteController extends Controller
         }
 
         //  Reward Inviting Data
-        $rewardInviting = \App\Models\RewardInviting::where('status', 1)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'target_person' => $item->target_person,
-                    'reward_coin' => $item->reward_coin,
-                ];
-            });
+        // $rewardInviting = \App\Models\RewardInviting::where('status', 1)
+        //     ->get()
+        //     ->map(function ($item) {
+        //         return [
+        //             'id' => $item->id,
+        //             'target_person' => $item->target_person,
+        //             'reward_coin' => $item->reward_coin,
+        //         ];
+        //     });
 
         // Reward Invitation Recharge Data
         $rewardRecharge = \App\Models\RewardInvitationRecharge::where('status', 1)
@@ -49,15 +57,89 @@ class InviteController extends Controller
                 ];
             });
 
+        $completedInviteCount = InviteUser::where('inviter_id', $user->id)
+            ->where('is_completed', 1)
+            ->count();
+
+        $rewardInviting = RewardInviting::where('status', 1)
+            ->orderBy('target_person')
+            ->get()
+            ->map(function ($item) use ($completedInviteCount) {
+
+                // $progress = $completedInviteCount >= $item->target_person
+                //     ? $item->target_person . '/' . $item->target_person
+                //     : '0/' . $item->target_person;
+
+                $progress = $completedInviteCount >= $item->target_person
+                    ? $item->target_person . '/' . $item->target_person
+                    : $completedInviteCount . '/' . $item->target_person;
+
+                return [
+                    'id' => $item->id,
+                    'target_person' => $item->target_person,
+                    'reward_coin' => $item->reward_coin,
+                    'progress' => $progress,
+                    'is_completed' => $completedInviteCount >= $item->target_person,
+                ];
+            });
+
         return response()->json([
             'status' => true,
             'message' => 'Data fetched successfully',
             'data' => [
                 'invite_code' => $user->invite_code ?? null,
+                'completed_invite_count' => $completedInviteCount,
                 'cms' => $cms,
                 'reward_inviting' => $rewardInviting,
                 'reward_invitation_recharge' => $rewardRecharge,
             ]
+        ]);
+    }
+
+    public function sendInviteCode(Request $request)
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Invite code fetched successfully.',
+            'data' => [
+                'invite_code' => $user->invite_code,
+                'invite_link' => url('/register?invite_code=' . $user->invite_code),
+                'share_message' => "Join our app using my invite code {$user->invite_code} and enjoy exciting rewards.",
+            ]
+        ]);
+    }
+
+    public function invitedUsers(Request $request)
+    {
+        $user = $request->user();
+
+        $invitedUsers = InviteUser::with('invitedUser:id,uid,name,image')
+            ->where('inviter_id', $user->id)
+            ->where('is_completed', 1)
+            ->latest()
+            ->get()
+            ->map(function ($invite) {
+
+                return [
+                    'id'           => $invite->invitedUser->id ?? null,
+                    // 'uid'          => $invite->invitedUser->uid ?? null,
+                    'name'         => $invite->invitedUser->name ?? '',
+                    'image'        => $invite->invitedUser->image
+                        ? Helper::showImage($invite->invitedUser->image, true)
+                        : null,
+                    'completed_at' => [
+                        'date' => optional($invite->completed_at)->format('d M Y h:i A'),
+                        'human' => optional($invite->completed_at)->diffForHumans(),
+                    ],
+                ];
+            });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Invited users fetched successfully.',
+            'data' => $invitedUsers
         ]);
     }
 }

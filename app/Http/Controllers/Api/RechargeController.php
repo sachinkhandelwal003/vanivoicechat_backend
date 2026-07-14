@@ -201,10 +201,8 @@ class RechargeController extends Controller
                 $request->coin
             );
 
-            $user->increment(
-                'total_points',
-                $request->coin
-            );
+            $user->increment('total_points', $request->coin);
+            $user->increment('buy_coins_wallet', $request->coin);
 
             CoinRechargeHistory::create([
 
@@ -537,6 +535,8 @@ class RechargeController extends Controller
                 'total_points',
                 $request->coin
             );
+            $user->increment('buy_coins_wallet', $request->coin);
+
 
             /*
         |--------------------------------------------------------------------------
@@ -781,6 +781,7 @@ class RechargeController extends Controller
                 'total_points',
                 $request->coin
             );
+
 
             /*
         |--------------------------------------------------------------------------

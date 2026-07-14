@@ -86,6 +86,111 @@ class BdUserController extends Controller
                     ';
                 })
 
+
+                // ->addColumn('user', function ($row) {
+
+                //     if (!$row->user) {
+                //         return '-';
+                //     }
+
+                //     $user = $row->user;
+
+                //     $image = $user->image
+                //         ? Helper::showImage($user->image, true)
+                //         : asset('assets/img/avatar.png');
+
+                //     $uidData = Helper::getDisplayUidData($user);
+
+                //     $badgeHtml = '';
+
+                //     if (!empty($uidData['badge'])) {
+                //         $badgeHtml = '
+                //             <img src="' . $uidData['badge'] . '"
+                //                 width="16"
+                //                 height="16"
+                //                 style="margin-right:4px;vertical-align:middle;">
+                //         ';
+                //     }
+
+                //     $uidColor = $uidData['badge_color'] ?? '#6c757d';
+
+                //     return '
+                //         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                //             data-user-id="' . $user->id . '"
+                //             style="cursor:pointer;">
+
+                //             <img src="' . $image . '"
+                //                 width="40"
+                //                 height="40"
+                //                 class="rounded-circle">
+
+                //             <div>
+                //                 <div class="fw-bold">' . e($user->name) . '</div>
+                //                 <small class="text-muted">
+                //                     UID:
+                //                     ' . $badgeHtml . '
+                //                     <span style="color:' . $uidColor . ';font-weight:600;">
+                //                         ' . e($uidData['uid']) . '
+                //                     </span>
+                //                 </small>
+                //             </div>
+
+                //         </div>
+                //     ';
+                // })
+
+                // ->addColumn('admin', function ($row) {
+
+                //     if (!$row->admin || !$row->admin->user) {
+                //         return '-';
+                //     }
+
+                //     $adminUser = $row->admin->user;
+
+                //     $image = $adminUser->image
+                //         ? Helper::showImage($adminUser->image, true)
+                //         : asset('assets/img/avatar.png');
+
+                //     $uidData = Helper::getDisplayUidData($adminUser);
+
+                //     $badgeHtml = '';
+
+                //     if (!empty($uidData['badge'])) {
+                //         $badgeHtml = '
+                //             <img src="' . $uidData['badge'] . '"
+                //                 width="16"
+                //                 height="16"
+                //                 style="margin-right:4px;vertical-align:middle;">
+                //         ';
+                //     }
+
+                //     $uidColor = $uidData['badge_color'] ?? '#6c757d';
+
+                //     return '
+                //         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                //             data-user-id="' . $adminUser->id . '"
+                //             style="cursor:pointer;">
+
+                //             <img src="' . $image . '"
+                //                 width="40"
+                //                 height="40"
+                //                 class="rounded-circle">
+
+                //             <div>
+                //                 <div class="fw-bold">' . e($adminUser->name) . '</div>
+                //                 <small class="text-muted">
+                //                     UID:
+                //                     ' . $badgeHtml . '
+                //                     <span style="color:' . $uidColor . ';font-weight:600;">
+                //                         ' . e($uidData['uid']) . '
+                //                     </span>
+                //                 </small>
+                //             </div>
+
+                //         </div>
+                //     ';
+                // })
+
                 ->addColumn('country', function ($row) {
                     return '
                         <span class="badge bg-light text-dark border">
@@ -169,38 +274,21 @@ class BdUserController extends Controller
     public function save(Request $request, $id = null)
     {
         $rules = [
-
             'user_uid' => 'required',
-
-            'country_id' =>
-            'required|exists:countries,id',
-
-            'whatsapp_number' =>
-            'nullable|string|max:20',
-
-            'status' =>
-            'required|in:0,1',
+            'country_id' => 'required|exists:countries,id',
+            'whatsapp_number' => 'nullable|string|max:20',
+            'status' => 'required|in:0,1',
         ];
 
-        /*
-        |--------------------------------------------------------------------------
-        | If BD Bound To Admin
-        |--------------------------------------------------------------------------
-        */
+        //    If BD Bound To Admin
 
         if ($request->is_admin_bound) {
-
-            $rules['admin_uid'] =
-                'required|exists:app_users,uid';
+            $rules['admin_uid'] = 'required';
         }
 
-        $validator = Validator::make(
-            $request->all(),
-            $rules
-        );
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
-
             return redirect()
                 ->back()
                 ->withErrors($validator)
@@ -209,170 +297,69 @@ class BdUserController extends Controller
 
         return DB::transaction(function () use ($request, $id) {
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find BD Record
-        |--------------------------------------------------------------------------
-        */
+            // Find BD Record
 
-            $bd = $id
-                ? BdUser::find($id)
-                : new BdUser();
+            $bd = $id ? BdUser::find($id) : new BdUser();
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find User
-        |--------------------------------------------------------------------------
-        */
+            //  Find User (System UID / Premium UID / Store UID)
 
-            $user = AppUser::where(
-                'uid',
-                $request->user_uid
-            )->first();
+            $user = Helper::findUserByAnyUid($request->user_uid);
 
             if (!$user) {
-
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'User not found'
-                    );
+                return redirect()->back()->with('error', 'User not found');
             }
 
             $userId = $user->id;
 
-            /*
-        |--------------------------------------------------------------------------
-        | Check Existing BD
-        |--------------------------------------------------------------------------
-        */
+            //    Check Existing BD
 
-            $existsInBd = BdUser::where(
-                'user_id',
-                $userId
-            )
-
+            $existsInBd = BdUser::where('user_id', $userId)
                 ->when(
                     $id,
-                    fn($q) =>
-                    $q->where(
-                        'id',
-                        '!=',
-                        $id
-                    )
-                )
-
-                ->exists();
+                    fn($q) => $q->where('id', '!=', $id)
+                )->exists();
 
             if ($existsInBd) {
-
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'User already exists as BD'
-                    );
+                return redirect()->back()->with('error', 'User already exists as BD');
             }
-
-            /*
-        |--------------------------------------------------------------------------
-        | Admin Check
-        |--------------------------------------------------------------------------
-        */
+            // Admin Check
 
             $admin = null;
 
             if ($request->is_admin_bound) {
 
-                $adminUser = AppUser::where(
-                    'uid',
-                    $request->admin_uid
-                )->first();
+                //  Find Admin (System UID / Premium UID / Store UID)
+
+                $adminUser = Helper::findUserByAnyUid($request->admin_uid);
 
                 if (!$adminUser) {
-
-                    return redirect()
-                        ->back()
-                        ->with(
-                            'error',
-                            'Admin user not found'
-                        );
+                    return redirect()->back()->with('error', 'Admin user not found');
                 }
 
-                $admin = AdminAccount::where(
-                    'user_id',
-                    $adminUser->id
-                )->first();
-
-                /*
-            |--------------------------------------------------------------------------
-            | Check Admin Exists
-            |--------------------------------------------------------------------------
-            */
+                $admin = AdminAccount::where('user_id', $adminUser->id)->first();
 
                 if (!$admin) {
-
-                    return redirect()
-                        ->back()
-                        ->with(
-                            'error',
-                            'Admin not found'
-                        );
+                    return redirect()->back()->with('error', 'Admin not found');
                 }
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | If User Already Admin
-        |--------------------------------------------------------------------------
-        | Admin users should not become child BD
-        |--------------------------------------------------------------------------
-        */
+            // If User Already Admin
+            // Admin users should not become child BD
 
-            $isAdmin = AdminAccount::where(
-                'user_id',
-                $userId
-            )->exists();
+            $isAdmin = AdminAccount::where('user_id', $userId)->exists();
 
-            /*
-        |--------------------------------------------------------------------------
-        | Save BD
-        |--------------------------------------------------------------------------
-        */
+            //  Save BD
 
             $bd->fill([
-
                 'user_id' => $user->id,
-
-                /*
-            |--------------------------------------------------------------------------
-            | Admin Users Always Independent
-            |--------------------------------------------------------------------------
-            */
-
-                'is_admin_bound' => $isAdmin
-                    ? 0
-                    : ($request->is_admin_bound ?? 0),
-
-                'admin_id' => $isAdmin
-                    ? null
-                    : ($admin->id ?? null),
-
-                'country_id' =>
-                $request->country_id,
-
-                'whatsapp_number' =>
-                $request->whatsapp_number,
-
-                'briefing' =>
-                $request->briefing,
-
-                'status' =>
-                $request->status,
-
-                'invite_status' =>
-                'accept'
+                // Admin Users Always Independent
+                'is_admin_bound' => $isAdmin ? 0 : ($request->is_admin_bound ?? 0),
+                'admin_id' => $isAdmin ? null : ($admin->id ?? null),
+                'country_id' => $request->country_id,
+                'whatsapp_number' => $request->whatsapp_number,
+                'briefing' =>  $request->briefing,
+                'status' => $request->status,
+                'invite_status' => 'accept'
             ])->save();
 
             return redirect()
@@ -402,12 +389,18 @@ class BdUserController extends Controller
     public function transferSave(Request $request, $id)
     {
         $request->validate([
-            'admin_uid' => 'required|exists:app_users,uid'
+            'admin_uid' => 'required'
         ]);
 
         $bd = BdUser::findOrFail($id);
 
-        $adminUser = AppUser::where('uid', $request->admin_uid)->first();
+        //   Find Admin User (System UID / Premium UID / Store UID)
+
+        $adminUser = Helper::findUserByAnyUid($request->admin_uid);
+
+        if (!$adminUser) {
+            return back()->with('error', 'Admin user not found');
+        }
 
         $admin = AdminAccount::where('user_id', $adminUser->id)->first();
 

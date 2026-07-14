@@ -6,6 +6,8 @@ use App\Models\AdminAccount;
 use App\Models\AppUser;
 use App\Models\Country;
 use App\Models\BdUser;
+use App\Models\PremiumNumber;
+use App\Models\StoreUids;
 use App\Helper\Helper;
 use Carbon\Carbon;
 use Illuminate\View\View;
@@ -35,7 +37,9 @@ class AdminAccountController extends Controller
 
                 ->addColumn('user', function ($row) {
 
-                    if (!$row->user) {return '-';}
+                    if (!$row->user) {
+                        return '-';
+                    }
 
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
@@ -43,22 +47,78 @@ class AdminAccountController extends Controller
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="'.$row->user->id.'"
+                             data-user-id="' . $row->user->id . '"
                              style="cursor:pointer;">
 
-                            <img src="'.$image.'"
+                            <img src="' . $image . '"
                                  width="40"
                                  height="40"
                                  class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">'.e($row->user->name).'</div>
-                                <small class="text-muted">UID: '.e($row->user->uid).'</small>
+                                <div class="fw-bold">' . e($row->user->name) . '</div>
+                                <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
                             </div>
 
                         </div>
                     ';
                 })
+
+                // ->addColumn('user', function ($row) {
+
+                //     if (!$row->user) {
+                //         return '-';
+                //     }
+
+                //     $user = $row->user;
+
+                //     $image = $user->image
+                //         ? Helper::showImage($user->image, true)
+                //         : asset('assets/img/avatar.png');
+
+                //     $uidData = Helper::getDisplayUidData($user);
+
+                //     $badgeHtml = '';
+
+                //     if (!empty($uidData['badge'])) {
+
+                //         $badgeHtml = '
+                //             <img src="' . $uidData['badge'] . '"
+                //                 width="16"
+                //                 height="16"
+                //                 style="margin-right:4px;vertical-align:middle;">
+                //         ';
+                //     }
+
+                //     $uidColor = !empty($uidData['badge_color'])
+                //         ? $uidData['badge_color']
+                //         : '#6c757d';
+
+                //     return '
+                //         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                //             data-user-id="' . $user->id . '"
+                //             style="cursor:pointer;">
+
+                //             <img src="' . $image . '"
+                //                 width="40"
+                //                 height="40"
+                //                 class="rounded-circle">
+
+                //             <div>
+                //                 <div class="fw-bold">' . e($user->name) . '</div>
+
+                //                 <small class="text-muted">
+                //                     UID:
+                //                     ' . $badgeHtml . '
+                //                     <span style="color:' . $uidColor . ';font-weight:600;">
+                //                         ' . e($uidData['uid']) . '
+                //                     </span>
+                //                 </small>
+                //             </div>
+
+                //         </div>
+                //     ';
+                // })
 
                 ->addColumn('country', function ($row) {
                     return $row->country->name ?? '-';
@@ -71,18 +131,18 @@ class AdminAccountController extends Controller
                             color:#fff; font-weight:600; box-shadow:0 4px 12px rgba(79,70,229,.25);
                         ">
                             <i class="fas fa-user-tie"></i>
-                            '.$row->bd_count.'
+                            ' . $row->bd_count . '
                         </div>
                     ';
                 })
-                
+
                 ->addColumn('agency_count', function ($row) {
                     return '
                         <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:30px;
                             background:linear-gradient(135deg,#f59e0b,#f97316); color:#fff; font-weight:600; box-shadow:0 4px 12px rgba(245,158,11,.25);
                         ">
                             <i class="fas fa-building"></i>
-                            '.$row->agency_count.'
+                            ' . $row->agency_count . '
                         </div>
                     ';
                 })
@@ -147,7 +207,7 @@ class AdminAccountController extends Controller
     public function save(Request $request, $id = null)
     {
         $rules = [
-            'user_uid' => 'required|exists:app_users,uid',
+            'user_uid' => 'required',
             'country_id' => 'required|exists:countries,id',
             'whatsapp_number' => 'nullable|string|max:20',
             'status' => 'required|in:0,1',
@@ -167,132 +227,64 @@ class AdminAccountController extends Controller
 
         return DB::transaction(function () use ($request, $id) {
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find Admin Record
-        |--------------------------------------------------------------------------
-        */
+            //    Find Admin Record
 
-            $admin = $id
-                ? AdminAccount::find($id)
-                : new AdminAccount();
+            $admin = $id ? AdminAccount::find($id) : new AdminAccount();
 
             if ($id && !$admin) {
-
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'Admin not found'
-                    );
+                return redirect()->back()->with(
+                    'error',
+                    'Admin not found'
+                );
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Find User
-        |--------------------------------------------------------------------------
-        */
-
-            $user = AppUser::where(
-                'uid',
-                $request->user_uid
-            )->first();
+            // Find User (System UID / Premium UID / Store UID)
+            $user = Helper::findUserByAnyUid($request->user_uid);
 
             if (!$user) {
-
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'User not found'
-                    );
+                return redirect()->back()->with('error', 'User not found');
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Check Existing BD
-        |--------------------------------------------------------------------------
-        */
+            // Check Existing BD
 
-            $bd = BdUser::where(
-                'user_id',
-                $user->id
-            )->first();
+            $bd = BdUser::where('user_id', $user->id)->first();
 
-            /*
-        |--------------------------------------------------------------------------
-        | If BD Already Under Another Admin
-        |--------------------------------------------------------------------------
-        */
+            // If BD Already Under Another Admin
 
-            if (
-                $bd
-                &&
-                (int) $bd->is_admin_bound === 1
-                &&
-                !empty($bd->admin_id)
-            ) {
+            if ($bd && (int) $bd->is_admin_bound === 1 && !empty($bd->admin_id)) {
 
-                return redirect()
-                    ->back()
-                    ->with(
-                        'error',
-                        'This BD is already under another Admin'
-                    );
+                return redirect()->back()->with(
+                    'error',
+                    'This BD is already under another Admin'
+                );
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Save Admin
-        |--------------------------------------------------------------------------
-        */
+            //  Save Admin
 
             $data = [
-
                 'user_id' => $user->id,
-
-                'country_id' =>
-                $request->country_id,
-
-                'whatsapp_number' =>
-                $request->whatsapp_number,
-
-                'status' =>
-                $request->status
+                'country_id' => $request->country_id,
+                'whatsapp_number' => $request->whatsapp_number,
+                'status' => $request->status
             ];
 
             $admin->fill($data)->save();
 
-            /*
-        |--------------------------------------------------------------------------
-        | Create / Update BD Record
-        |--------------------------------------------------------------------------
-        | Admin user also becomes BD
-        |--------------------------------------------------------------------------
-        */
+            // Create / Update BD Record
+            // Admin user also becomes BD
 
             BdUser::updateOrCreate(
-
                 [
                     'user_id' => $user->id
                 ],
 
                 [
                     'is_admin_bound' => 1,
-
                     'admin_id' => $admin->id,
-
-                    'country_id' =>
-                    $request->country_id,
-
-                    'whatsapp_number' =>
-                    $request->whatsapp_number,
-
-                    'status' =>
-                    $request->status,
-
-                    'invite_status' =>
-                    'accept',
+                    'country_id' => $request->country_id,
+                    'whatsapp_number' => $request->whatsapp_number,
+                    'status' => $request->status,
+                    'invite_status' => 'accept',
                     'is_dashboard_access' => 0,
                 ]
             );
