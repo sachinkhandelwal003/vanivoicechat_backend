@@ -10,6 +10,7 @@ use App\Models\Agency;
 use App\Models\BdUser;
 use App\Models\Host;
 use App\Models\Notification;
+use App\Models\AgencySalarySettlement;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -323,6 +324,151 @@ class BDController extends Controller
                 'image' =>  !empty($user->image)  ? Helper::showImage($user->image,  true) : null,
                 'invite_status' => $agency->invite_status
             ]
+        ]);
+    }
+
+    public function bdDashboardAmount(Request $request)
+    {
+        $user = auth()->user();
+
+        $bd = BdUser::where(
+            'user_id',
+            $user->id
+        )
+            ->where('status', 1)
+            ->first();
+
+        if (!$bd) {
+
+            return response()->json([
+                'status' => false,
+                'message' => 'BD account not found'
+            ], 404);
+        }
+
+        // Month
+
+
+        $month = $request->input(
+            'month',
+            now()->format('Y-m')
+        );
+
+        // Agencies Under BD
+
+
+        $agencyIds = Agency::where(
+            'bd_user_id',
+            $bd->id
+        )
+            ->where('status', 1)
+            ->pluck('id');
+
+        //  First Cycle
+
+
+        $firstHalf = AgencySalarySettlement::whereIn(
+            'agency_id',
+            $agencyIds
+        )
+            ->where(
+                'month',
+                $month
+            )
+            ->where(
+                'cycle',
+                1
+            )
+            ->where(
+                'status',
+                'settled'
+            )
+            ->sum(
+                'total_salary'
+            );
+
+        //   Second Cycle
+
+
+        $secondHalf = AgencySalarySettlement::whereIn(
+            'agency_id',
+            $agencyIds
+        )
+            ->where(
+                'month',
+                $month
+            )
+            ->where(
+                'cycle',
+                2
+            )
+            ->where(
+                'status',
+                'settled'
+            )
+            ->sum(
+                'total_salary'
+            );
+
+        //   Available Months
+
+
+        $months = AgencySalarySettlement::whereIn(
+            'agency_id',
+            $agencyIds
+        )
+            ->select('month')
+            ->distinct()
+            ->orderByDesc('month')
+            ->pluck('month');
+
+        return response()->json([
+
+            'status' => true,
+
+            'message' => 'Dashboard data fetched successfully',
+
+            'data' => [
+
+                'month' => $month,
+
+                'team' => [
+
+                    'agency_count' =>
+                    $agencyIds->count(),
+                ],
+
+                'salary' => [
+
+                    'first_cycle' => [
+
+                        'cycle' => '1-15',
+
+                        'amount' => round(
+                            $firstHalf,
+                            2
+                        )
+                    ],
+
+                    'second_cycle' => [
+
+                        'cycle' => '16-Month End',
+
+                        'amount' => round(
+                            $secondHalf,
+                            2
+                        )
+                    ],
+
+                    'total' => round(
+                        $firstHalf +
+                            $secondHalf,
+                        2
+                    )
+                ]
+            ],
+
+            'months' => $months
         ]);
     }
 }

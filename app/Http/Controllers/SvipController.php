@@ -111,7 +111,7 @@ class SvipController extends Controller
 
 
         // all privileges
-        $privileges = SvipPrivilege::orderBy('sort_order')->get();
+        $privileges = SvipPrivilege::where('status', 1)->orderBy('sort_order')->get();
 
         // selected privileges
         $selectedPrivileges = $svip
@@ -127,6 +127,7 @@ class SvipController extends Controller
             'name'       => 'required|string|max:100',
             'need_coins' => 'required|integer',
             'days'       => 'nullable|integer',
+            'admin_limit' => 'nullable|integer',
             'color'      => 'nullable|string|max:55',
             'status'     => 'nullable|in:0,1',
 
@@ -171,6 +172,7 @@ class SvipController extends Controller
                 'name',
                 'need_coins',
                 'days',
+                'admin_limit',
                 'color',
                 'status',
                 'img_key',

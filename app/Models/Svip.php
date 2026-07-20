@@ -29,7 +29,8 @@ class Svip extends Model
         'profile_card',
         'profile_animation',
         'days',
-        'color', 
+        'color',
+        'admin_limit',
         'status'
     ];
 

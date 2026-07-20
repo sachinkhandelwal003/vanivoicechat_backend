@@ -167,7 +167,7 @@ class StoreController extends Controller
     public function getThemes(Request $request)
     {
         try {
-            $themes = \App\Models\Theme::whereNull('user_id')->whereIn('visibility_type', ['in_app', 'user'])->where('status', 1)
+            $themes = \App\Models\Theme::whereNull('user_id')->where('visibility_type', 'in_app')->where('status', 1)
                 ->latest()
                 ->get();
 
@@ -1224,7 +1224,7 @@ class StoreController extends Controller
             }
         }
         $activeId = $user->{$activeColumnMap[$type]} ?? null;
-        
+
         $activeTypeColumnMap = [
             'frame' => 'active_frame_type',
             'entry' => 'active_entry_type',

@@ -51,22 +51,22 @@ class AppUserController extends Controller
                     $image = $row->image
                         ? Helper::showImage($row->image, true)
                         : asset('assets/img/avatar.png');
-                
+
                     return '
                     <div class="d-flex align-items-center gap-2 user-profile-trigger"
                          data-user-id="'.$row->id.'"
                          style="cursor:pointer;">
-                
+
                         <img src="'.$image.'"
                              width="45"
                              height="45"
                              class="rounded-circle">
-                
+
                         <div>
                             <div class="fw-bold">'.$row->name.'</div>
                             <small class="text-muted">'.$row->uid.'</small>
                         </div>
-                
+
                     </div>';
                 })
 
@@ -109,14 +109,14 @@ class AppUserController extends Controller
                     }
 
                     if ($row->is_disabled) {
-                        $btn .= '<button class="dropdown-item text-success activateUserBtn" 
-                            data-id="' . $row->id . '" 
+                        $btn .= '<button class="dropdown-item text-success activateUserBtn"
+                            data-id="' . $row->id . '"
                             data-name="' . e($row->name) . '">
                             Activate User
                         </button>';
                     } else {
-                        $btn .= '<button class="dropdown-item text-danger disableUserBtn" 
-                            data-id="' . $row->id . '" 
+                        $btn .= '<button class="dropdown-item text-danger disableUserBtn"
+                            data-id="' . $row->id . '"
                             data-name="' . e($row->name) . '">
                             Disable User
                         </button>';
@@ -127,8 +127,8 @@ class AppUserController extends Controller
                             Blacklisted
                         </span>';
                     } else {
-                        $btn .= '<button class="dropdown-item text-dark blacklistUserBtn" 
-                            data-id="' . $row->id . '" 
+                        $btn .= '<button class="dropdown-item text-dark blacklistUserBtn"
+                            data-id="' . $row->id . '"
                             data-name="' . e($row->name) . '">
                             Blacklist User
                         </button>';
@@ -471,7 +471,7 @@ class AppUserController extends Controller
 
         $allItems = $allItems->groupBy(function ($item) {
             return $item['type'] . '_' . $item['item_id'];
-        });    
+        });
 
         $items = [];
 

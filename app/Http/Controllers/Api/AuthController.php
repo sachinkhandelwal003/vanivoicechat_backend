@@ -274,7 +274,7 @@ class AuthController extends Controller
         // }
 
         $uid = trim($request->uid);
-        
+
 
         $hasUid = null;
 
@@ -292,7 +292,7 @@ class AuthController extends Controller
             $hasUid = AppUser::find($premiumUid->user_id);
         }
 
-        
+
 
         /*
 |--------------------------------------------------------------------------
@@ -326,7 +326,6 @@ class AuthController extends Controller
 
                     if ($hasValidPurchase || $hasValidGift) {
                         $hasUid = $activeUser;
-                        
                     }
                 }
             }
@@ -347,7 +346,7 @@ class AuthController extends Controller
                 'message' => 'User ID does not exist'
             ]);
         }
-// dd($hasUid);
+        // dd($hasUid);
         if ($hasUid->is_blacklisted) {
             return response()->json([
                 'status' => false,
@@ -836,5 +835,16 @@ class AuthController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function updateOnlineStatus()
+    {
+        Auth::user()->update([
+            'user_last_seen' => now()
+        ]);
+
+        return response()->json([
+            'status' => true
+        ]);
     }
 }

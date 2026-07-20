@@ -63,12 +63,20 @@
                     @error('need_coins') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-4 mt-2">
                     <label>Days</label>
                     <input type="number" name="days"
                         class="form-control @error('days') is-invalid @enderror"
                         value="{{ old('days',$svip->days ?? '') }}">
                     @error('days') <small class="text-danger">{{ $message }}</small> @enderror
+                </div>
+
+                  <div class="col-md-4">
+                    <label>Admin Limit</label>
+                    <input type="number" name="admin_limit"
+                        class="form-control @error('admin_limit') is-invalid @enderror"
+                        value="{{ old('admin_limit',$svip->admin_limit ?? '') }}">
+                    @error('admin_limit') <small class="text-danger">{{ $message }}</small> @enderror
                 </div>
 
             </div>

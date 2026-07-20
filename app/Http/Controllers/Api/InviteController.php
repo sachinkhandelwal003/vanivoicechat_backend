@@ -142,4 +142,40 @@ class InviteController extends Controller
             'data' => $invitedUsers
         ]);
     }
+
+    public function invitationRevenueHistory()
+    {
+        $user = Auth::user();
+
+        $histories = InviteRewardHistory::with('reward')
+            ->where('user_id', $user->id)
+            ->latest()
+            ->get()
+            ->map(function ($item) {
+
+                return [
+                    'id' => $item->id,
+                    'target_person' => $item->target_person,
+                    'reward_coin' => $item->reward_coin,
+                    'reward_title' => $item->reward
+                        ? 'Invite ' . $item->reward->target_person . ' Users Reward'
+                        : null,
+                    'date' => $item->created_at->format('d M Y'),
+                    'time' => $item->created_at->format('h:i A'),
+                    'created_at' => $item->created_at->diffForHumans(),
+                ];
+            });
+
+        $totalRevenue = InviteRewardHistory::where('user_id', $user->id)
+            ->sum('reward_coin');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Invitation revenue fetched successfully.',
+            'data' => [
+                'total_revenue' => $totalRevenue,
+                'histories' => $histories
+            ]
+        ]);
+    }
 }

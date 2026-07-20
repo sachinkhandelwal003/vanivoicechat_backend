@@ -28,6 +28,7 @@ use App\Models\InviteRewardHistory;
 use App\Models\RewardInviting;
 use App\Models\Notification;
 use App\Models\SvipTransaction;
+use App\Models\VipTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -285,6 +286,38 @@ class UserController extends Controller
 
             $isOwnProfile = (int) $authUser->id === (int) $userId;
 
+            $isOnline = false;
+
+            if (!empty($user->user_last_seen)) {
+                $isOnline = \Carbon\Carbon::parse(
+                    $user->user_last_seen
+                )->gt(now()->subMinutes(1));
+            }
+
+            $hideOnline = SvipTransaction::where(
+                'user_id',
+                $user->id
+            )
+                ->where(function ($q) {
+                    $q->whereNull('end_at')
+                        ->orWhere('end_at', '>=', now());
+                })
+                ->whereHas('svip.privileges', function ($q) {
+                    $q->where(
+                        'svip_privileges.slug',
+                        'online_user'
+                    )
+                        ->where(
+                            'svip_level_privileges.is_active',
+                            1
+                        );
+                })
+                ->exists();
+
+            if ($hideOnline && !$isOwnProfile) {
+                $isOnline = false;
+            }
+
             // Auth user ne opened profile user ko follow kiya hai ya nahi
             $isFollowing = false;
 
@@ -524,11 +557,8 @@ class UserController extends Controller
 
             if ($user->active_frame_id) {
 
-                /*
-    |--------------------------------------------------------------------------
-    | STORE FRAME
-    |--------------------------------------------------------------------------
-    */
+                // STORE FRAME
+
                 if ($user->active_frame_type === 'store' || empty($user->active_frame_type)) {
 
                     $frame = Frame::find($user->active_frame_id);
@@ -548,11 +578,8 @@ class UserController extends Controller
                     }
                 }
 
-                /*
-    |--------------------------------------------------------------------------
-    | VIP FRAME
-    |--------------------------------------------------------------------------
-    */ elseif ($user->active_frame_type === 'vip') {
+                //    VIP FRAME
+                elseif ($user->active_frame_type === 'vip') {
 
                     $vip = Vip::find($user->active_frame_id);
 
@@ -571,11 +598,8 @@ class UserController extends Controller
                     }
                 }
 
-                /*
-    |--------------------------------------------------------------------------
-    | SVIP FRAME
-    |--------------------------------------------------------------------------
-    */ elseif ($user->active_frame_type === 'svip') {
+                // SVIP FRAME
+                elseif ($user->active_frame_type === 'svip') {
 
                     $svip = Svip::find($user->active_frame_id);
 
@@ -594,11 +618,9 @@ class UserController extends Controller
                     }
                 }
 
-                /*
-    |--------------------------------------------------------------------------
-    | CP FRAME
-    |--------------------------------------------------------------------------
-    */ elseif ($user->active_frame_type === 'cp') {
+                //   CP FRAME
+
+                elseif ($user->active_frame_type === 'cp') {
 
                     $relationItem = RelationshipItem::find($user->active_frame_id);
 
@@ -618,6 +640,8 @@ class UserController extends Controller
                 }
             }
 
+            $nicknameMeta = Helper::getNicknameMeta($user->id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'User Details fethed Successfuly',
@@ -630,11 +654,19 @@ class UserController extends Controller
                     'uid_badge' => $uidBadge,
                     'uid_badge_color' => $uidBadgeColor,
                     'name' => $user->name,
+                    'nickname_meta' => $nicknameMeta,
+                    // 'nickname_color' => $nicknameMeta['color'],
+                    // 'nickname_effect' => $nicknameMeta['effect'],
+                    // 'has_animated_nickname' => $nicknameMeta['animated'],
                     'email' => $user->email,
                     'gender' => $user->gender,
                     'image' => $image,
                     'flag' => $flag,
                     'signature' => $user->signature,
+
+                    'is_online' => $isOnline,
+                    'last_seen' => $user->user_last_seen,
+                    'hide_online_status' => $hideOnline,
 
                     'cp_relation' => $cpData,
 
@@ -831,7 +863,10 @@ class UserController extends Controller
 
         // Check Mysterious Visitor privilege
         $isMysteriousVisitor = SvipTransaction::where('user_id', $visitorId)
-            ->where('end_at', '>=', now())
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>=', now());
+            })
             ->whereHas('svip.privileges', function ($q) {
                 $q->where('svip_privileges.slug', 'mysterious_visitor') // Mysterious Visitor
                     ->where('svip_level_privileges.is_active', 1);
@@ -861,6 +896,25 @@ class UserController extends Controller
     {
         $userId = Auth::id();
 
+        $currentVip = VipTransaction::with('vip.privileges')
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>=', now());
+            })
+            ->first();
+
+        $hasVipVisitorPrivilege = false;
+
+        if ($currentVip && $currentVip->vip) {
+
+            $hasVipVisitorPrivilege =
+                $currentVip->vip->privileges
+                ->where('slug', 'view_visitors')
+                ->where('status', 1)
+                ->isNotEmpty();
+        }
+
         $currentSvip = SvipTransaction::with('svip.privileges')
             ->where('user_id', $userId)
             ->where('end_at', '>=', now())
@@ -881,10 +935,12 @@ class UserController extends Controller
             ->orderByDesc('updated_at')
             ->get()
             ->map(function ($visit) {
+                $nicknameMeta = Helper::getNicknameMeta($visit->visitor->id);
                 return [
                     'id'   => $visit->visitor->id,
                     'uid'  => $visit->visitor->uid ?? null,
                     'name' => $visit->visitor->name,
+                    'nickname_meta' => $nicknameMeta,
                     'gender' => $visit->visitor->gender,
                     'image' => $visit->visitor->image
                         ? Helper::showImage($visit->visitor->image, true)
@@ -894,6 +950,7 @@ class UserController extends Controller
 
         return response()->json([
             'status' => true,
+            'has_vip_visitor_privilege' => $hasVipVisitorPrivilege,
             'has_visitor_trace_privilege' => $hasVisitorPrivilege,
             'data'   => $visitors
         ]);
@@ -1101,7 +1158,6 @@ class UserController extends Controller
             ], 500);
         }
     }
-
 
     public function getMyAlbum(Request $request)
     {
@@ -1578,18 +1634,20 @@ class UserController extends Controller
                 // Animated profile privilege check
                 if (in_array($extension, $animatedExtensions)) {
 
-                    $hasAnimationProfilePrivilege = SvipTransaction::where('user_id', $user->id)
+                    $hasVipGifPrivilege = Helper::hasVipPrivilege($user->id, 'gif_avatar');
+
+                    $hasSvipGifPrivilege = SvipTransaction::where('user_id', $user->id)
                         ->where('end_at', '>=', now())
                         ->whereHas('svip.privileges', function ($q) {
-                            $q->where('svip_privileges.slug', 'animation_profile')
+                            $q->where('svip_privileges.slug', 'dynamic_avatar')
                                 ->where('svip_level_privileges.is_active', 1);
                         })
                         ->exists();
 
-                    if (!$hasAnimationProfilePrivilege) {
+                    if (!$hasVipGifPrivilege && !$hasSvipGifPrivilege) {
                         return response()->json([
                             'status' => false,
-                            'message' => 'SVIP Animation Profile privilege is required.'
+                            'message' => 'GIF avatar privilege is required.'
                         ], 403);
                     }
                 }
@@ -1630,7 +1688,6 @@ class UserController extends Controller
             ], 500);
         }
     }
-
 
     // public function getUserRelationships(Request $request)
     // {
