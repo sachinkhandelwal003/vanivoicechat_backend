@@ -11,6 +11,7 @@ use App\Models\PremiumNumber;
 use App\Models\VipTransaction;
 use App\Models\VipPrivilege;
 use App\Models\StoreUids;
+use App\Models\UserRoleTag;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -282,56 +283,165 @@ class Helper
         return $response->send();
     }
 
+    // public static function getUserRoleBadges($userId)
+    // {
+    //     $badges = [];
+
+    //     // if (\App\Models\AdminAccount::where('user_id', $userId)
+    //     //     ->where('status', 1)
+    //     //     ->exists()
+    //     // ) {
+    //     //     $badges[] = [
+    //     //         'type' => 'admin',
+    //     //         'title' => 'Admin',
+    //     //         'icon' => asset('role_badge/admin.png')
+    //     //     ];
+    //     // }
+
+    //     if (\App\Models\BdUser::where('user_id', $userId)
+    //         ->where('status', 1)
+    //         ->where('is_dashboard_access', 1)
+    //         ->exists()
+    //     ) {
+    //         $badges[] = [
+    //             'type' => 'bd',
+    //             'title' => 'BD',
+    //             'icon' => asset('storage/role_badge/bd.webp')
+    //         ];
+    //     }
+
+    //     if (\App\Models\Agency::where('user_id', $userId)
+    //         ->where('status', 1)
+    //         ->exists()
+    //     ) {
+    //         $badges[] = [
+    //             'type' => 'agency',
+    //             'title' => 'Agency',
+    //             'icon' => asset('storage/role_badge/agency.webp')
+    //         ];
+    //     }
+
+    //     if (
+    //         \App\Models\Host::where('user_id', $userId)
+    //         ->where('status', 1)
+    //         ->where('is_dashboard_access', 1)
+    //         ->exists()
+    //     ) {
+    //         $badges[] = [
+    //             'type' => 'host',
+    //             'title' => 'Host',
+    //             'icon' => asset('storage/role_badge/host.webp')
+    //         ];
+    //     }
+
+    //     $coinSeller = \App\Models\CoinSeller::where('user_id', $userId)
+    //         ->where('status', 1)
+    //         ->first();
+
+    //     if ($coinSeller) {
+
+    //         if ((int) $coinSeller->is_merchant === 1) {
+    //             $badges[] = [
+    //                 'type' => 'merchant',
+    //                 'title' => 'Merchant',
+    //                 'icon' => asset('storage/role_badge/merchant.webp')
+    //             ];
+    //         } else {
+    //             $badges[] = [
+    //                 'type' => 'coinseller',
+    //                 'title' => 'Coin Seller',
+    //                 'icon' => asset('storage/role_badge/coinseller.webp')
+    //             ];
+    //         }
+    //     }
+
+    //     return $badges;
+    // }
+
+
+
     public static function getUserRoleBadges($userId)
     {
         $badges = [];
 
-        // if (\App\Models\AdminAccount::where('user_id', $userId)
-        //     ->where('status', 1)
-        //     ->exists()
-        // ) {
-        //     $badges[] = [
-        //         'type' => 'admin',
-        //         'title' => 'Admin',
-        //         'icon' => asset('role_badge/admin.png')
-        //     ];
-        // }
+        // Active Role Tags
+        $roleTags = UserRoleTag::where('status', 1)
+            ->get()
+            ->keyBy('role_type');
 
-        if (\App\Models\BdUser::where('user_id', $userId)
+        /*
+    |--------------------------------------------------------------------------
+    | BD
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            isset($roleTags['bd']) &&
+            \App\Models\BdUser::where('user_id', $userId)
             ->where('status', 1)
             ->where('is_dashboard_access', 1)
             ->exists()
         ) {
+
+            $tag = $roleTags['bd'];
+
             $badges[] = [
-                'type' => 'bd',
-                'title' => 'BD',
-                'icon' => asset('storage/role_badge/bd.webp')
+                'type'  => $tag->role_type,
+                'title' => $tag->name,
+                'icon'  => Helper::showImage($tag->file, true),
             ];
         }
 
-        if (\App\Models\Agency::where('user_id', $userId)
+        /*
+    |--------------------------------------------------------------------------
+    | Agency
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            isset($roleTags['agency']) &&
+            \App\Models\Agency::where('user_id', $userId)
             ->where('status', 1)
             ->exists()
         ) {
+
+            $tag = $roleTags['agency'];
+
             $badges[] = [
-                'type' => 'agency',
-                'title' => 'Agency',
-                'icon' => asset('storage/role_badge/agency.webp')
+                'type'  => $tag->role_type,
+                'title' => $tag->name,
+                'icon'  => Helper::showImage($tag->file, true),
             ];
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | Host
+    |--------------------------------------------------------------------------
+    */
+
         if (
+            isset($roleTags['host']) &&
             \App\Models\Host::where('user_id', $userId)
             ->where('status', 1)
             ->where('is_dashboard_access', 1)
             ->exists()
         ) {
+
+            $tag = $roleTags['host'];
+
             $badges[] = [
-                'type' => 'host',
-                'title' => 'Host',
-                'icon' => asset('storage/role_badge/host.webp')
+                'type'  => $tag->role_type,
+                'title' => $tag->name,
+                'icon'  => Helper::showImage($tag->file, true),
             ];
         }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Coin Seller / Merchant
+    |--------------------------------------------------------------------------
+    */
 
         $coinSeller = \App\Models\CoinSeller::where('user_id', $userId)
             ->where('status', 1)
@@ -339,17 +449,16 @@ class Helper
 
         if ($coinSeller) {
 
-            if ((int) $coinSeller->is_merchant === 1) {
+            $roleType = $coinSeller->is_merchant ? 'merchant' : 'coinseller';
+
+            if (isset($roleTags[$roleType])) {
+
+                $tag = $roleTags[$roleType];
+
                 $badges[] = [
-                    'type' => 'merchant',
-                    'title' => 'Merchant',
-                    'icon' => asset('storage/role_badge/merchant.webp')
-                ];
-            } else {
-                $badges[] = [
-                    'type' => 'coinseller',
-                    'title' => 'Coin Seller',
-                    'icon' => asset('storage/role_badge/coinseller.webp')
+                    'type'  => $tag->role_type,
+                    'title' => $tag->name,
+                    'icon'  => Helper::showImage($tag->file, true),
                 ];
             }
         }
@@ -449,7 +558,7 @@ class Helper
 
         if ($premium) {
             $response['uid'] = $premium->premium_number;
-             $response['system_uid'] = $user->uid;
+            $response['system_uid'] = $user->uid;
             $response['badge'] = asset('storage/1000175794.png');
             $response['badge_color'] = '#fcd01c';
 
