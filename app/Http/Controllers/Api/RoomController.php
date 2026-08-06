@@ -55,6 +55,7 @@ use App\Events\RoomGiftSent;
 use App\Events\RoomSeatMessageSent;
 use App\Events\RoomSeatCountUpdated;
 use App\Events\RoomMessagesCleared;
+use App\Events\RoomEmojiSent;
 use App\Services\Agora\RtcTokenBuilder2;
 use App\Services\FirebaseService;
 use App\Traits\RoomPermissionTrait;
@@ -6048,6 +6049,77 @@ class RoomController extends Controller
 
             ]
 
+        ]);
+    }
+
+    public function sendRoomEmoji(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'room_id'  => 'required|exists:rooms,id',
+            'emoji_id' => 'required|exists:room_emojis,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = Auth::user();
+
+        // User room me hona chahiye
+        $isPresent = RoomPresence::where('room_id', $request->room_id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (!$isPresent) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not in this room.'
+            ], 403);
+        }
+
+        $emoji = RoomEmoji::where('status', 1)
+            ->find($request->emoji_id);
+
+        if (!$emoji) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Emoji not found.'
+            ], 404);
+        }
+
+        $data = [
+
+            'room_id' => (int)$request->room_id,
+
+            'user' => [
+                'id' => $user->id,
+                'uid' => $user->uid,
+                'name' => $user->name,
+                'image' => $user->image
+                    ? Helper::showImage($user->image, true)
+                    : null,
+            ],
+
+            'emoji' => [
+                'id' => $emoji->id,
+                'title' => $emoji->title,
+                'type' => $emoji->type,
+                'file' => Helper::showImage($emoji->file, true),
+            ],
+
+            'sent_at' => now()->toDateTimeString(),
+
+        ];
+
+        broadcast(new RoomEmojiSent($data))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Emoji sent successfully.',
+            'data' => $data,
         ]);
     }
 }
