@@ -33,21 +33,38 @@ class RoomRewardSlabController extends Controller
                     return $row['status'] == 1 ? '<small class="badge fw-semi-bold rounded-pill status badge-light-success"> Enable</small>' : '<small class="badge fw-semi-bold rounded-pill status badge-light-danger"> Disable</small>';
                 })
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropup text-center">
-                        <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu dropdown-menu-end p-2">
-                            <a class="dropdown-item" href="' . route('room_reward_slabs.edit', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+                    $btn = '
+                            <div class="dropup text-center">
+                                <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+
+                                <div class="dropdown-menu dropdown-menu-end p-2">';
+
+                    // Edit Permission
+                    if (Helper::userCan(130, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('room_reward_slabs.edit', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(130, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['status', 'action'])
@@ -144,26 +161,59 @@ class RoomRewardSlabController extends Controller
                         return '-';
                     }
 
-                    $image = $row->owner->image
-                        ? Helper::showImage($row->owner->image, true)
+                    $user = $row->owner;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
                     return '
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
                             <img src="' . $image . '"
-                                 class="rounded-circle"
-                                 width="40"
-                                 height="40">
+                                class="rounded-circle"
+                                width="40"
+                                height="40">
 
                             <div>
-                                <div class="fw-bold">
-                                    ' . e($row->owner->name) . '
-                                </div>
-
-                                <small class="text-muted">
-                                    ' . e($row->owner->uid) . '
-                                </small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
+
                         </div>
                     ';
                 })
@@ -191,7 +241,7 @@ class RoomRewardSlabController extends Controller
                                 </div>
 
                                 <small class="text-muted">
-                                    Room ID : ' . e($row->room->id) . '
+                                    Room ID : ' . e($row->room->room_id) . '
                                 </small>
                             </div>
                         </div>
@@ -221,18 +271,25 @@ class RoomRewardSlabController extends Controller
 
                 ->addColumn('action', function ($row) {
 
-                    return '
-                    <div class="dropup text-center">
-                        <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
+                    if (!Helper::userCan(131, 'can_delete')) {
+                        return '-';
+                    }
 
-                        <div class="dropdown-menu dropdown-menu-end p-2">
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+                    return '
+                            <div class="dropup text-center">
+                                <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+
+                                <div class="dropdown-menu dropdown-menu-end p-2">
+
+                                    <button class="dropdown-item text-danger delete"
+                                            data-id="' . $row->id . '">
+                                        <i class="fas fa-trash me-2"></i> Delete
+                                    </button>
+
+                                </div>
+                            </div>';
                 })
 
                 ->rawColumns(['room_id', 'owner_id', 'is_claimed', 'action'])

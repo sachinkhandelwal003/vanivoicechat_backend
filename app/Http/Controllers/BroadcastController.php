@@ -29,7 +29,7 @@ class BroadcastController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         if ($request->ajax()) {
-            
+
             $data = Broadcast::with('user')->latest();
 
             return Datatables::of($data)
@@ -38,27 +38,67 @@ class BroadcastController extends Controller
 
                 ->addColumn('user_info', function ($row) {
 
-                    if (!$row->user) {return '-';}
+                    if (!$row->user) {
+                        return '-';
+                    }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                                    } else {
+
+                                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="'.$row->user->id.'" style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="'.$image.'" width="40" height="40" class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">'.e($row->user->name).'</div>
-                                <small class="text-muted">'.e($row->user->uid).'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
                     ';
                 })
-                
+
                 ->addColumn('time', function ($row) {
                     return '
                         <div>
@@ -74,11 +114,11 @@ class BroadcastController extends Controller
                     // if (Helper::userCan(104, 'can_edit')) {
                     //     $btn .= '<a class="dropdown-item" href="' . route('categories.edit', $row['id']) . '">Edit</a>';
                     // }
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(149, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row['id'] . '">Delete</button>';
                     }
 
-                    if (Helper::userAllowed(104)) {
+                    if (Helper::userAllowed(149)) {
                         return $btn;
                     } else {
                         return '';
@@ -118,14 +158,14 @@ class BroadcastController extends Controller
                 ->addIndexColumn()
                 ->addColumn('action', function ($row) {
                     $btn = '<button class="text-600 btn-reveal dropdown-toggle btn btn-link btn-sm" id="drop" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="fas fa-ellipsis-h fs--1"></span></button><div class="dropdown-menu" aria-labelledby="drop">';
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(148, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('broadcast-price.edit', $row['id']) . '">Edit</a>';
                     }
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(148, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row['id'] . '">Delete</button>';
                     }
 
-                    if (Helper::userAllowed(104)) {
+                    if (Helper::userAllowed(148)) {
                         return $btn;
                     } else {
                         return '';

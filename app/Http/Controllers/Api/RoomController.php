@@ -32,6 +32,8 @@ use App\Models\Vip;
 use App\Models\Svip;
 use App\Models\SvipTransaction;
 use App\Models\Friendship;
+use App\Models\RoomEmoji;
+use App\Models\RoomLevel;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -521,6 +523,9 @@ class RoomController extends Controller
             $roomImage = Helper::saveFile($request->file('room_image'), 'room_image');
         }
 
+        // Get Default Room Level (Level 1)
+        $defaultLevel = RoomLevel::where('level', 1)->where('status', 1)->first();
+
         $room = Room::create([
             'user_id'  => $user->id,
             'room_name'  => $request->room_name,
@@ -528,11 +533,24 @@ class RoomController extends Controller
             'bio'        => $request->bio,
             'country'    => ucwords(strtolower($user->country)),
             'room_seat'  => 10,
+
+            // Room Level Defaults
+            'xp'            => 0,
+            'level'         => $defaultLevel?->level ?? 1,
+            'admin_limit'   => $defaultLevel?->admins ?? 5,
+            'member_limit'  => $defaultLevel?->members ?? 200,
         ]);
 
         $baseRoomId = 100000;
         $room->room_id = $baseRoomId + $room->id;
         $room->save();
+
+        RoomMember::create([
+            'user_id'   => $user->id,
+            'room_id'   => $room->id,
+            'joined_at' => now(),
+            'left_at'   => null,
+        ]);
 
         return response()->json([
             'status'  => true,
@@ -787,6 +805,21 @@ class RoomController extends Controller
             // $this->updateWCLevel($sender->id, 'wealth');
 
             Room::where('id', $request->room_id)->increment('total_points', $totalCost);
+            // Room XP
+            Room::where('id', $request->room_id)->increment('xp', $totalCost);
+            $room = Room::find($request->room_id);
+            // Check Room Level
+            $roomLevel = RoomLevel::where('status', 1)->where('xp', '<=', $room->xp)->orderByDesc('level')->first();
+
+            if ($room->level && $room->level != $roomLevel->level) {
+
+                $room->update([
+                    'level' => $roomLevel->level,
+                    // Never decrease limits
+                    'admin_limit'  => max($room->admin_limit, $roomLevel->admins),
+                    'member_limit' => max($room->member_limit, $roomLevel->members),
+                ]);
+            }
 
             $roomOwnerId = Room::where('id', $request->room_id)->value('user_id');
             // dd( $roomOwnerId);
@@ -803,7 +836,6 @@ class RoomController extends Controller
                 Family::where('id', $familyId)
                     ->increment('total_points', $totalCost);
             }
-
 
             $singleReceiverId = $receiverCount === 1 ? $receiverIds->first() : null;
 
@@ -4723,7 +4755,7 @@ class RoomController extends Controller
             if ($role === 'admin') {
 
                 // Default admin limit
-                $maxAdminLimit = 1;
+                $maxAdminLimit = $room->admin_limit;
 
                 // Current admin count
                 $currentAdminCount = RoomUserRole::where('room_id', $roomId)
@@ -4760,6 +4792,32 @@ class RoomController extends Controller
                     return response()->json([
                         'status' => false,
                         'message' => "Maximum {$maxAdminLimit} admins allowed."
+                    ], 422);
+                }
+            }
+
+            // Member Limit Logic
+
+            if ($role === 'member') {
+
+                $maxMemberLimit = $room->member_limit;
+
+                // Current Active Members
+                $currentMemberCount = RoomMember::where('room_id', $roomId)
+                    ->whereNull('left_at')
+                    ->count();
+
+                // Check if already active member
+                $alreadyMember = RoomMember::where('room_id', $roomId)
+                    ->where('user_id', $targetUserId)
+                    ->whereNull('left_at')
+                    ->exists();
+
+                if (!$alreadyMember && $currentMemberCount >= $maxMemberLimit) {
+
+                    return response()->json([
+                        'status' => false,
+                        'message' => "Maximum {$maxMemberLimit} members allowed."
                     ], 422);
                 }
             }
@@ -5860,6 +5918,136 @@ class RoomController extends Controller
                 ? 'Room invisible enabled.'
                 : 'Room invisible disabled.',
             'room_invisible' => (bool) $user->room_invisible
+        ]);
+    }
+
+    public function roomEmojis(): JsonResponse
+    {
+        $emojis = RoomEmoji::where('status', 1)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($emoji) {
+
+                return [
+                    'id'    => $emoji->id,
+                    'title' => $emoji->title,
+                    'type'  => $emoji->type,
+                    'file'  => Helper::showImage($emoji->file, true),
+                ];
+            });
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Room emojis fetched successfully.',
+            'data'    => $emojis,
+        ]);
+    }
+
+    public function roomLevelDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'room_id' => 'required|exists:rooms,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()
+            ], 422);
+        }
+
+        $user = Auth::user();
+
+        $room = Room::findOrFail($request->room_id);
+
+        $currentLevel = RoomLevel::where('level', $room->level)->first();
+
+        $nextLevel = RoomLevel::where('level', '>', $room->level)
+            ->orderBy('level')
+            ->first();
+
+        // SVIP More Admin
+
+        $extraAdmin = 0;
+
+        $activeSvip = SvipTransaction::with('svip')
+            ->where('user_id', $user->id)
+            ->where('end_at', '>=', now())
+            ->first();
+
+        if ($activeSvip) {
+
+            $hasMoreAdminPrivilege = $activeSvip->svip
+                ->privileges()
+                ->where('slug', 'more_admin')
+                ->wherePivot('is_active', 1)
+                ->exists();
+
+            if ($hasMoreAdminPrivilege) {
+
+                $extraAdmin = $activeSvip->svip->admin_limit ?? 0;
+            }
+        }
+
+        // XP
+
+        $currentXp = (int)$room->xp;
+
+        $requiredXp = $nextLevel
+            ? (int)$nextLevel->xp
+            : $currentXp;
+
+        $remainingXp = $nextLevel
+            ? max($requiredXp - $currentXp, 0)
+            : 0;
+
+        // Levels
+
+        $levels = RoomLevel::where('status', 1)
+            ->orderBy('level')
+            ->get([
+                'level',
+                'xp',
+                'admins',
+                'members'
+            ]);
+
+        return response()->json([
+
+            'status' => true,
+
+            'message' => 'Room level details.',
+
+            'data' => [
+
+                'current_level' => [
+
+                    'level' => $room->level,
+
+                    'current_xp' => $currentXp,
+
+                    'required_xp' => $requiredXp,
+
+                    'remaining_xp' => $remainingXp,
+
+                    'progress_text' => "{$currentXp}/{$requiredXp}",
+
+                    'perks' => [
+
+                        'admin_limit' => $room->admin_limit + $extraAdmin,
+
+                        'member_limit' => $room->member_limit,
+
+                        'extra_admin_from_svip' => $extraAdmin,
+
+                    ]
+
+                ],
+
+                'levels' => $levels
+
+            ]
+
         ]);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Helper\Helper;
 use App\Models\CoinPackages;
+use App\Models\CoinTransaction;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -35,7 +36,7 @@ class CoinController extends Controller
                     $image = asset('storage/' . $row->icon);
 
                     return '
-                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="40" height="40" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
@@ -50,11 +51,11 @@ class CoinController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(160, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('coin.package.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(160, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -178,5 +179,136 @@ class CoinController extends Controller
     public function delete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new CoinPackages, $request->id);
+    }
+
+    public function coinPurchaseHistory(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = CoinTransaction::with([
+                'user:id,name,uid,image',
+                'package:id'
+            ])->latest();
+
+            return DataTables::of($query)
+
+                ->addIndexColumn()
+
+                ->addColumn('user', function ($row) {
+
+                    if (!$row->user) {
+                        return '-';
+                    }
+
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                                    } else {
+
+                                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="45"
+                                height="45"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
+                        </div>';
+                })
+
+                ->addColumn('coins', function ($row) {
+
+                    return '<i class="fas fa-coins text-warning"></i> ' . number_format($row->coins);
+                })
+
+                ->addColumn('bonus_coins', function ($row) {
+
+                    return '<i class="fas fa-gift text-success"></i> ' . number_format($row->bonus_coins);
+                })
+
+                ->addColumn('total_coins', function ($row) {
+
+                    return '<strong><i class="fas fa-coins text-warning"></i> ' . number_format($row->total_coins) . '</strong>';
+                })
+
+                ->addColumn('amount', function ($row) {
+
+                    return '$ ' . number_format($row->amount, 2);
+                })
+
+                ->addColumn('type', function ($row) {
+
+                    return $row->type == 'credit'
+                        ? '<span class="badge bg-success">Credit</span>'
+                        : '<span class="badge bg-danger">Debit</span>';
+                })
+
+                ->addColumn('created', function ($row) {
+
+                    return '
+                <div>
+                    <div>' . optional($row->created_at)->format('d M Y') . '</div>
+                    <small class="text-muted">' . optional($row->created_at)->format('h:i A') . '</small>
+                </div>';
+                })
+
+                ->addColumn('action', function ($row) {
+                    return '-';
+                })
+
+                ->rawColumns([
+                    'user',
+                    'coins',
+                    'bonus_coins',
+                    'total_coins',
+                    'type',
+                    'created',
+                    'action'
+                ])
+
+                ->make(true);
+        }
+
+        return view('coin_package.coin_purchase_history');
     }
 }

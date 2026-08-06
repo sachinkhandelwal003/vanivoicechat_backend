@@ -1,118 +1,638 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="card mb-3">
-    <div class="card-header">
-        <div class="row flex-between-end">
-            <div class="col-auto align-self-center">
-                <h5 class="mb-0" data-anchor="data-anchor">Room :: Room List</h5>
-            </div>
-            <!-- <div class="col-auto ms-auto">
-                <div class="nav nav-pills nav-pills-falcon">
-                    @if(Helper::userCan(104, 'can_add'))
-                    <a href="{{ route('gift.add') }}" class="btn btn-outline-secondary">
-                        <i class="fa fa-plus me-1"></i>
-                        Add Gift
-                    </a>
-                    @endif
+    <div class="card mb-3">
+        <div class="card-header">
+            <div class="row flex-between-end">
+                <div class="col-auto align-self-center">
+                    <h5 class="mb-0" data-anchor="data-anchor">Room :: Room List</h5>
                 </div>
-            </div> -->
+                <!-- <div class="col-auto ms-auto">
+                            <div class="nav nav-pills nav-pills-falcon">
+                                @if (Helper::userCan(104, 'can_add'))
+    <a href="{{ route('gift.add') }}" class="btn btn-outline-secondary">
+                                        <i class="fa fa-plus me-1"></i>
+                                        Add Gift
+                                    </a>
+    @endif
+                            </div>
+                        </div> -->
+            </div>
+        </div>
+
+        <div class="card-body">
+            @if ($pinnedRooms->count())
+                <div class="mb-4">
+
+                    <h5 class="mb-3">
+                        <i class="fas fa-thumbtack text-warning"></i>
+                        Pinned Rooms
+                    </h5>
+
+                    <div class="row">
+
+                        @foreach ($pinnedRooms as $room)
+                            <div class="col-md-4 mb-3">
+
+                                <div class="card border-warning shadow-sm">
+
+                                    <div class="card-body">
+
+                                        <div class="d-flex align-items-center">
+
+                                            <img src="{{ $room->room_image ? Helper::showImage($room->room_image, true) : asset('assets/img/avatar.png') }}"
+                                                width="60" height="60" class="rounded-circle me-3">
+
+                                            <div>
+
+                                                <h6 class="mb-1">
+                                                    {{ $room->room_name }}
+                                                </h6>
+
+                                                <small class="text-muted">
+                                                    Room ID : {{ $room->room_id }}
+                                                </small>
+
+                                                <br>
+
+                                                <small class="text-primary">
+                                                    Owner :
+                                                    {{ $room->user->name ?? '-' }}
+                                                </small>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        @endforeach
+
+                    </div>
+
+                </div>
+            @endif
+            <div class="table-responsive">
+                <table class="table table-striped table-datatable" style="width:100%">
+
+                    <thead class="bg-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Room Owner</th>
+                            <th>Room Information</th>
+                            <th>Room Seats</th>
+                            <th>Room Members</th>
+                            <th>Room Admins</th>
+                            <th>Ban Status</th>
+                            <th>Pin Status</th>
+                            <th>Room Information</th>
+                            <th>Time</th>
+                            <th>Operate</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+
+                </table>
+            </div>
+
         </div>
     </div>
 
-    <div class="card-body">
+    <div class="modal fade" id="banRoomModal">
 
-        <div class="table-responsive">
-            <table class="table table-striped table-datatable" style="width:100%">
+        <div class="modal-dialog">
 
-                <thead class="bg-light">
-                    <tr>
-                        <th>#</th>
-                        <th>Room Owner</th>
-                        <th>Room Information</th>
-                        <th>Room Seats</th>
-                        <th>Room Members</th>
-                        <th>Room Information</th>
-                        <th>Time</th>
-                        <th>Operate</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
+            <div class="modal-content">
 
-            </table>
+                <div class="modal-header">
+                    <h5>Ban Room</h5>
+                </div>
+
+                <div class="modal-body">
+
+                    <input type="hidden" id="ban_room_id">
+
+                    <textarea class="form-control" id="ban_reason" rows="4" placeholder="Enter ban reason"></textarea>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button class="btn btn-danger" id="confirmBanRoom">
+                        Ban Room
+                    </button>
+
+                </div>
+
+            </div>
+
         </div>
 
     </div>
-</div>
+
+    <div class="modal fade" id="accountProcessingModal">
+
+        <div class="modal-dialog modal-lg">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Room Account Processing</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <table class="table table-bordered">
+
+                        <tr>
+                            <th width="180">Room</th>
+                            <td id="ap_room"></td>
+                        </tr>
+
+                        <tr>
+                            <th>Room ID</th>
+                            <td id="ap_room_id"></td>
+                        </tr>
+
+                        <tr>
+                            <th>Status</th>
+                            <td id="ap_status"></td>
+                        </tr>
+
+                        <tr>
+                            <th>Reason</th>
+                            <td id="ap_reason"></td>
+                        </tr>
+
+                        <tr>
+                            <th>Action By</th>
+                            <td id="ap_action_by"></td>
+                        </tr>
+
+                        <tr>
+                            <th>Action Date</th>
+                            <td id="ap_action_date"></td>
+                        </tr>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="adminLimitModal" tabindex="-1">
+
+        <div class="modal-dialog">
+
+            <div class="modal-content">
+
+                <form id="adminLimitForm">
+
+                    @csrf
+
+                    <input type="hidden" name="id" id="admin_room_id">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            Update Admin Limit
+                        </h5>
+
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+
+                        <label class="form-label">
+                            Admin Limit
+                        </label>
+
+                        <input type="number" name="admin_limit" id="admin_limit" class="form-control" min="0"
+                            required>
+
+                    </div>
+
+                    <div class="modal-footer">
+
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+
+                        <button class="btn btn-primary">
+                            Update
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="memberLimitModal" tabindex="-1">
+
+        <div class="modal-dialog">
+
+            <div class="modal-content">
+
+                <form id="memberLimitForm">
+
+                    @csrf
+
+                    <input type="hidden" name="id" id="member_room_id">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            Update Member Limit
+                        </h5>
+
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+
+                        <label class="form-label">
+                            Member Limit
+                        </label>
+
+                        <input type="number" name="member_limit" id="member_limit" class="form-control" min="0"
+                            required>
+
+                    </div>
+
+                    <div class="modal-footer">
+
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+
+                        <button class="btn btn-primary">
+                            Update
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
 @endsection
 
 @section('js')
-<script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
-<script>
-    $(function() {
+    <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
+    <script>
+        $(function() {
 
-        let table = $('.table-datatable').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: {
-                url: "{{ route('room') }}",
-            },
-            columns: [{
-                    data: 'DT_RowIndex',
-                    orderable: false,
-                    searchable: false
+            let table = $('.table-datatable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: "{{ route('room') }}",
                 },
-                {
-                    data: 'room_owner',
-                    orderable: false
-                },
-                {
-                    data: 'room_info',
-                    orderable: false
-                },
-                {
-                    data: 'room_number'
-                },
-                {
-                    data: 'room_members'
-                },
-                {
-                    data: 'room_info',
-                    visible: false
-                },
-                {
-                    data: 'time'
-                },
-                {
-                    data: 'action',
-                    orderable: false,
-                    searchable: false
-                }
-            ]
-        });
+                columns: [{
+                        data: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'room_owner',
+                        orderable: false
+                    },
+                    {
+                        data: 'room_info',
+                        orderable: false
+                    },
+                    {
+                        data: 'room_number'
+                    },
+                    {
+                        data: 'room_members'
+                    },
+                    {
+                        data: 'admins',
+                        name: 'admins'
+                    },
+                    {
+                        data: 'ban_status',
+                        name: 'ban_status'
+                    },
+                    {
+                        data: 'pin_status',
+                        name: 'pin_status'
+                    },
+                    {
+                        data: 'room_info',
+                        visible: false
+                    },
+                    {
+                        data: 'time'
+                    },
+                    {
+                        data: 'action',
+                        orderable: false,
+                        searchable: false
+                    }
+                ]
+            });
 
-        $(document).on('click', ".delete", function() {
-            var id = $(this).data('id')
-            Swal.fire(deleteMessageSwalConfig).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: "{{ route('room') }} ",
-                        data: {
-                            'id': id
-                        },
-                        type: 'DELETE',
-                        success: function(data) {
-                            if (data.status) {
-                                Swal.fire('', data?.message, "success")
-                                table.draw();
-                            } else {
-                                toastr.error(data.message);
+            $(document).on('click', ".delete", function() {
+                var id = $(this).data('id')
+                Swal.fire(deleteMessageSwalConfig).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: "{{ route('room') }} ",
+                            data: {
+                                'id': id
+                            },
+                            type: 'DELETE',
+                            success: function(data) {
+                                if (data.status) {
+                                    Swal.fire('', data?.message, "success")
+                                    table.draw();
+                                } else {
+                                    toastr.error(data.message);
+                                }
                             }
-                        }
-                    });
-                }
+                        });
+                    }
+                });
             });
         });
-    });
-</script>
+
+        $(document).on('click', '.banRoom', function() {
+
+            $('#ban_room_id').val($(this).data('id'));
+            $('#ban_reason').val('');
+
+            $('#banRoomModal').modal('show');
+
+        });
+
+
+        $('#confirmBanRoom').click(function() {
+
+            let id = $('#ban_room_id').val();
+
+            $.ajax({
+
+                url: '/room/' + id + '/ban',
+
+                type: 'POST',
+
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    reason: $('#ban_reason').val()
+                },
+
+                success: function(res) {
+
+                    $('#banRoomModal').modal('hide');
+
+                    Swal.fire(
+                        'Success',
+                        res.message,
+                        'success'
+                    );
+
+                    $('.table-datatable').DataTable().ajax.reload(null, false);
+
+                }
+
+            });
+
+        });
+
+        $(document).on('click', '.unbanRoom', function() {
+
+            let id = $(this).data('id');
+
+            Swal.fire({
+
+                title: 'Unban Room?',
+
+                icon: 'warning',
+
+                showCancelButton: true
+
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    $.post('/room/' + id + '/unban', {
+
+                        _token: $('meta[name="csrf-token"]').attr('content')
+
+                    }, function(res) {
+
+                        Swal.fire(
+                            'Success',
+                            res.message,
+                            'success'
+                        );
+
+                        $('.table-datatable').DataTable().ajax.reload(null, false);
+
+                    });
+
+                }
+
+            });
+
+        });
+
+        $(document).on('click', '.accountProcessing', function() {
+
+            let id = $(this).data('id');
+
+            $.get('/room/' + id + '/account-processing', function(res) {
+
+                $('#ap_room').text(res.data.room_name);
+                $('#ap_room_id').text(res.data.room_id);
+                $('#ap_status').html(
+                    '<span class="badge bg-danger">' + res.data.status + '</span>'
+                );
+                $('#ap_reason').text(res.data.reason ?? '-');
+                $('#ap_action_by').text(res.data.action_by);
+                $('#ap_action_date').text(res.data.action_date);
+
+                $('#accountProcessingModal').modal('show');
+            });
+
+        });
+
+        $(document).on('click', '.deleteRoomImage', function() {
+
+            let id = $(this).data('id');
+
+            Swal.fire({
+                title: 'Delete Room Image?',
+                text: 'This will permanently remove the room image.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, Delete'
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    $.ajax({
+                        url: '/room/' + id + '/delete-image',
+                        type: 'POST',
+                        data: {
+                            _token: $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(res) {
+
+                            Swal.fire(
+                                'Success',
+                                res.message,
+                                'success'
+                            );
+
+                            $('.table-datatable').DataTable().ajax.reload(null, false);
+                        }
+                    });
+
+                }
+
+            });
+
+        });
+
+        $(document).on('click', '.pinRoom', function() {
+
+            let id = $(this).data('id');
+
+            $.post('/room/' + id + '/pin', {
+
+                _token: $('meta[name="csrf-token"]').attr('content')
+
+            }, function(res) {
+
+                Swal.fire('Success', res.message, 'success');
+
+                $('.table-datatable').DataTable().ajax.reload(null, false);
+
+            }).fail(function(xhr) {
+
+                Swal.fire('Error', xhr.responseJSON.message, 'error');
+
+            });
+
+        });
+
+        $(document).on('click', '.unpinRoom', function() {
+
+            let id = $(this).data('id');
+
+            $.post('/room/' + id + '/unpin', {
+
+                _token: $('meta[name="csrf-token"]').attr('content')
+
+            }, function(res) {
+
+                Swal.fire('Success', res.message, 'success');
+
+                $('.table-datatable').DataTable().ajax.reload(null, false);
+
+            });
+
+        });
+
+        $(document).on("click", ".updateAdminLimit", function() {
+
+            $("#admin_room_id").val($(this).data("id"));
+
+            $("#admin_limit").val($(this).data("limit"));
+
+            $("#adminLimitModal").modal("show");
+
+        });
+        $("#adminLimitForm").submit(function(e) {
+
+            e.preventDefault();
+
+            $.ajax({
+
+                url: "{{ route('room.update-admin-limit') }}",
+
+                type: "POST",
+
+                data: $(this).serialize(),
+
+                success: function(res) {
+
+                    if (res.status) {
+
+                        $("#adminLimitModal").modal("hide");
+
+                        Swal.fire("Success", res.message, "success");
+
+                        $('.table-datatable').DataTable().ajax.reload(null, false);
+
+                    }
+
+                }
+
+            });
+
+        });
+
+        $(document).on("click", ".updateMemberLimit", function() {
+
+            $("#member_room_id").val($(this).data("id"));
+
+            $("#member_limit").val($(this).data("limit"));
+
+            $("#memberLimitModal").modal("show");
+
+        });
+
+        $("#memberLimitForm").submit(function(e) {
+
+            e.preventDefault();
+
+            $.ajax({
+
+                url: "{{ route('room.update-member-limit') }}",
+
+                type: "POST",
+
+                data: $(this).serialize(),
+
+                success: function(res) {
+
+                    if (res.status) {
+
+                        $("#memberLimitModal").modal("hide");
+
+                        Swal.fire("Success", res.message, "success");
+
+                        $('.table-datatable').DataTable().ajax.reload(null, false);
+
+                    }
+
+                }
+
+            });
+
+        });
+    </script>
 @endsection

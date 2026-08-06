@@ -21,4 +21,9 @@ class Theme extends Model
     {
         return $this->hasMany(ThemeGiven::class, 'theme_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(AppUser::class, 'user_id');
+    }
 }

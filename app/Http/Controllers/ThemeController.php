@@ -43,7 +43,7 @@ class ThemeController extends Controller
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
-                
+
                 ->editColumn('status', function ($row) {
                     return $row['status'] == 1 ? '<small class="badge fw-semi-bold rounded-pill status badge-light-success"> Enable</small>' : '<small class="badge fw-semi-bold rounded-pill status badge-light-danger"> Disable</small>';
                 })
@@ -57,7 +57,7 @@ class ThemeController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(115, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('theme.edit', $row->id) . '">Edit</a>';
                     }
 
@@ -65,7 +65,7 @@ class ThemeController extends Controller
                     //     $btn .= '<a class="dropdown-item" href="' . route('theme.give', $row->id) . '">Give</a>';
                     // }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(115, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 

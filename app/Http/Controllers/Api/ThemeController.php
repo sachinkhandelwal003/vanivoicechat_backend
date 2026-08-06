@@ -537,7 +537,7 @@ class ThemeController extends Controller
                 'icon'            => $uploadedPath,
                 'user_id'         => $user->id,
                 'visibility_type' => 'user',
-                'status'          => 1,
+                'status'          => 0,
             ]);
 
             DB::commit();

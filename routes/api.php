@@ -200,6 +200,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('room/update-room-effect-setting', [RoomController::class, 'updateEffectSettings']);
     Route::get('/room/room-members', [RoomController::class, 'getRoomMembers']);
     Route::post('/room/ping', [RoomController::class, 'ping']);
+    Route::get('/room/room-emoji', [RoomController::class, 'roomEmojis']);
+    Route::get('/room/room-level-details',[RoomController::class,'roomLevelDetails']);
 
     Route::post('room-music/add-song', [RoomMusicController::class, 'addSong']);
     Route::get('room-music/list', [RoomMusicController::class, 'musicList']);

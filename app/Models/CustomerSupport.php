@@ -10,9 +10,13 @@ class CustomerSupport extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+      protected $fillable = [
         'user_id',
-        'region'
+        'region',
+        'start_time',
+        'end_time',
+        'priority',
+        'status',
     ];
 
     public function user()

@@ -34,12 +34,14 @@ class WCLevelController extends Controller
 
                 ->editColumn('icon', function ($row) {
 
-                    if (!$row->icon) {return '-';}
-                
+                    if (!$row->icon) {
+                        return '-';
+                    }
+
                     $image = asset('storage/' . $row->icon);
-                
+
                     return '
-                        <img src="'.$image.'" width="40" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="40" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
@@ -61,21 +63,42 @@ class WCLevelController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropup text-center">
-                        <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu dropdown-menu-end p-2">
-                            <a class="dropdown-item" href="' . route('levels.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+                    if (!Helper::userCan(154, 'can_edit') && !Helper::userCan(154, 'can_delete')) {
+                        return '-';
+                    }
+
+                    $btn = '
+                            <div class="dropup text-center">
+                                <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+
+                                <div class="dropdown-menu dropdown-menu-end p-2">';
+
+                    // Edit Permission
+                    if (Helper::userCan(154, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('levels.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(154, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['icon', 'entry_effect', 'action'])

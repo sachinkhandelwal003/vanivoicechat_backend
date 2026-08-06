@@ -29,22 +29,63 @@ class ReportController extends Controller
 
                 ->addColumn('user', function ($row) {
 
-                    if (!$row->user) {return '-';}
-                
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    if (!$row->user) {
+                        return '-';
+                    }
+
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
-                
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                                    } else {
+
+                                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
                     return '
-                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
-                
-                            <img src="'.$image.'" width="40" height="40" class="rounded-circle">
-                
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
+
                             <div>
-                                <div class="fw-bold">'.e($row->user->name).'</div>
-                                <small class="text-muted">'.e($row->user->uid).'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
-                
+
                         </div>
                     ';
                 })
@@ -58,7 +99,7 @@ class ReportController extends Controller
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                     <div class="dropdown-menu">';
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(166, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -96,7 +137,8 @@ class ReportController extends Controller
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                     <div class="dropdown-menu">';
-                    if (Helper::userCan(105, 'can_delete')) {
+
+                    if (Helper::userCan(167, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 

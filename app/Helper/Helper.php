@@ -425,6 +425,7 @@ class Helper
         if (!$user) {
             return [
                 'uid' => null,
+                'system_uid' => null,
                 'badge' => null,
                 'badge_color' => null,
             ];
@@ -432,6 +433,7 @@ class Helper
 
         $response = [
             'uid' => $user->uid,
+            'system_uid' => $user->uid,
             'badge' => null,
             'badge_color' => null,
         ];
@@ -447,6 +449,7 @@ class Helper
 
         if ($premium) {
             $response['uid'] = $premium->premium_number;
+             $response['system_uid'] = $user->uid;
             $response['badge'] = asset('storage/1000175794.png');
             $response['badge_color'] = '#fcd01c';
 
@@ -478,6 +481,7 @@ class Helper
 
                 if ($valid) {
                     $response['uid'] = $storeUid->unique_id;
+                    $response['system_uid'] = $user->uid;
                     $response['badge'] = !empty($storeUid->rank_badge)
                         ? Helper::showImage($storeUid->rank_badge, true)
                         : null;

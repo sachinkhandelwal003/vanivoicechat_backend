@@ -11,7 +11,7 @@
 
             <div class="col-auto ms-auto d-flex gap-2">
 
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(142, 'can_add'))
                 <a href="{{ route('coin_seller.form') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i> Add Coin Seller
                 </a>
@@ -91,12 +91,12 @@
             },
             order: [[4, 'desc']],
             columns: [
-                { data: 'user', name: 'user.name' }, 
-                { data: 'is_merchant', name: 'is_merchant' }, 
+                { data: 'user', name: 'user.name' },
+                { data: 'is_merchant', name: 'is_merchant' },
                 { data: 'balance', name: 'user.total_points' },
-                { data: 'sold_coins', name: 'sold_coins' },   
-                { data: 'country', name: 'country.nicename' }, 
-                { data: 'whatsapp', name: 'whatsapp_number' }, 
+                { data: 'sold_coins', name: 'sold_coins' },
+                { data: 'country', name: 'country.nicename' },
+                { data: 'whatsapp', name: 'whatsapp_number' },
                 { data: 'action', orderable: false, searchable: false }
             ]
         });

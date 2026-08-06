@@ -70,24 +70,38 @@ class SvipController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropup text-center">
-                        <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 p-2">
+                    $btn = '
+                            <div class="dropup text-center">
+                                <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
 
-                            <a class="dropdown-item d-flex align-items-center gap-2" href="' . route('svip.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
+                                <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 p-2">';
 
-                            <button class="dropdown-item d-flex align-items-center gap-2 text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+                    // Edit Permission
+                    if (Helper::userCan(123, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item d-flex align-items-center gap-2"
+                                href="' . route('svip.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary"></i> Edit
+                                </a>';
+                    }
 
-                        </div>
-                    </div>';
+                    // Delete Permission
+                    if (Helper::userCan(123, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item d-flex align-items-center gap-2 text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['medal', 'medal_gif', 'action'])

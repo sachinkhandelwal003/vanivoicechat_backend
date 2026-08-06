@@ -55,15 +55,15 @@ class StaticPageController extends Controller
                         </button>
                         <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(169, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('static-page.edit', $row->id) . '">Edit</a>';
                     }
-                    if (Helper::userCan(104, 'can_delete')) {
+                    if (Helper::userCan(169, 'can_delete')) {
                         $btn .= '<a class="dropdown-item text-danger delete-btn" data-id="' . $row->id . '" href="javascript:void(0)">Delete</a>';
                     }
                     $btn .= '</div>';
 
-                    return Helper::userAllowed(104) ? $btn : '';
+                    return Helper::userAllowed(169) ? $btn : '';
                 })
 
                 ->orderColumn('created_at', function ($query, $order) {

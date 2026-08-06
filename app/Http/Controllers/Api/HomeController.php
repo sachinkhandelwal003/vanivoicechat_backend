@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Events\BroadcastMessageSent;
 
 class HomeController extends Controller
 {
@@ -372,8 +373,11 @@ class HomeController extends Controller
             )
             ->withCount('onlineUsers as online_count')
             ->where('rooms.status', 1)
+            ->where('rooms.is_banned', 0)
             ->where('rooms.country', $user->country)
             ->whereNotIn('rooms.user_id', $hiddenRoomOwnerIds)
+            ->orderByDesc('rooms.is_pinned')   // Pinned rooms first
+            ->orderByDesc('rooms.pinned_at')   // Pinned order (latest pinned first)
             ->orderByDesc('room_priority')
             ->orderByDesc('online_count')
             ->orderByDesc('rooms.total_points')
@@ -665,6 +669,8 @@ class HomeController extends Controller
             'user:id,uid,name,image,country,active_uid_id',
             'user.countryData:id,name,iso'
         )
+            ->where('status', 1)
+            ->where('is_banned', 0)
             ->where('created_at', '>=', $sevenDaysAgo)
             ->withCount('onlineUsers as online_count')
             ->where('country', $user->country)
@@ -1094,6 +1100,15 @@ class HomeController extends Controller
             'room_id' => 'required|exists:rooms,id'
         ]);
 
+        $room = Room::find($request->room_id);
+
+        if (!$room) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Room not found'
+            ], 404);
+        }
+
         $existing = RoomMember::where([
             'user_id' => $user->id,
             'room_id' => $request->room_id,
@@ -1104,6 +1119,18 @@ class HomeController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Already joined'
+            ], 422);
+        }
+
+        $currentMembers = RoomMember::where('room_id', $request->room_id)
+            ->whereNull('left_at')
+            ->count();
+
+        if ($currentMembers >= $room->member_limit) {
+
+            return response()->json([
+                'status' => false,
+                'message' => "Room is full. Maximum {$room->member_limit} members allowed."
             ], 422);
         }
 
@@ -1314,6 +1341,8 @@ class HomeController extends Controller
                 'cost'        => $price->price,
                 'region_code' => $user->country,
             ]);
+
+            event(new BroadcastMessageSent($user, $request->message));
         });
 
         return response()->json([

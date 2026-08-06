@@ -11,7 +11,7 @@
             <div class="col-auto ms-auto d-flex gap-2">
 
                 {{-- ADD MEDAL --}}
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(124, 'can_add'))
                 <a href="{{ route('medals.form') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i> Add Medal
                 </a>

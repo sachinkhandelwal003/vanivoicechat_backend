@@ -134,27 +134,102 @@ class RolesController extends Controller
 
     public function permission_update(Request $request): bool
     {
-        $role_permission = RolePermission::firstWhere(['role_id' => $request->role_id, 'module_id' => $request->module_id]);
-        if (!$role_permission) {
-            RolePermission::create([
-                'role_id'       =>  $request->role_id,
-                'module_id'     => $request->module_id,
-                'can_view'      => $request->type == 'can_view' ? 1 : 0,
-                'can_add'       => $request->type == 'can_add' ? 1 : 0,
-                'can_edit'      => $request->type == 'can_edit' ? 1 : 0,
-                'can_delete'    => $request->type == 'can_delete' ? 1 : 0,
-                'allow_all'     => $request->type == 'allow_all' ? 1 : 0,
+        $rolePermission = RolePermission::firstWhere([
+            'role_id'   => $request->role_id,
+            'module_id' => $request->module_id
+        ]);
+
+        if (!$rolePermission) {
+            $rolePermission = RolePermission::create([
+                'role_id'    => $request->role_id,
+                'module_id'  => $request->module_id,
+                'can_view'   => 0,
+                'can_add'    => 0,
+                'can_edit'   => 0,
+                'can_delete' => 0,
+                'allow_all'  => 0,
             ]);
+        }
+
+        $users = User::where('role_id', $request->role_id)->pluck('id');
+
+        // ===========================
+        // Allow All
+        // ===========================
+        if ($request->type == 'allow_all') {
+
+            $value = $rolePermission->allow_all ? 0 : 1;
+
+            $rolePermission->update([
+                'allow_all'  => $value,
+                'can_view'   => $value,
+                'can_add'    => $value,
+                'can_edit'   => $value,
+                'can_delete' => $value,
+            ]);
+
+            UserPermission::whereIn('user_id', $users)
+                ->where('module_id', $request->module_id)
+                ->update([
+                    'allow_all'  => $value,
+                    'can_view'   => $value,
+                    'can_add'    => $value,
+                    'can_edit'   => $value,
+                    'can_delete' => $value,
+                ]);
+
             return true;
         }
 
-        $val = $role_permission[$request->type] == 1 ? 0 : 1;
-        if (array($request->type, ['can_view', 'can_add', 'can_edit', 'can_delete',  'allow_all'])) {
-            $role_permission->toggle($request->type);
-            $users = User::where('role_id', $role_permission->role_id)->get()->pluck('id');
-            UserPermission::whereIn('user_id', $users)->where('module_id', $role_permission->module_id)->update([$request->type => $val]);
-            return  true;
-        }
-        return false;
+        // ===========================
+        // Single Permission
+        // ===========================
+        $value = $rolePermission->{$request->type} ? 0 : 1;
+
+        $rolePermission->{$request->type} = $value;
+
+        // Recalculate Allow All
+        $rolePermission->allow_all =
+            $rolePermission->can_view &&
+            $rolePermission->can_add &&
+            $rolePermission->can_edit &&
+            $rolePermission->can_delete;
+
+        $rolePermission->save();
+
+        UserPermission::whereIn('user_id', $users)
+            ->where('module_id', $request->module_id)
+            ->update([
+                $request->type => $value,
+                'allow_all' => $rolePermission->allow_all
+            ]);
+
+        return true;
     }
+
+    // public function permission_update(Request $request): bool
+    // {
+    //     $role_permission = RolePermission::firstWhere(['role_id' => $request->role_id, 'module_id' => $request->module_id]);
+    //     if (!$role_permission) {
+    //         RolePermission::create([
+    //             'role_id'       =>  $request->role_id,
+    //             'module_id'     => $request->module_id,
+    //             'can_view'      => $request->type == 'can_view' ? 1 : 0,
+    //             'can_add'       => $request->type == 'can_add' ? 1 : 0,
+    //             'can_edit'      => $request->type == 'can_edit' ? 1 : 0,
+    //             'can_delete'    => $request->type == 'can_delete' ? 1 : 0,
+    //             'allow_all'     => $request->type == 'allow_all' ? 1 : 0,
+    //         ]);
+    //         return true;
+    //     }
+
+    //     $val = $role_permission[$request->type] == 1 ? 0 : 1;
+    //     if (array($request->type, ['can_view', 'can_add', 'can_edit', 'can_delete',  'allow_all'])) {
+    //         $role_permission->toggle($request->type);
+    //         $users = User::where('role_id', $role_permission->role_id)->get()->pluck('id');
+    //         UserPermission::whereIn('user_id', $users)->where('module_id', $role_permission->module_id)->update([$request->type => $val]);
+    //         return  true;
+    //     }
+    //     return false;
+    // }
 }

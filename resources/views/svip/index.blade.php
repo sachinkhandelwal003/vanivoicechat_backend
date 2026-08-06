@@ -11,14 +11,14 @@
             <div class="col-auto ms-auto d-flex gap-2">
 
                 {{-- ADD PRIVILEGE --}}
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(123, 'can_add'))
                 <a href="{{ route('svip-privilege.list') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-star me-1"></i> Add Privilege
                 </a>
                 @endif
 
                 {{-- ADD SVIP --}}
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(123, 'can_add'))
                 <a href="{{ route('svip.form') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i> Add SVIP
                 </a>

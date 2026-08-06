@@ -84,6 +84,22 @@ class AuthController extends Controller
                 }
             }
 
+            // Check Device Ban
+            if (!empty($request->drm_id)) {
+
+                $deviceBanned = AppUser::where('imei', $request->drm_id)
+                    ->where('is_device_banned', 1)
+                    ->exists();
+
+                if ($deviceBanned) {
+
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'This device has been banned. Please contact support.'
+                    ], 403);
+                }
+            }
+
             $generateInviteCode = function ($length = 8) {
                 $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -101,7 +117,16 @@ class AuthController extends Controller
                     'google_id' => $request->google_id,
                     'image' => $request->image ?? null,
                     'timezone' => $request->timezone,
-                    'fcm_token' => $request->fcm_token
+                    'fcm_token' => $request->fcm_token,
+
+                    'equipment_model' => $request->equipment_model,
+                    'app_version' => $request->app_version,
+                    'registered_ip' => $request->ip(),
+                    'registration_time' => now(),
+                    'equipment_number' => $request->equipment_number,
+                    'operating_system' => $request->operating_system,
+                    'brand' => $request->brand,
+                    'imei' => $request->drm_id,
                 ]);
 
                 $baseUid = 10000000;
@@ -369,6 +394,22 @@ class AuthController extends Controller
             ]);
         }
 
+        // Check Device Ban
+        if (!empty($request->drm_id)) {
+
+            $deviceBanned = AppUser::where('imei', $request->drm_id)
+                ->where('is_device_banned', 1)
+                ->exists();
+
+            if ($deviceBanned) {
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This device has been banned. Please contact support.'
+                ], 403);
+            }
+        }
+
         if (!$hasUid->password || !Hash::check($request->password, $hasUid->password)) {
             return response()->json([
                 'status' => false,
@@ -623,6 +664,22 @@ class AuthController extends Controller
             ]);
         }
 
+        // Device Ban Check
+        if (!empty($request->drm_id)) {
+
+            $deviceBanned = AppUser::where('imei', $request->drm_id)
+                ->where('is_device_banned', 1)
+                ->exists();
+
+            if ($deviceBanned) {
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This device has been banned. Please contact support.'
+                ], 403);
+            }
+        }
+
         if (!$user->email_otp || !$user->email_otp_expires_at) {
             return response()->json([
                 'status' => false,
@@ -743,6 +800,22 @@ class AuthController extends Controller
                 'disabled_until' => null,
                 'disable_reason' => null
             ]);
+        }
+
+        // Check Device Ban
+        if (!empty($request->drm_id)) {
+
+            $deviceBanned = AppUser::where('imei', $request->drm_id)
+                ->where('is_device_banned', 1)
+                ->exists();
+
+            if ($deviceBanned) {
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This device has been banned. Please contact support.'
+                ], 403);
+            }
         }
 
         if (!$hasPhone->phone_password || !Hash::check($request->password, $hasPhone->phone_password)) {

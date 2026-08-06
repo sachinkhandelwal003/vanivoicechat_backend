@@ -40,11 +40,11 @@ class StoreUidsController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(121, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('rank.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(121, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -147,11 +147,11 @@ class StoreUidsController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(121, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('pattern.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(121, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -262,9 +262,9 @@ class StoreUidsController extends Controller
                     if (!$row->badge) {
                         return '-';
                     }
-                
+
                     $image = asset('storage/' . $row->badge);
-                
+
                     return '
                         <img src="'.$image.'"
                              width="40"
@@ -274,15 +274,15 @@ class StoreUidsController extends Controller
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
-                
+
                 ->addColumn('rank_badge', function ($row) {
-                
+
                     if (!$row->rank_badge) {
                         return '-';
                     }
-                
+
                     $image = asset('storage/' . $row->rank_badge);
-                
+
                     return '
                         <img src="'.$image.'"
                              width="40"
@@ -300,11 +300,11 @@ class StoreUidsController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(121, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('store.uid.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(121, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 

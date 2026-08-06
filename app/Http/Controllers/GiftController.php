@@ -39,14 +39,13 @@ class GiftController extends Controller
                     $image = asset('storage/' . $row->cover);
 
                     return '
-                        <img src="'.$image.'"
+                        <img src="' . $image . '"
                              width="40"
                              height="40"
                              class="image-preview"
-                             data-image="'.$image.'"
+                             data-image="' . $image . '"
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
-
                 })
 
                 ->editColumn('status', function ($row) {
@@ -60,15 +59,15 @@ class GiftController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
-                        $btn .= '<a class="dropdown-item" href="' . route('lucky-gift-setting', $row->id) . '">Winning Setting</a>';
-                    }
+                    // if (Helper::userCan(104, 'can_edit')) {
+                    //     $btn .= '<a class="dropdown-item" href="' . route('lucky-gift-setting', $row->id) . '">Winning Setting</a>';
+                    // }
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(113, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('gift.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(113, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -338,11 +337,11 @@ class GiftController extends Controller
                     <div class="dropdown-menu">';
 
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(113, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('lucky-gift-setting.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(113, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -444,39 +443,202 @@ class GiftController extends Controller
             $query = GiftTransaction::with([
                 'sender:id,name,uid,image',
                 'receiver:id,name,uid,image',
-                'gift:id,name,cover,file_path,price'
+                'gift:id,name,cover,file_path,price,gift_type'
             ])->latest();
 
             return DataTables::of($query)
                 ->addIndexColumn()
 
+                // ->addColumn('sender', function ($row) {
+
+                //     if (!$row->sender) {
+                //         return '-';
+                //     }
+
+                //     $image = $row->sender->image
+                //         ? Helper::showImage($row->sender->image, true)
+                //         : asset('assets/img/avatar.png');
+
+                //     return '
+                //         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                //              data-user-id="' . $row->sender->id . '"
+                //              style="cursor:pointer;">
+
+                //             <img src="' . $image . '"
+                //                  width="45"
+                //                  height="45"
+                //                  class="rounded-circle">
+
+                //             <div>
+                //                 <div class="fw-bold">' . $row->sender->name . '</div>
+                //                 <small class="text-muted">' . $row->sender->uid . '</small>
+                //             </div>
+
+                //         </div>
+                //     ';
+                // })
+
+                // ->addColumn('receiver', function ($row) {
+
+                //     if (!$row->receiver) {
+                //         return '-';
+                //     }
+
+                //     $image = $row->receiver->image
+                //         ? Helper::showImage($row->receiver->image, true)
+                //         : asset('assets/img/avatar.png');
+
+                //     return '
+                //         <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                //             data-user-id="' . $row->receiver->id . '"
+                //             style="cursor:pointer;">
+
+                //             <img src="' . $image . '"
+                //                 width="45"
+                //                 height="45"
+                //                 class="rounded-circle">
+
+                //             <div>
+                //                 <div class="fw-bold">' . $row->receiver->name . '</div>
+                //                 <small class="text-muted">' . $row->receiver->uid . '</small>
+                //             </div>
+
+                //         </div>
+                //     ';
+                // })
+
+
                 ->addColumn('sender', function ($row) {
 
-                    if (!$row->sender) {return '-';}
+                    if (!$row->sender) {
+                        return '-';
+                    }
 
-                    $image = $row->sender->image
-                        ? Helper::showImage($row->sender->image, true)
+                    $user = $row->sender;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="'.$row->sender->id.'"
-                             style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="'.$image.'"
-                                 width="45"
-                                 height="45"
-                                 class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="45"
+                                height="45"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">'.$row->sender->name.'</div>
-                                <small class="text-muted">'.$row->sender->uid.'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
                     ';
                 })
-                
+
+                ->addColumn('receiver', function ($row) {
+
+                    if (!$row->receiver) {
+                        return '-';
+                    }
+
+                    $user = $row->receiver;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="45"
+                                height="45"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
+                        </div>
+                    ';
+                })
+
+                ->addColumn('gift_type', function ($row) {
+
+                    return $row->gift->gift_type ?? '-';
+                })
+
                 ->addColumn('number_of_gifts', function ($row) {
 
                     $giftImage = '';
@@ -489,12 +651,12 @@ class GiftController extends Controller
 
                     return '
                         <div class="d-flex align-items-center gap-1">
-                            <img src="'.$giftImage.'"
+                            <img src="' . $giftImage . '"
                                  width="35"
                                  height="35"
                                  style="object-fit:cover;border-radius:6px;">
 
-                            <span>x'.$multiplier.'</span>
+                            <span>x' . $multiplier . '</span>
                         </div>
                     ';
                 })
@@ -527,7 +689,7 @@ class GiftController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_view')) {
+                    if (Helper::userCan(108, 'can_view')) {
                         $btn .= '<a class="dropdown-item" href="' . route('gift.details', $row->id) . '">Details</a>';
                     }
 
@@ -543,6 +705,8 @@ class GiftController extends Controller
                     'unit_price',
                     'total_price',
                     'time',
+                    'gift_type',
+                    'receiver',
                     'action'
                 ])
                 ->make(true);

@@ -9,7 +9,7 @@
             </div>
             <div class="col-auto ms-auto">
                 <div class="nav nav-pills nav-pills-falcon">
-                    @if(Helper::userCan(104, 'can_add'))
+                    @if(Helper::userCan(122, 'can_add'))
                     <a href="{{ route('vip.add') }}" class="btn btn-outline-secondary">
                         <i class="fa fa-plus me-1"></i>
                         Add Vip

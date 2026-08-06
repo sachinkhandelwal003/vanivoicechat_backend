@@ -13,7 +13,7 @@
                     <i class="fa fa-arrow-left me-1"></i> Back
                 </a>
 
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(157, 'can_add'))
                 <a href="{{ route('family.level.privilege.add', $levelId) }}" class="btn btn-outline-secondary btn-sm">
                     <i class="fa fa-plus me-1"></i> Add Family Level Privilege
                 </a>

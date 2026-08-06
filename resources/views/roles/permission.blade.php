@@ -141,9 +141,33 @@
                     },
                     type: 'PUT',
                     success: function(data) {
+
                         if (data) {
+
+                            if (type == 'allow_all') {
+
+                                let checked = checkBoxes.prop('checked');
+
+                                let row = checkBoxes.closest('tr');
+
+                                row.find('.switch-input').prop('checked', checked);
+                            } else {
+
+                                let row = checkBoxes.closest('tr');
+
+                                let allChecked =
+                                    row.find('[data-type="can_view"]').prop('checked') &&
+                                    row.find('[data-type="can_add"]').prop('checked') &&
+                                    row.find('[data-type="can_edit"]').prop('checked') &&
+                                    row.find('[data-type="can_delete"]').prop('checked');
+
+                                row.find('[data-type="allow_all"]').prop('checked', allChecked);
+                            }
+
                             toastr.success("Permission Updated Successfully");
+
                         } else {
+
                             checkBoxes.prop("checked", !checkBoxes.prop("checked"));
                             toastr.error("Oops.. There is some error.");
                         }

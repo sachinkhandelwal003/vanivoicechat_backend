@@ -680,15 +680,8 @@ class AgencyController extends Controller
         }
     }
 
-    private function buildAgencyCycleData(
-        $host,
-        $month,
-        $cycleName,
-        $startDate,
-        $endDate,
-        $hostCreatedAt,
-        $today
-    ) {
+    private function buildAgencyCycleData($host, $month, $cycleName, $startDate, $endDate, $hostCreatedAt, $today)
+    {
 
         $giftTotal = GiftTransaction::where(
             'receiver_id',

@@ -76,26 +76,42 @@ class HostPolicyController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu">
+                    if (!Helper::userCan(147, 'can_edit') && !Helper::userCan(147, 'can_delete')) {
+                        return '-';
+                    }
 
-                            <a class="dropdown-item" href="' . route('host-policy.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
+                    $btn = '
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
 
-                            <button class="dropdown-item text-danger delete"
-                                    data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+                                <div class="dropdown-menu">';
 
-                        </div>
-                    </div>
-                ';
+                    // Edit Permission
+                    if (Helper::userCan(147, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('host-policy.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(147, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns([

@@ -1127,10 +1127,17 @@ class UserController extends Controller
     public function uploadAlbum(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:jpg,jpeg,png,gif,mp4|max:20240'
+            'file' => 'required|file|mimes:jpg,jpeg,png,jfif,gif,mp4|max:20240'
         ]);
 
         $user = Auth::user();
+        // Album Upload Ban Check
+        if ((int)$user->is_album_banned === 1) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Your album upload permission has been disabled by the administrator.'
+            ], 403);
+        }
 
         try {
             $path = Helper::saveFile($request->file('file'), 'album');

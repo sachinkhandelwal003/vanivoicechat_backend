@@ -65,28 +65,66 @@ class SettlementLogController extends Controller
                 ->addIndexColumn()
 
                 ->addColumn('host', function ($row) {
+
                     if (!$row->host || !$row->host->user) {
                         return '-';
                     }
 
                     $user = $row->host->user;
+
                     $image = $user->image
                         ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
-                    return '
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="' . $image . '"
-                             width="42"
-                             height="42"
-                             class="rounded-circle border">
+                    $uidData = Helper::getDisplayUidData($user);
 
-                        <div>
-                            <div class="fw-bold">' . e($user->name) . '</div>
-                            <small class="text-muted">UID : ' . e($user->uid) . '</small>
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                                    } else {
+
+                                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="42"
+                                height="42"
+                                class="rounded-circle border">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
                         </div>
-                    </div>
-                ';
+                    ';
                 })
                 ->addColumn('agency', function ($row) {
                     if (!$row->agency || !$row->agency->user) {
@@ -296,5 +334,4 @@ class SettlementLogController extends Controller
             ], 500);
         }
     }
-
 }

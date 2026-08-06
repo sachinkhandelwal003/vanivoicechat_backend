@@ -10,7 +10,7 @@ class Room extends Model
     use HasFactory;
 
     protected $table = 'rooms';
-    protected $fillable = ['user_id', 'room_id', 'room_name', 'room_image', 'country', 'bio', 'total_points', 'room_seat', 'active_theme_id', 'is_locked', 'password', 'status'];
+    protected $fillable = ['user_id', 'room_id', 'room_name', 'room_image', 'country', 'bio', 'total_points', 'room_seat', 'active_theme_id', 'is_locked', 'password', 'status','is_banned','ban_reason','action_by','banned_at','is_pinned','pinned_at','xp','level','admin_limit','member_limit'];
 
 
     public function user()
@@ -52,5 +52,10 @@ class Room extends Model
     public function redEnvelopeClaims()
     {
         return $this->hasMany(RedEnvelopeClaim::class, 'room_id', 'id');
+    }
+
+    public function roomUserRoles()
+    {
+        return $this->hasMany(RoomUserRole::class, 'room_id');
     }
 }
