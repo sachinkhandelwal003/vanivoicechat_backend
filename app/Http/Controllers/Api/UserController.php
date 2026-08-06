@@ -29,6 +29,7 @@ use App\Models\RewardInviting;
 use App\Models\Notification;
 use App\Models\SvipTransaction;
 use App\Models\VipTransaction;
+use App\Models\UserRoleTag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
