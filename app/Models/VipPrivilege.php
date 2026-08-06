@@ -10,5 +10,5 @@ class VipPrivilege extends Model
     use HasFactory;
 
     protected $table = 'vip_privileges';
-    protected $fillable = ['vip_id', 'name', 'icon', 'status'];
+    protected $fillable = ['vip_id', 'name', 'slug', 'icon', 'status'];
 }

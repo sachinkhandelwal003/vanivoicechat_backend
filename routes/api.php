@@ -132,11 +132,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/invite-cms', [InviteController::class, 'cmsData']);
     Route::get('send/invite/code', [InviteController::class, 'sendInviteCode']);
     Route::get('/invited-users', [InviteController::class, 'invitedUsers']);
+    Route::get('/invitation-revenue-history', [InviteController::class, 'invitationRevenueHistory']);
 
     Route::post('/store/password', [AuthController::class, 'setPassword']);
     Route::post('/bind-email', [AuthController::class, 'bindEmail']);
     Route::post('/verify-bind-email', [AuthController::class, 'verifyBindEmail']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/update-online-status', [AuthController::class, 'updateOnlineStatus']);
 
     Route::post('/profile/registration', [UserController::class, 'profileRegistration']);
     Route::get('/user/profile', [UserController::class, 'getUserDetails']);
@@ -192,11 +194,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/room/remove-user-from-seat', [RoomController::class, 'removeUserFromSeat']);
     Route::get('/room/room-message-list', [RoomController::class, 'getRoomMessages']);
     Route::post('room/clear-messages', [RoomController::class, 'clearRoomMessages']);
+    Route::post('room/toggle-invisible', [RoomController::class, 'toggleRoomInvisible']);
 
     Route::get('/room/room-effect-setting', [RoomController::class, 'getEffectSettings']);
     Route::post('room/update-room-effect-setting', [RoomController::class, 'updateEffectSettings']);
     Route::get('/room/room-members', [RoomController::class, 'getRoomMembers']);
     Route::post('/room/ping', [RoomController::class, 'ping']);
+    Route::get('/room/room-emoji', [RoomController::class, 'roomEmojis']);
+    Route::get('/room/room-level-details',[RoomController::class,'roomLevelDetails']);
 
     Route::post('room-music/add-song', [RoomMusicController::class, 'addSong']);
     Route::get('room-music/list', [RoomMusicController::class, 'musicList']);
@@ -355,11 +360,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('admin-center/agent-invite', [AdminCenterController::class, 'sendAgentInvite']);
     Route::post('admin-center/BD-invite', [AdminCenterController::class, 'sendBdInvite']);
+    Route::get('admin-center/admin-dashboard-amount', [AdminCenterController::class, 'adminDashboardAmount']);
 
 
     Route::get('bd/bd-details', [BDController::class, 'bdDetails']);
     Route::get('bd/agent-list', [BDController::class, 'bdAgentList']);
     Route::post('bd/invite-agent', [BDController::class, 'inviteAgent']);
+    Route::get('bd/bd-dashboard-amount', [BDController::class, 'bdDashboardAmount']);
 
 
     Route::get('agency/agency-details', [AgencyController::class, 'agencyDetails']);

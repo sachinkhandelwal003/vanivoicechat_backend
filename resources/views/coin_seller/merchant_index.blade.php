@@ -11,7 +11,7 @@
 
             <div class="col-auto ms-auto d-flex gap-2">
 
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(143, 'can_add'))
                 <a href="{{ route('merchant.form') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i> Add Merchant
                 </a>
@@ -141,7 +141,7 @@
                     }, function (res) {
                         if (res.status) {
                             Swal.fire('', res.message, 'success');
-                            table.draw(); 
+                            table.draw();
                         } else {
                             toastr.error(res.message);
                         }

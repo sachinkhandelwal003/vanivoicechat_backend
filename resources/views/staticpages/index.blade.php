@@ -9,7 +9,7 @@
             </div>
             <div class="col-auto ms-auto">
                 <div class="nav nav-pills nav-pills-falcon">
-                    @if(Helper::userCan(104, 'can_add'))
+                    @if(Helper::userCan(169, 'can_add'))
                     <a href="{{ route('static-page.create') }}" class="btn btn-outline-secondary">
                         <i class="fa fa-plus me-1"></i>
                         Add Static Page
@@ -75,7 +75,7 @@
             },
             ]
         });
-       
+
     });
 </script>
 

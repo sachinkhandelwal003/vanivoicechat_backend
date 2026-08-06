@@ -613,7 +613,7 @@ class HostCenterController extends Controller
                         'usd_amount' => (float) $row->usd_amount,
                         'exchange_rate' => (int) $row->exchange_rate,
                         'coins_received' => (int) $row->coins_received,
-                        'date_time' => $row->created_a->format('Y-m-d H:i:s'),
+                        'date_time' => $row->created_at->format('Y-m-d H:i:s'),
                     ];
                 }
             );

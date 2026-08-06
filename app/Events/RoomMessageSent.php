@@ -18,7 +18,7 @@ class RoomMessageSent implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $roomMessage;
-    
+
 
     public function __construct(RoomMessage $roomMessage)
     {
@@ -51,6 +51,12 @@ class RoomMessageSent implements ShouldBroadcastNow
             'user' => [
                 'id' => $this->roomMessage->user?->id,
                 'name' => $this->roomMessage->user?->name,
+                'nickname_meta' => $this->roomMessage->user?->nickname_meta
+                    ?? [
+                        'animated' => false,
+                        'color' => null,
+                        'effect' => null,
+                    ],
                 'gender' => $this->roomMessage->user?->gender,
                 'uid' => $this->roomMessage->user?->uid,
                 'image' => $image,

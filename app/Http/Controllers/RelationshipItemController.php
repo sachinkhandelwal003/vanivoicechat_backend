@@ -31,13 +31,14 @@ class RelationshipItemController extends Controller
 
                 ->editColumn('icon', function ($row) {
 
-                    if (!$row->icon) {return '-';
+                    if (!$row->icon) {
+                        return '-';
                     }
 
                     $image = asset('storage/' . $row->icon);
 
                     return '
-                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="40" height="40" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
@@ -48,16 +49,37 @@ class RelationshipItemController extends Controller
 
                 ->addColumn('action', function ($row) {
 
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="' . route('relationship.item.form', $row->id) . '">Edit</a>
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>
-                        </div>
-                    </div>';
+                    $btn = '
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+
+                            <div class="dropdown-menu">';
+
+                    // Edit Permission
+                    if (Helper::userCan(127, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('relationship.item.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(127, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['icon', 'action'])
@@ -160,42 +182,124 @@ class RelationshipItemController extends Controller
 
                 ->addColumn('sender', function ($row) {
 
-                    if (!$row->sender) {return '-';}
+                    if (!$row->sender) {
+                        return '-';
+                    }
 
-                    $image = $row->sender->image
-                        ? Helper::showImage($row->sender->image, true)
+                    $user = $row->sender;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
-                    return '
-                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->sender->id.'" style="cursor:pointer;">
+                    $uidData = Helper::getDisplayUidData($user);
 
-                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                class="rounded-circle"
+                                width="40"
+                                height="40">
 
                             <div>
-                                <div class="fw-bold">'.e($row->sender->name).'</div>
-                                <small class="text-muted">'.e($row->sender->uid).'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
                     ';
                 })
-                
+
                 ->addColumn('receiver', function ($row) {
 
-                    if (!$row->receiver) {return '-';}
+                    if (!$row->receiver) {
+                        return '-';
+                    }
 
-                    $image = $row->receiver->image
-                        ? Helper::showImage($row->receiver->image, true)
+                    $user = $row->receiver;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
-                    return '
-                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->receiver->id.'" style="cursor:pointer;">
+                    $uidData = Helper::getDisplayUidData($user);
 
-                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                class="rounded-circle"
+                                width="40"
+                                height="40">
 
                             <div>
-                                <div class="fw-bold">'.e($row->receiver->name).'</div>
-                                <small class="text-muted">'.e($row->receiver->uid).'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>

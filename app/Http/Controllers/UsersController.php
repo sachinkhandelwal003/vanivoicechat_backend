@@ -144,26 +144,82 @@ class UsersController extends Controller
         return view('users.permission', compact('user', 'permissions'));
     }
 
+
     public function permission_update(Request $request): bool
     {
-        $user_permission = UserPermission::firstWhere(['user_id' => $request->user_id, 'module_id' => $request->module_id]);
-        if (!$user_permission) {
-            UserPermission::create([
-                'user_id'       => $request->user_id,
-                'module_id'     => $request->module_id,
-                'can_view'      => $request->type == 'can_view' ? 1 : 0,
-                'can_add'       => $request->type == 'can_add' ? 1 : 0,
-                'can_edit'      => $request->type == 'can_edit' ? 1 : 0,
-                'can_delete'    => $request->type == 'can_delete' ? 1 : 0,
-                'allow_all'     => $request->type == 'allow_all' ? 1 : 0,
+        $userPermission = UserPermission::firstWhere([
+            'user_id'   => $request->user_id,
+            'module_id' => $request->module_id
+        ]);
+
+        if (!$userPermission) {
+            $userPermission = UserPermission::create([
+                'user_id'    => $request->user_id,
+                'module_id'  => $request->module_id,
+                'can_view'   => 0,
+                'can_add'    => 0,
+                'can_edit'   => 0,
+                'can_delete' => 0,
+                'allow_all'  => 0,
             ]);
+        }
+
+        // ===========================
+        // Allow All
+        // ===========================
+        if ($request->type == 'allow_all') {
+
+            $value = $userPermission->allow_all ? 0 : 1;
+
+            $userPermission->update([
+                'allow_all'  => $value,
+                'can_view'   => $value,
+                'can_add'    => $value,
+                'can_edit'   => $value,
+                'can_delete' => $value,
+            ]);
+
             return true;
         }
 
-        if (array($request->type, ['can_view', 'can_add', 'can_edit', 'can_delete', 'allow_all'])) {
-            $user_permission->toggle($request->type);
-            return  true;
-        }
-        return false;
+        // ===========================
+        // Single Permission
+        // ===========================
+        $value = $userPermission->{$request->type} ? 0 : 1;
+
+        $userPermission->{$request->type} = $value;
+
+        $userPermission->allow_all =
+            $userPermission->can_view &&
+            $userPermission->can_add &&
+            $userPermission->can_edit &&
+            $userPermission->can_delete;
+
+        $userPermission->save();
+
+        return true;
     }
+
+    // public function permission_update(Request $request): bool
+    // {
+    //     $user_permission = UserPermission::firstWhere(['user_id' => $request->user_id, 'module_id' => $request->module_id]);
+    //     if (!$user_permission) {
+    //         UserPermission::create([
+    //             'user_id'       => $request->user_id,
+    //             'module_id'     => $request->module_id,
+    //             'can_view'      => $request->type == 'can_view' ? 1 : 0,
+    //             'can_add'       => $request->type == 'can_add' ? 1 : 0,
+    //             'can_edit'      => $request->type == 'can_edit' ? 1 : 0,
+    //             'can_delete'    => $request->type == 'can_delete' ? 1 : 0,
+    //             'allow_all'     => $request->type == 'allow_all' ? 1 : 0,
+    //         ]);
+    //         return true;
+    //     }
+
+    //     if (array($request->type, ['can_view', 'can_add', 'can_edit', 'can_delete', 'allow_all'])) {
+    //         $user_permission->toggle($request->type);
+    //         return  true;
+    //     }
+    //     return false;
+    // }
 }

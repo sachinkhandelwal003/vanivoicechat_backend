@@ -22,4 +22,9 @@ class SvipTransaction extends Model
     {
         return $this->belongsTo(Svip::class);
     }
+
+    public function user()
+    {
+        return $this->belongsTo(AppUser::class, 'user_id');
+    }
 }

@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Events\BroadcastMessageSent;
 
 class HomeController extends Controller
 {
@@ -123,7 +124,11 @@ class HomeController extends Controller
         )
             ->whereBetween('created_at', [$from, $to])
             ->whereHas('receiver', function ($q) use ($country) {
-                $q->where('country', $country);
+                $q->where('country', $country)
+                    ->whereDoesntHave('activeSvip.svip.privileges', function ($q) {
+                        $q->where('slug', 'rank_invisible')
+                            ->where('svip_level_privileges.is_active', 1);
+                    });
             })
             ->groupBy('receiver_id')
             ->orderByDesc('total_points')
@@ -138,6 +143,8 @@ class HomeController extends Controller
                     $item->receiver->image = Helper::showImage($item->receiver->image, true);
                 }
             }
+
+            $item->receiver->nickname_meta = Helper::getNicknameMeta($item->receiver->id);
         });
 
         return response()->json([
@@ -170,7 +177,11 @@ class HomeController extends Controller
         )
             ->whereBetween('created_at', [$from, $to])
             ->whereHas('sender', function ($q) use ($country) {
-                $q->where('country', $country);
+                $q->where('country', $country)
+                    ->whereDoesntHave('activeSvip.svip.privileges', function ($q) {
+                        $q->where('slug', 'rank_invisible')
+                            ->where('svip_level_privileges.is_active', 1);
+                    });
             })
             ->groupBy('sender_id')
             ->orderByDesc('total_points')
@@ -185,6 +196,8 @@ class HomeController extends Controller
                     $item->sender->image = Helper::showImage($item->sender->image, true);
                 }
             }
+
+            $item->sender->nickname_meta = Helper::getNicknameMeta($item->sender->id);
         });
 
         return response()->json([
@@ -227,7 +240,14 @@ class HomeController extends Controller
                 ->whereNotNull('room_id')
                 ->whereBetween('created_at', [$from, $to])
                 ->whereHas('room', function ($q) use ($user) {
-                    $q->where('country', $user->country);
+                    $q->where('country', $user->country)
+                        ->whereHas('user', function ($q) {
+
+                            $q->whereDoesntHave('activeSvip.svip.privileges', function ($q) {
+                                $q->where('slug', 'rank_invisible')
+                                    ->where('svip_level_privileges.is_active', 1);
+                            });
+                        });
                 })
                 ->groupBy('room_id')
                 ->orderByDesc('total_points')
@@ -283,18 +303,86 @@ class HomeController extends Controller
             ->pluck('room_id')
             ->toArray();
 
+        $hiddenRoomOwnerIds = SvipTransaction::where(function ($q) {
+            $q->whereNull('end_at')
+                ->orWhere('end_at', '>=', now());
+        })
+            ->whereHas('svip.privileges', function ($q) {
+                $q->where('slug', 'room_invisible')
+                    ->where('svip_level_privileges.is_active', 1);
+            })
+            // ->whereHas('user', function ($q) use ($user) {
+            //     $q->where('room_invisible', 1);
+            //         // ->where('id', '!=', $user->id);
+            // })
+            ->whereHas('user', function ($q) {
+                $q->where('room_invisible', 1);
+            })
+            ->pluck('user_id')
+            ->toArray();
+
+
+        //  Top Your Room Users
+
+        $topRoomUsers = SvipTransaction::select(
+            'user_id',
+            'svip_id'
+        )
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>=', now());
+            })
+            ->whereHas('svip.privileges', function ($q) {
+                $q->where('slug', 'top_your_room')
+                    ->where('svip_level_privileges.is_active', 1);
+            });
+
+        // $rooms = Room::with([
+        //     'user:id,uid,name,image,country,active_uid_id',
+        //     'user.countryData:id,name,iso',
+        //     'user.premium:user_id,premium_number,valid_days,created_at'
+        // ])
+        //     ->withCount('onlineUsers as online_count')
+        //     ->where('status', 1)
+        //     ->where('country', $user->country)
+        //     ->whereNotIn('user_id', $hiddenRoomOwnerIds)
+        //     ->orderByDesc('online_count')
+        //     ->orderByDesc('total_points')
+        //     // ->limit(100)
+        //     ->paginate(10);
+
         $rooms = Room::with([
             'user:id,uid,name,image,country,active_uid_id',
             'user.countryData:id,name,iso',
             'user.premium:user_id,premium_number,valid_days,created_at'
         ])
+            ->leftJoinSub(
+                $topRoomUsers,
+                'svip_room_priority',
+                function ($join) {
+                    $join->on(
+                        'rooms.user_id',
+                        '=',
+                        'svip_room_priority.user_id'
+                    );
+                }
+            )
+            ->select(
+                'rooms.*',
+                DB::raw('COALESCE(svip_room_priority.svip_id,0) as room_priority')
+            )
             ->withCount('onlineUsers as online_count')
-            ->where('status', 1)
-            ->where('country', $user->country)
+            ->where('rooms.status', 1)
+            ->where('rooms.is_banned', 0)
+            ->where('rooms.country', $user->country)
+            ->whereNotIn('rooms.user_id', $hiddenRoomOwnerIds)
+            ->orderByDesc('rooms.is_pinned')   // Pinned rooms first
+            ->orderByDesc('rooms.pinned_at')   // Pinned order (latest pinned first)
+            ->orderByDesc('room_priority')
             ->orderByDesc('online_count')
-            ->orderByDesc('total_points')
-            // ->limit(100)
+            ->orderByDesc('rooms.total_points')
             ->paginate(10);
+
 
         $rooms->getCollection()->transform(function ($room) use ($followedRoomIds, $joinedRoomIds) {
 
@@ -367,7 +455,8 @@ class HomeController extends Controller
             }
 
             $room->online_count = (int) $room->online_count;
-
+            $room->room_priority = (int) ($room->room_priority ?? 0);
+            $room->is_top_room = $room->room_priority > 0;
             $room->is_follow = in_array($room->id, $followedRoomIds);
             $room->is_joined = in_array($room->id, $joinedRoomIds);
 
@@ -580,6 +669,8 @@ class HomeController extends Controller
             'user:id,uid,name,image,country,active_uid_id',
             'user.countryData:id,name,iso'
         )
+            ->where('status', 1)
+            ->where('is_banned', 0)
             ->where('created_at', '>=', $sevenDaysAgo)
             ->withCount('onlineUsers as online_count')
             ->where('country', $user->country)
@@ -763,6 +854,8 @@ class HomeController extends Controller
                 $displayUid = $room->user->uid;
                 $uidBadgeColor = null;
 
+                $room->user->nickname_meta = Helper::getNicknameMeta($room->user->id);
+
                 // Premium UID
                 $premiumUid = PremiumNumber::where('user_id', $room->user->id)
                     ->where('end_at', '>', now())
@@ -923,6 +1016,8 @@ class HomeController extends Controller
                 $displayUid = $room->user->uid;
                 $uidBadgeColor = null;
 
+                $room->user->nickname_meta = Helper::getNicknameMeta($room->user->id);
+
                 // Premium UID
                 $premiumUid = PremiumNumber::where('user_id', $room->user->id)
                     ->where('end_at', '>', now())
@@ -1005,6 +1100,15 @@ class HomeController extends Controller
             'room_id' => 'required|exists:rooms,id'
         ]);
 
+        $room = Room::find($request->room_id);
+
+        if (!$room) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Room not found'
+            ], 404);
+        }
+
         $existing = RoomMember::where([
             'user_id' => $user->id,
             'room_id' => $request->room_id,
@@ -1015,6 +1119,18 @@ class HomeController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Already joined'
+            ], 422);
+        }
+
+        $currentMembers = RoomMember::where('room_id', $request->room_id)
+            ->whereNull('left_at')
+            ->count();
+
+        if ($currentMembers >= $room->member_limit) {
+
+            return response()->json([
+                'status' => false,
+                'message' => "Room is full. Maximum {$room->member_limit} members allowed."
             ], 422);
         }
 
@@ -1104,6 +1220,8 @@ class HomeController extends Controller
                 // Default System UID
                 $displayUid = $room->user->uid;
                 $uidBadgeColor = null;
+
+                $room->user->nickname_meta = Helper::getNicknameMeta($room->user->id);
 
                 // Premium UID
                 $premiumUid = PremiumNumber::where('user_id', $room->user->id)
@@ -1223,6 +1341,8 @@ class HomeController extends Controller
                 'cost'        => $price->price,
                 'region_code' => $user->country,
             ]);
+
+            event(new BroadcastMessageSent($user, $request->message));
         });
 
         return response()->json([
@@ -1695,11 +1815,8 @@ class HomeController extends Controller
                         'socket_id' => $event['socket_id'] ?? null,
                     ]);
 
-                    /*
-                |--------------------------------------------------------------------------
-                | Only Handle member_removed
-                |--------------------------------------------------------------------------
-                */
+                    //   Only Handle member_removed
+
 
                     if (($event['name'] ?? null) !== 'member_removed') {
 
@@ -1712,11 +1829,8 @@ class HomeController extends Controller
                         continue;
                     }
 
-                    /*
-                |--------------------------------------------------------------------------
-                | Channel
-                |--------------------------------------------------------------------------
-                */
+                    // Channel
+
 
                     $channel = $event['channel'] ?? null;
 
@@ -1733,11 +1847,8 @@ class HomeController extends Controller
                         continue;
                     }
 
-                    /*
-                |--------------------------------------------------------------------------
-                | Room ID
-                |--------------------------------------------------------------------------
-                */
+                    //   Room ID
+
 
                     $roomId = (int) str_replace(
                         'presence-room-online.',
@@ -1760,11 +1871,7 @@ class HomeController extends Controller
                         continue;
                     }
 
-                    /*
-                |--------------------------------------------------------------------------
-                | User ID
-                |--------------------------------------------------------------------------
-                */
+                    //   User ID
 
                     $userId = (int) ($event['user_id'] ?? 0);
 

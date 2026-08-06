@@ -164,4 +164,11 @@ class AppUser extends Authenticatable
     {
         return $this->hasMany(InviteRewardHistory::class, 'user_id');
     }
+
+
+    public function activeSvip()
+    {
+        return $this->hasOne(SvipTransaction::class, 'user_id')
+            ->where('end_at', '>=', now());
+    }
 }

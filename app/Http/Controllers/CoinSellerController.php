@@ -7,6 +7,7 @@ use App\Models\AppUser;
 use App\Models\Country;
 use App\Models\CoinSellerTransaction;
 use App\Models\CoinConversionRate;
+use App\Models\CoinRechargeHistory;
 use App\Helper\Helper;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -42,19 +43,57 @@ class CoinSellerController extends Controller
                         return '-';
                     }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="' . $row->user->id . '" style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">' . e($row->user->name) . '</div>
-                                <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -84,38 +123,65 @@ class CoinSellerController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-light border dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu dropdown-menu-end">
+                    if (!Helper::userCan(142, 'can_edit') && !Helper::userCan(105, 'can_delete')) {
+                        return '-';
+                    }
 
-                            <a class="dropdown-item" href="' . route('coin_seller.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary me-2"></i> Edit Info
-                            </a>
+                    $btn = '
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-light border dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
 
-                            <button class="dropdown-item recharge" data-id="' . $row->id . '">
-                                <i class="fas fa-plus-circle text-success me-2"></i> Recharge
-                            </button>
+                                <div class="dropdown-menu dropdown-menu-end">';
 
-                            <button class="dropdown-item deduct" data-id="' . $row->id . '">
-                                <i class="fas fa-minus-circle text-warning me-2"></i> Deduct Coins
-                            </button>
+                    // Edit Permission
+                    if (Helper::userCan(142, 'can_edit')) {
 
-                            <button class="dropdown-item toggle-merchant" data-id="' . $row->id . '" data-type="' . $row->is_merchant . '">
-                                <i class="fas fa-user-tag text-info me-2"></i> Make Merchant
-                            </button>
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('coin_seller.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit Info
+                                </a>';
 
-                            <div class="dropdown-divider"></div>
+                        $btn .= '
+                                <button class="dropdown-item recharge"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-plus-circle text-success me-2"></i> Recharge
+                                </button>';
 
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash me-2"></i> Delete Seller
-                            </button>
+                        $btn .= '
+                                <button class="dropdown-item deduct"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-minus-circle text-warning me-2"></i> Deduct Coins
+                                </button>';
 
-                        </div>
-                    </div>';
+                        $btn .= '
+                                <button class="dropdown-item toggle-merchant"
+                                        data-id="' . $row->id . '"
+                                        data-type="' . $row->is_merchant . '">
+                                    <i class="fas fa-user-tag text-info me-2"></i> Make Merchant
+                                </button>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(142, 'can_delete')) {
+
+                        $btn .= '<div class="dropdown-divider"></div>';
+
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete Seller
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->filter(function ($query) use ($request) {
@@ -432,15 +498,51 @@ class CoinSellerController extends Controller
                         ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="' . $user->id . '" style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">' . $user->name . '</div>
-                                <small class="text-muted">UID: ' . $user->uid . '</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -511,19 +613,57 @@ class CoinSellerController extends Controller
                         return '-';
                     }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="' . $row->user->id . '" style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">' . e($row->user->name) . '</div>
-                                <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -576,38 +716,64 @@ class CoinSellerController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-light border dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu dropdown-menu-end">
+                    if (!Helper::userCan(143, 'can_edit') && !Helper::userCan(143, 'can_delete')) {
+                        return '-';
+                    }
 
-                            <a class="dropdown-item" href="' . route('merchant.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary me-2"></i> Edit Info
-                            </a>
+                    $btn = '
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-light border dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
 
-                            <button class="dropdown-item recharge" data-id="' . $row->id . '">
-                                <i class="fas fa-plus-circle text-success me-2"></i> Recharge
-                            </button>
+                                <div class="dropdown-menu dropdown-menu-end">';
 
-                            <button class="dropdown-item deduct" data-id="' . $row->id . '">
-                                <i class="fas fa-minus-circle text-warning me-2"></i> Deduct Coins
-                            </button>
+                    // Edit Permission
+                    if (Helper::userCan(143, 'can_edit')) {
 
-                            <button class="dropdown-item text-warning remove-merchant" data-id="' . $row->id . '">
-                                <i class="fas fa-user-times me-2"></i> Remove Merchant
-                            </button>
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('merchant.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit Info
+                                </a>';
 
-                            <div class="dropdown-divider"></div>
+                        $btn .= '
+                                <button class="dropdown-item recharge"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-plus-circle text-success me-2"></i> Recharge
+                                </button>';
 
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash me-2"></i> Delete Seller
-                            </button>
+                        $btn .= '
+                                <button class="dropdown-item deduct"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-minus-circle text-warning me-2"></i> Deduct Coins
+                                </button>';
 
-                        </div>
-                    </div>';
+                        $btn .= '
+                                <button class="dropdown-item text-warning remove-merchant"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-user-times me-2"></i> Remove Merchant
+                                </button>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(143, 'can_delete')) {
+
+                        $btn .= '<div class="dropdown-divider"></div>';
+
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete Seller
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['user', 'created_at', 'is_merchant', 'whatsapp', 'action'])
@@ -767,5 +933,204 @@ class CoinSellerController extends Controller
         ]);
 
         return back()->with('success', 'Coin conversion rates updated successfully.');
+    }
+
+    public function rechargeHistory(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = CoinRechargeHistory::with([
+                'seller:id,name,uid,image',
+                'user:id,name,uid,image'
+            ])->latest();
+
+            return DataTables::of($query)
+
+                ->addIndexColumn()
+
+                ->addColumn('seller', function ($row) {
+
+                    if (!$row->seller) {
+                        return '-';
+                    }
+
+                    $user = $row->seller;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="45"
+                                height="45"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
+                        </div>';
+                })
+
+                ->addColumn('receiver', function ($row) {
+
+                    if (!$row->user) {
+                        return '-';
+                    }
+
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="45"
+                                height="45"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
+                        </div>';
+                })
+
+                ->addColumn('role', function ($row) {
+
+                    return $row->role == 'merchant'
+                        ? '<span class="badge bg-primary">Merchant</span>'
+                        : '<span class="badge bg-success">Coin Seller</span>';
+                })
+
+                ->addColumn('coin', function ($row) {
+
+                    return '<i class="fas fa-coins text-warning"></i> ' . number_format($row->coin);
+                })
+
+                ->addColumn('transaction_type', function ($row) {
+
+                    return ucwords(str_replace('_', ' ', $row->transaction_type));
+                })
+
+                ->addColumn('created', function ($row) {
+
+                    return '
+                <div>
+                    <div>' . optional($row->created_at)->format('d M Y') . '</div>
+                    <small class="text-muted">' . optional($row->created_at)->format('h:i A') . '</small>
+                </div>';
+                })
+
+                // ->addColumn('action', function ($row) {
+
+                //     return '
+                // <div class="dropdown">
+
+                //     <button class="btn btn-sm btn-link dropdown-toggle"
+                //         data-bs-toggle="dropdown">
+                //         <i class="fas fa-ellipsis-h"></i>
+                //     </button>
+
+                //     <div class="dropdown-menu">
+
+                //         <a href="' . route('coin-recharge-history.show', $row->id) . '"
+                //             class="dropdown-item">
+                //             <i class="fas fa-eye me-2"></i>
+                //             Details
+                //         </a>
+
+                //     </div>
+
+                // </div>';
+                // })
+
+                ->rawColumns([
+                    'seller',
+                    'receiver',
+                    'role',
+                    'coin',
+                    'created'
+                ])
+                ->make(true);
+        }
+
+        return view('coin_seller.sellers_recharge_history');
     }
 }

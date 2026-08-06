@@ -20,4 +20,14 @@ class CoinTransaction extends Model
         'amount',
         'type'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(AppUser::class, 'user_id');
+    }
+
+    public function package()
+    {
+        return $this->belongsTo(CoinPackages::class, 'package_id');
+    }
 }

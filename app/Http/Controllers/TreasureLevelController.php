@@ -30,12 +30,14 @@ class TreasureLevelController extends Controller
                 })
                 ->addColumn('chest_image', function ($row) {
 
-                    if (!$row->chest_image) {return '-';}
+                    if (!$row->chest_image) {
+                        return '-';
+                    }
 
                     $image = asset('storage/' . $row->chest_image);
 
                     return '
-                        <img src="'.$image.'" width="55" height="55" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="55" height="55" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;object-fit:contain;border-radius:8px;">
                     ';
                 })
@@ -56,11 +58,11 @@ class TreasureLevelController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(111, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('treasure-levels.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(111, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -193,11 +195,7 @@ class TreasureLevelController extends Controller
             $chestImagePath = $level->chest_image;
 
             if ($request->hasFile('chest_image')) {
-                $chestImagePath = Helper::saveFile(
-                    $request->file('chest_image'),
-                    'uploads/treasure/chests',
-                    $level->chest_image
-                );
+                $chestImagePath = Helper::saveFile($request->file('chest_image'), 'uploads/treasure/chests', $level->chest_image);
             }
 
             $level->update([
@@ -392,18 +390,18 @@ class TreasureLevelController extends Controller
 
                     return '
                         <div class="d-flex align-items-center gap-2">
-                            <img src="'.$image.'"
+                            <img src="' . $image . '"
                                  class="rounded-circle"
                                  width="40"
                                  height="40">
 
                             <div>
                                 <div class="fw-bold">
-                                    '.e($row->room->room_name).'
+                                    ' . e($row->room->room_name) . '
                                 </div>
 
                                 <small class="text-muted">
-                                    Room ID : '.e($row->room->room_id).'
+                                    Room ID : ' . e($row->room->room_id) . '
                                 </small>
                             </div>
                         </div>
@@ -412,25 +410,66 @@ class TreasureLevelController extends Controller
 
                 ->addColumn('user', function ($row) {
 
-                    if (!$row->user) {return '-';}
+                    if (!$row->user) {
+                        return '-';
+                    }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
                     return '
-                        <div class="d-flex align-items-center gap-2">
-                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                class="rounded-circle"
+                                width="40"
+                                height="40">
 
                             <div>
                                 <div class="fw-bold">
-                                    '.e($row->user->name).'
+                                    ' . e($user->name) . '
                                 </div>
 
-                                <small class="text-muted">
-                                    '.e($row->user->uid).'
-                                </small>
+                                ' . $uidHtml . '
                             </div>
+
                         </div>
                     ';
                 })
@@ -441,7 +480,7 @@ class TreasureLevelController extends Controller
 
                         return '
                             <span class="badge badge-light-success fs--1">
-                                💰 '.$row->coins.' Coins
+                                💰 ' . $row->coins . ' Coins
                             </span>
                         ';
                     }
@@ -451,18 +490,18 @@ class TreasureLevelController extends Controller
                         return '
                         <div class="d-flex align-items-center gap-2">
 
-                            <img src="'.Helper::showImage($row->reward->reward_image, true).'"
+                            <img src="' . Helper::showImage($row->reward->reward_image, true) . '"
                                  width="45"
                                  height="45"
                                  style="border-radius:8px;object-fit:cover;">
 
                             <div>
                                 <div class="fw-bold">
-                                    '.ucwords(str_replace('_', ' ', $row->reward_type)).'
+                                    ' . ucwords(str_replace('_', ' ', $row->reward_type)) . '
                                 </div>
 
                                 <small class="text-muted">
-                                    '.$row->valid_days.' Days
+                                    ' . $row->valid_days . ' Days
                                 </small>
                             </div>
 
@@ -484,20 +523,25 @@ class TreasureLevelController extends Controller
 
                 ->addColumn('action', function ($row) {
 
-                    return '
-                    <div class="dropup text-center">
-                        <button class="btn btn-sm btn-light rounded-pill px-3"
-                            data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
+                    $btn = '
+                            <div class="dropup text-center">
+                                <button class="btn btn-sm btn-light rounded-pill px-3"
+                                    data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-2">';
+                    if (Helper::userCan(112, 'can_delete')) {
 
-                        <div class="dropdown-menu dropdown-menu-end p-2">
-                            <button class="dropdown-item text-danger delete"
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
                                 data-id="' . $row->id . '">
                                 <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+                                </button>';
+                    }
+                    $btn .= '
+                            </div>
+                            </div>';
+                    return $btn;
                 })
 
                 ->rawColumns(['room', 'user', 'reward', 'level', 'action'])

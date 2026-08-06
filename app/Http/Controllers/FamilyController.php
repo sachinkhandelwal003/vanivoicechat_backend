@@ -37,20 +37,61 @@ class FamilyController extends Controller
 
                 ->addColumn('user_info', function ($row) {
 
-                    if (!$row->user) {return '-';}
+                    if (!$row->user) {
+                        return '-';
+                    }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
-                        : asset('assets/img/default-vani.png');
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
-                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">'.e($row->user->name).'</div>
-                                <small class="text-muted">ID: '.e($row->user->uid).'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -60,7 +101,7 @@ class FamilyController extends Controller
                 ->addColumn('family_info', function ($row) {
                     return '
                     <div>
-                        <div class="fw-bold">' . e($row->name ?? 'Room') . '</div>
+                        <div class="fw-bold">' . e($row->name ?? 'Family') . '</div>
                         <small class="text-muted"> ID: ' . e($row->id) . '</small>
                     </div>
                 ';
@@ -108,7 +149,33 @@ class FamilyController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(156, 'can_delete')) {
+
+                        $btn .= '
+                        <button class="dropdown-item deleteFamilyImage" data-id="' . $row->id . '">
+                            <i class="fas fa-image text-warning me-2"></i>
+                            Delete Family Image
+                        </button>';
+                    }
+                    if (Helper::userCan(156, 'can_edit')) {
+                        $btn .= '
+                        <button class="dropdown-item editFamilyName"
+                            data-id="' . $row->id . '"
+                            data-name="' . e($row->name) . '">
+                            <i class="fas fa-edit text-primary me-2"></i>
+                            Edit Name
+                        </button>';
+                    }
+                    if (Helper::userCan(156, 'can_delete')) {
+                        $btn .= '
+                        <button class="dropdown-item deleteFamilyName"
+                            data-id="' . $row->id . '">
+                            <i class="fas fa-eraser text-danger me-2"></i>
+                            Delete Name
+                        </button>';
+                    }
+
+                    if (Helper::userCan(156, 'can_edit')) {
                         if ($row->status == 1) {
                             $btn .= '<a class="dropdown-item" href="' . route('family.toggleStatus', $row->id) . '">Disable</a>';
                         } else {
@@ -116,7 +183,7 @@ class FamilyController extends Controller
                         }
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(156, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -125,7 +192,7 @@ class FamilyController extends Controller
                     return $btn;
                 })
 
-                ->rawColumns(['user_info', 'family_info', 'family_member', 'total_points', 'members', 'time','status', 'action'])
+                ->rawColumns(['user_info', 'family_info', 'family_member', 'total_points', 'members', 'time', 'status', 'action'])
                 ->make(true);
         }
 
@@ -158,22 +225,24 @@ class FamilyController extends Controller
 
                 ->addColumn('member', function ($row) {
 
-                    if (!$row->user) {return '-';}
-                
+                    if (!$row->user) {
+                        return '-';
+                    }
+
                     $image = $row->user->image
                         ? Helper::showImage($row->user->image, true)
                         : asset('assets/img/default-vani.png');
-                
+
                     return '
-                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->user->id.'" style="cursor:pointer;">
-                
-                            <img src="'.$image.'" class="rounded-circle" width="40" height="40">
-                
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="' . $row->user->id . '" style="cursor:pointer;">
+
+                            <img src="' . $image . '" class="rounded-circle" width="40" height="40">
+
                             <div>
-                                <div class="fw-bold">'.e($row->user->name).'</div>
-                                <small class="text-muted">ID: '.e($row->user->uid).'</small>
+                                <div class="fw-bold">' . e($row->user->name) . '</div>
+                                <small class="text-muted">ID: ' . e($row->user->uid) . '</small>
                             </div>
-                
+
                         </div>
                     ';
                 })
@@ -209,7 +278,7 @@ class FamilyController extends Controller
                     //     $btn .= '<a class="dropdown-item" href="' . route('family.edit', $row->id) . '">Edit</a>';
                     // }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(156, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -248,15 +317,15 @@ class FamilyController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(157, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('family.level', $row->id) . '">Add Level</a>';
                     }
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(157, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('family.rank.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(157, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -362,14 +431,14 @@ class FamilyController extends Controller
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                     <div class="dropdown-menu">';
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(157, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('family.level.privilege', $row->id) . '">Add Privilege</a>';
                     }
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(157, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('family.level.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(157, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -493,11 +562,11 @@ class FamilyController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(157, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('family.level.privilege.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(157, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
@@ -607,5 +676,76 @@ class FamilyController extends Controller
     public function levelPrivilegeDelete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new FamilyRankBenefit, $request->id);
+    }
+
+    public function deleteImage($id)
+    {
+        $family = Family::find($id);
+
+        if (!$family) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Family not found.'
+            ], 404);
+        }
+
+        if ($family->logo) {
+
+            $path = public_path('storage/' . $family->logo);
+
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+
+            $family->logo = null;
+            $family->save();
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Family image deleted successfully.'
+        ]);
+    }
+
+
+    public function updateName(Request $request)
+    {
+        $request->validate([
+            'id'   => 'required|exists:families,id',
+            'name' => 'required|string|max:255',
+        ]);
+
+        $family = Family::find($request->id);
+
+        $family->update([
+            'name' => $request->name,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Family name updated successfully.',
+        ]);
+    }
+
+
+    public function deleteName($id)
+    {
+        $family = Family::find($id);
+
+        if (!$family) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Family not found.'
+            ], 404);
+        }
+
+        $family->update([
+            'name' => null
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Family name deleted successfully.'
+        ]);
     }
 }

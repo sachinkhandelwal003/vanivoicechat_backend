@@ -12,7 +12,7 @@
             <div class="col-auto ms-auto d-flex gap-2">
 
                 {{-- ADD ADMIN --}}
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(138, 'can_add'))
                 <a href="{{ route('admin.account.form') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i> Add Admin
                 </a>

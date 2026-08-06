@@ -9,7 +9,7 @@
             </div>
             <div class="col-auto ms-auto">
                 <div class="nav nav-pills nav-pills-falcon">
-                    @if(Helper::userCan(106, 'can_add'))
+                    @if(Helper::userCan(127, 'can_add'))
                     <a href="{{ route('relationship.item.form') }}" class="btn btn-outline-secondary">
                         <i class="fa fa-plus me-1"></i>
                         Add Item

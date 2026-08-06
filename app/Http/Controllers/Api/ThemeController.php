@@ -9,6 +9,7 @@ use App\Models\Theme;
 use App\Models\ThemeGiven;
 use App\Models\ItemDelivery;
 use App\Models\ItemGiftTransaction;
+use App\Models\SvipTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -23,7 +24,7 @@ class ThemeController extends Controller
     public function themeList()
     {
         try {
-            $themes = \App\Models\Theme::whereNull('user_id')->where('status', 1)
+            $themes = \App\Models\Theme::whereNull('user_id')->where('visibility_type', 'in_app')->where('status', 1)
                 ->latest()
                 ->get();
 
@@ -501,7 +502,20 @@ class ThemeController extends Controller
 
             $coins = (int) $request->coins;
 
-            if ((int) $user->total_points < $coins) {
+            //    Check Customized Room Theme Privilege
+
+            $hasFreeThemePrivilege = SvipTransaction::where('user_id', $user->id)
+                ->where(function ($q) {
+                    $q->whereNull('end_at')
+                        ->orWhere('end_at', '>=', now());
+                })
+                ->whereHas('svip.privileges', function ($q) {
+                    $q->where('slug', 'customized_room_theme')
+                        ->where('svip_level_privileges.is_active', 1);
+                })
+                ->exists();
+
+            if (!$hasFreeThemePrivilege && (int) $user->total_points < $coins) {
                 DB::rollBack();
                 return response()->json([
                     'status' => false,
@@ -513,14 +527,17 @@ class ThemeController extends Controller
                 $uploadedPath = Helper::saveFile($request->file('icon'), 'theme_images');
             }
 
-            $user->decrement('total_points', $coins);
+            //Deduct Coins Only For Normal Users
+            if (!$hasFreeThemePrivilege) {
+                $user->decrement('total_points', $coins);
+            }
 
             $theme = Theme::create([
                 'name'            => trim($request->name),
                 'icon'            => $uploadedPath,
                 'user_id'         => $user->id,
                 'visibility_type' => 'user',
-                'status'          => 1,
+                'status'          => 0,
             ]);
 
             DB::commit();

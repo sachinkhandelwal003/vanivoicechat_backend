@@ -34,7 +34,7 @@ class MedalController extends Controller
                     $image = asset('storage/' . $row->icon);
 
                     return '
-                        <img src="'.$image.'" width="40" height="40" class="image-preview" data-image="'.$image.'"
+                        <img src="' . $image . '" width="40" height="40" class="image-preview" data-image="' . $image . '"
                              style="cursor:pointer;border-radius:6px;object-fit:cover;">
                     ';
                 })
@@ -54,20 +54,42 @@ class MedalController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="' . route('medals.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+
+                    if (!Helper::userCan(104, 'can_edit') && !Helper::userCan(105, 'can_delete')) {
+                        return '-';
+                    }
+
+                    $btn = '
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+
+                                <div class="dropdown-menu">';
+
+                    // Edit Permission
+                    if (Helper::userCan(124, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('medals.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(124, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['icon', 'action'])
@@ -97,7 +119,8 @@ class MedalController extends Controller
         $rules = [
             'title' => 'required|string|max:255',
             'type' => 'required|in:achievement,event',
-            'icon' => 'nullable|image',
+            'file_type' => 'nullable',
+            'icon' => 'nullable|file',
             'level' => 'nullable',
             'sort'  => 'required',
             'target_value' => 'required',
@@ -125,6 +148,7 @@ class MedalController extends Controller
                 'sort',
                 'level',
                 'target_value',
+                'file_type',
             ]);
 
             if ($request->hasFile('icon')) {
@@ -163,18 +187,57 @@ class MedalController extends Controller
 
                 ->addColumn('user', function ($row) {
 
-                    $image = $row->image
-                        ? Helper::showImage($row->image, true)
+                    $user = $row;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
-                    return '
-                        <div class="d-flex align-items-center gap-2 user-profile-trigger" data-user-id="'.$row->id.'" style="cursor:pointer;">
+                    $uidData = Helper::getDisplayUidData($user);
 
-                            <img src="'.$image.'" width="40" height="40" class="rounded-circle">
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">'.$row->name.'</div>
-                                <small class="text-muted">'.$row->uid.'</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -201,7 +264,7 @@ class MedalController extends Controller
                             : asset('assets/img/avatar.png');
 
                         $html .= '
-                            <img src="'.$image.'" class="medal-image" data-image="'.$image.'" width="40" height="40"
+                            <img src="' . $image . '" class="medal-image" data-image="' . $image . '" width="40" height="40"
                                  style="cursor:pointer;border-radius:50%;object-fit:cover;">
                         ';
                     }

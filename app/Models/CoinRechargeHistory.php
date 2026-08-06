@@ -27,4 +27,9 @@ class CoinRechargeHistory extends Model
     {
         return $this->belongsTo(AppUser::class, 'user_id');
     }
+
+    public function seller()
+    {
+        return $this->belongsTo(AppUser::class, 'seller_id');
+    }
 }

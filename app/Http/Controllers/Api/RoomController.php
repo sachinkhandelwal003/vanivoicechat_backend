@@ -31,6 +31,9 @@ use App\Models\PremiumNumber;
 use App\Models\Vip;
 use App\Models\Svip;
 use App\Models\SvipTransaction;
+use App\Models\Friendship;
+use App\Models\RoomEmoji;
+use App\Models\RoomLevel;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -280,6 +283,12 @@ class RoomController extends Controller
                 $displayUid = $seat && $seat->user ? $seat->user->uid : null;
                 $uidBadge = null;
                 $uidBadgeColor = null;
+                $nicknameMeta = $seat && $seat->user ? Helper::getNicknameMeta($seat->user->id)
+                    : [
+                        'animated' => false,
+                        'color' => null,
+                        'effect' => null,
+                    ];
 
                 if ($seat && $seat->user) {
 
@@ -332,6 +341,7 @@ class RoomController extends Controller
                     'uid_badge' => $uidBadge,
                     'uid_badge_color' => $uidBadgeColor,
                     'name' => $seat && $seat->user ? $seat->user->name : null,
+                    'nickname_meta' => $nicknameMeta,
                     'gender' => $seat && $seat->user ? $seat->user->gender : null,
                     'image' => ($seat && $seat->user && !empty($seat->user->image))
                         ? Helper::showImage($seat->user->image, true)
@@ -513,6 +523,9 @@ class RoomController extends Controller
             $roomImage = Helper::saveFile($request->file('room_image'), 'room_image');
         }
 
+        // Get Default Room Level (Level 1)
+        $defaultLevel = RoomLevel::where('level', 1)->where('status', 1)->first();
+
         $room = Room::create([
             'user_id'  => $user->id,
             'room_name'  => $request->room_name,
@@ -520,11 +533,24 @@ class RoomController extends Controller
             'bio'        => $request->bio,
             'country'    => ucwords(strtolower($user->country)),
             'room_seat'  => 10,
+
+            // Room Level Defaults
+            'xp'            => 0,
+            'level'         => $defaultLevel?->level ?? 1,
+            'admin_limit'   => $defaultLevel?->admins ?? 5,
+            'member_limit'  => $defaultLevel?->members ?? 200,
         ]);
 
         $baseRoomId = 100000;
         $room->room_id = $baseRoomId + $room->id;
         $room->save();
+
+        RoomMember::create([
+            'user_id'   => $user->id,
+            'room_id'   => $room->id,
+            'joined_at' => now(),
+            'left_at'   => null,
+        ]);
 
         return response()->json([
             'status'  => true,
@@ -725,19 +751,80 @@ class RoomController extends Controller
                 $this->updateUserMedals($receiverId, 'charm');
             }
 
-            AppUser::where('id', $sender->id)
-                ->decrement('total_points', $totalCost);
+            AppUser::where('id', $sender->id)->decrement('total_points', $totalCost);
 
-            $this->updateWCLevel($sender->id, 'wealth');
+            //Level Acceleration Logic for Wealth Level
+            $wealthExp = $totalCost;
 
-            Room::where('id', $request->room_id)
-                ->increment('total_points', $totalCost);
+            $multiplier = 1;
+
+            if (
+                Helper::hasVipPrivilege($sender->id, 'level_accelerator_10')
+            ) {
+                $multiplier = 1.10;
+            } elseif (
+                Helper::hasVipPrivilege($sender->id, 'level_accelerator_7')
+            ) {
+                $multiplier = 1.07;
+            } elseif (
+                Helper::hasVipPrivilege($sender->id, 'level_accelerator_5')
+            ) {
+                $multiplier = 1.05;
+            } elseif (
+                Helper::hasVipPrivilege($sender->id, 'level_accelerator_3')
+            ) {
+                $multiplier = 1.03;
+            }
+
+            $wealthExp = floor($wealthExp * $multiplier);
+
+            $wc = WCLevel::firstOrCreate(
+                [
+                    'user_id' => $sender->id,
+                    'type' => 'wealth'
+                ],
+                [
+                    'level' => 1,
+                    'exp' => 0
+                ]
+            );
+
+            $wc->increment('exp', $wealthExp);
+
+            $wc->refresh();
+
+            $level = Level::where('type', 'wealth')
+                ->where('required_exp', '<=', $wc->exp)
+                ->orderByDesc('required_exp')
+                ->first();
+
+            if ($level) {
+                $wc->update(['level' => $level->level]);
+            }
+
+            // $this->updateWCLevel($sender->id, 'wealth');
+
+            Room::where('id', $request->room_id)->increment('total_points', $totalCost);
+            // Room XP
+            Room::where('id', $request->room_id)->increment('xp', $totalCost);
+            $room = Room::find($request->room_id);
+            // Check Room Level
+            $roomLevel = RoomLevel::where('status', 1)->where('xp', '<=', $room->xp)->orderByDesc('level')->first();
+
+            if ($room->level && $room->level != $roomLevel->level) {
+
+                $room->update([
+                    'level' => $roomLevel->level,
+                    // Never decrease limits
+                    'admin_limit'  => max($room->admin_limit, $roomLevel->admins),
+                    'member_limit' => max($room->member_limit, $roomLevel->members),
+                ]);
+            }
 
             $roomOwnerId = Room::where('id', $request->room_id)->value('user_id');
             // dd( $roomOwnerId);
 
             if ($roomOwnerId) {
-
                 $this->updateUserMedals($roomOwnerId, 'room_wealth');
             }
 
@@ -749,7 +836,6 @@ class RoomController extends Controller
                 Family::where('id', $familyId)
                     ->increment('total_points', $totalCost);
             }
-
 
             $singleReceiverId = $receiverCount === 1 ? $receiverIds->first() : null;
 
@@ -1276,166 +1362,6 @@ class RoomController extends Controller
         ]);
     }
 
-    // private function getActiveItemsForUsers($users): array
-    // {
-    //     $users = collect($users)->filter();
-
-    //     $carIds = $users->pluck('active_car_id')->filter()->unique()->values();
-    //     $frameIds = $users->pluck('active_frame_id')->filter()->unique()->values();
-    //     $chatBubbleIds = $users->pluck('active_chat_bubble_id')->filter()->unique()->values();
-    //     $themeIds = $users->pluck('active_theme_id')->filter()->unique()->values();
-    //     $uidIds = $users->pluck('active_uid_id')->filter()->unique()->values();
-    //     $voiceIds = $users->pluck('active_voice_id')->filter()->unique()->values();
-    //     $entryTagIds = $users->pluck('active_entry_id')->filter()->unique()->values();
-    //     $cardIds = $users->pluck('active_card_id')->filter()->unique()->values();
-
-    //     $cars = DB::table('cars')
-    //         ->whereIn('id', $carIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $frames = DB::table('frames')
-    //         ->whereIn('id', $frameIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $chatBubbles = DB::table('chat_bubbles')
-    //         ->whereIn('id', $chatBubbleIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $themes = DB::table('themes')
-    //         ->whereIn('id', $themeIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $uids = DB::table('store_uids')
-    //         ->whereIn('id', $uidIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $voices = DB::table('voices')
-    //         ->whereIn('id', $voiceIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $entryTags = DB::table('entry_tags')
-    //         ->whereIn('id', $entryTagIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $dataCards = DB::table('data_cards')
-    //         ->whereIn('id', $cardIds)
-    //         ->get()
-    //         ->keyBy('id');
-
-    //     $mapped = [];
-
-    //     foreach ($users as $user) {
-    //         $entry = null;
-    //         $frame = null;
-    //         $chatBubble = null;
-    //         $theme = null;
-    //         $uid = null;
-    //         $voice = null;
-    //         $enterTag = null;
-    //         $profile = null;
-
-    //         if (!empty($user->active_car_id) && isset($cars[$user->active_car_id])) {
-    //             $car = $cars[$user->active_car_id];
-    //             $entry = [
-    //                 'id' => $car->id,
-    //                 'name' => $car->name ?? null,
-    //                 'image' => !empty($car->icon) ? Helper::showImage($car->icon, true) : null,
-    //                 'file' => !empty($car->gif) ? Helper::showImage($car->gif, true) : null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_frame_id) && isset($frames[$user->active_frame_id])) {
-    //             $frameData = $frames[$user->active_frame_id];
-    //             $frame = [
-    //                 'id' => $frameData->id,
-    //                 'name' => $frameData->name ?? null,
-    //                 'image' => !empty($frameData->icon) ? Helper::showImage($frameData->icon, true) : null,
-    //                 'file' => !empty($frameData->gif) ? Helper::showImage($frameData->gif, true) : null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_chat_bubble_id) && isset($chatBubbles[$user->active_chat_bubble_id])) {
-    //             $chatBubbleData = $chatBubbles[$user->active_chat_bubble_id];
-    //             $chatBubble = [
-    //                 'id' => $chatBubbleData->id,
-    //                 'name' => $chatBubbleData->name ?? null,
-    //                 'image' => !empty($chatBubbleData->icon) ? Helper::showImage($chatBubbleData->icon, true) : null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_theme_id) && isset($themes[$user->active_theme_id])) {
-    //             $themeData = $themes[$user->active_theme_id];
-    //             $theme = [
-    //                 'id' => $themeData->id,
-    //                 'name' => $themeData->name ?? null,
-    //                 'image' => !empty($themeData->icon) ? Helper::showImage($themeData->icon, true) : null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_uid_id) && isset($uids[$user->active_uid_id])) {
-    //             $uidData = $uids[$user->active_uid_id];
-    //             $uid = [
-    //                 'id' => $uidData->id,
-    //                 'uid' => $uidData->unique_id ?? null,
-    //                 'image' => !empty($uidData->badge) ? Helper::showImage($uidData->badge, true) : null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_voice_id) && isset($voices[$user->active_voice_id])) {
-    //             $voiceData = $voices[$user->active_voice_id];
-    //             $voice = [
-    //                 'id' => $voiceData->id,
-    //                 'name' => $voiceData->name ?? null,
-    //                 'image' => !empty($voiceData->icon) ? Helper::showImage($voiceData->icon, true) : null,
-    //                 'file' => !empty($voiceData->gif) ? Helper::showImage($voiceData->gif, true) : null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_entry_id) && isset($entryTags[$user->active_entry_id])) {
-    //             $enterTagData = $entryTags[$user->active_entry_id];
-    //             $enterTag = [
-    //                 'id' => $enterTagData->id,
-    //                 'name' => $enterTagData->name ?? null,
-    //                 'image' => !empty($enterTagData->icon) ? Helper::showImage($enterTagData->icon, true) : null,
-    //                 'file' => !empty($enterTagData->gif) ? Helper::showImage($enterTagData->gif, true) : null,
-    //                 'img_key' => $enterTagData->img_key ?? null,
-    //                 'text_key' => $enterTagData->text_key ?? null,
-    //                 'frame_key' => $enterTagData->frame_key ?? null,
-    //             ];
-    //         }
-
-    //         if (!empty($user->active_card_id) && isset($dataCards[$user->active_card_id])) {
-    //             $profileData = $dataCards[$user->active_card_id];
-    //             $profile = [
-    //                 'id' => $profileData->id,
-    //                 'name' => $profileData->name ?? null,
-    //                 'image' => !empty($profileData->icon) ? Helper::showImage($profileData->icon, true) : null,
-    //                 'file' => !empty($profileData->gif) ? Helper::showImage($profileData->gif, true) : null,
-    //             ];
-    //         }
-
-    //         $mapped[$user->id] = [
-    //             'entry' => $entry,
-    //             'frame' => $frame,
-    //             'chat_bubble' => $chatBubble,
-    //             'theme' => $theme,
-    //             'uid' => $uid,
-    //             'voice' => $voice,
-    //             'enter_tag' => $enterTag,
-    //             'profile' => $profile,
-    //         ];
-    //     }
-
-    //     return $mapped;
-    // }
-
 
     private function getActiveItemsForUsers($users): array
     {
@@ -1882,7 +1808,7 @@ class RoomController extends Controller
     {
         $user   = Auth::user();
         $roomId = $request->room_id;
-
+        $hasTakeAnySeatPrivilege = Helper::hasVipPrivilege($user->id, 'take_any_seat');
         $room = Room::with('user:id,name,uid,image,gender,active_frame_id,active_uid_id,active_card_id,active_chat_bubble_id,active_voice_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type', 'theme:id,name,icon')
             ->where('id', $roomId)
             ->where('status', 1)
@@ -1964,6 +1890,11 @@ class RoomController extends Controller
             $room->user->uid_badge = $roomOwnerUidBadge;
             $room->user->uid_badge_color = $uidBadgeColor;
 
+            $ownerNickname = Helper::getNicknameMeta($room->user->id);
+            $room->user->animated = $ownerNickname['animated'];
+            $room->user->color = $ownerNickname['color'];
+            $room->user->effect = $ownerNickname['effect'];
+
             if ($room->theme) {
                 $theme = [
                     'id'    => $room->theme->id,
@@ -2017,6 +1948,7 @@ class RoomController extends Controller
                 'mic_permission' => $setting ? (int) $setting->mic_permission : 0,
                 'message_permission' => $setting ? (int) $setting->message_permission : 0,
                 'admin_can_play_music' => $setting ? (int) $setting->admin_can_play_music : 0,
+                'can_take_any_seat' => $hasTakeAnySeatPrivilege,
             ];
 
             $seatUsers = $seatData->pluck('user')->filter()->values();
@@ -2099,6 +2031,13 @@ class RoomController extends Controller
                 $uidBadge = null;
                 $uidBadgeColor = null;
 
+                $nicknameMeta = $seat && $seat->user ? Helper::getNicknameMeta($seat->user->id)
+                    : [
+                        'animated' => false,
+                        'color' => null,
+                        'effect' => null,
+                    ];
+
                 if ($seat && $seat->user) {
 
                     $premiumUid = PremiumNumber::where('user_id', $seat->user->id)
@@ -2151,6 +2090,7 @@ class RoomController extends Controller
                     'uid_badge' => $uidBadge,
                     'uid_badge_color' => $uidBadgeColor,
                     'name' => $seat && $seat->user ? $seat->user->name : null,
+                    'nickname_meta' => $nicknameMeta,
                     'gender' => $seat && $seat->user ? $seat->user->gender : null,
                     'image' => ($seat && $seat->user && !empty($seat->user->image))
                         ? Helper::showImage($seat->user->image, true)
@@ -2160,6 +2100,7 @@ class RoomController extends Controller
                     'is_my_seat' => $seat && (int) $seat->user_id === (int) $user->id,
                     'is_locked' => $setting ? (bool)$setting->is_locked : false,
                     'is_muted'  => $setting ? (bool)$setting->is_muted_by_host : false,
+                    'can_take_any_seat' => $hasTakeAnySeatPrivilege,
                     'is_on_mic'  => $seat ? $seat->is_on_mic : 0,
                     'role' => $role,
 
@@ -2932,6 +2873,7 @@ class RoomController extends Controller
         }
 
         $user = Auth::user();
+        $hasTakeAnySeatPrivilege = Helper::hasVipPrivilege($user->id, 'take_any_seat');
         $roomId = $request->room_id;
         $seatNo = $request->seat_no;
 
@@ -2973,6 +2915,20 @@ class RoomController extends Controller
                     'status' => false,
                     'message' => 'You already have a seat, use change seat api',
                 ], 409);
+            }
+
+            $seatSetting = DB::table('room_seat_settings')
+                ->where('room_id', $roomId)
+                ->where('seat_no', $seatNo)
+                ->first();
+
+            if (!$hasTakeAnySeatPrivilege && $seatSetting && $seatSetting->is_locked) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This seat is locked.',
+                ], 403);
             }
 
             RoomSeat::create([
@@ -3029,6 +2985,7 @@ class RoomController extends Controller
         $user = Auth::user();
         $roomId = $request->room_id;
         $newSeatNo = $request->seat_no;
+        $hasTakeAnySeatPrivilege = Helper::hasVipPrivilege($user->id, 'take_any_seat');
 
         $isJoined = RoomPresence::where('room_id', $roomId)
             ->where('user_id', $user->id)
@@ -3077,6 +3034,20 @@ class RoomController extends Controller
                     'status' => false,
                     'message' => 'Selected seat is already occupied',
                 ], 409);
+            }
+
+            $seatSetting = DB::table('room_seat_settings')
+                ->where('room_id', $roomId)
+                ->where('seat_no', $newSeatNo)
+                ->first();
+
+            if (!$hasTakeAnySeatPrivilege && $seatSetting && $seatSetting->is_locked) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This seat is locked.',
+                ], 403);
             }
 
             $mySeat->update([
@@ -3626,6 +3597,14 @@ class RoomController extends Controller
 
         $roomMessage->load('user:id,name,uid,image,gender');
 
+        $nicknameMeta = Helper::getNicknameMeta($user->id);
+        $roomMessage->user->nickname_meta =
+            [
+                'animated' => $nicknameMeta['animated'] ?? false,
+                'color' => $nicknameMeta['color'] ?? null,
+                'effect' => $nicknameMeta['effect'] ?? null,
+            ];
+
         $roomMessage->user->wealth_icon =
             $wealthLevel?->levelData?->icon
             ? Helper::showImage(
@@ -3668,6 +3647,7 @@ class RoomController extends Controller
                 'user' => [
                     'id' => $roomMessage->user?->id,
                     'name' => $roomMessage->user?->name,
+                    'nickname_meta' => $nicknameMeta,
                     'uid' => $roomMessage->user?->uid,
                     'image' => Helper::showImage($roomMessage->user?->image, true),
                 ],
@@ -4025,6 +4005,7 @@ class RoomController extends Controller
 
     public function getRoomUsersList($roomId)
     {
+        $authUserId = Auth::id();
         $room = Room::select('id', 'user_id')->find($roomId);
 
         if (!$room) {
@@ -4033,6 +4014,20 @@ class RoomController extends Controller
                 'message' => 'Room not found'
             ], 404);
         }
+
+        $friendIds = Friendship::where('status', 'accepted')
+            ->where(function ($q) use ($authUserId) {
+                $q->where('user_one', $authUserId)
+                    ->orWhere('user_two', $authUserId);
+            })
+            ->get()
+            ->map(function ($friend) use ($authUserId) {
+
+                return (int) $friend->user_one === (int) $authUserId
+                    ? $friend->user_two
+                    : $friend->user_one;
+            })
+            ->toArray();
 
         // roles ek baar load karo
         $roles = RoomUserRole::where('room_id', $roomId)
@@ -4052,53 +4047,25 @@ class RoomController extends Controller
 
         $presenceUsers = $presenceData->pluck('user')->filter()->values();
 
-        $onlineUserIds = $presenceUsers
-            ->pluck('id')
-            ->toArray();
+        $onlineUserIds = $presenceUsers->pluck('id')->toArray();
 
         $cpRelations = RelationshipInvitation::with([
-
             'sender:id,uid,name,image,active_frame_id,active_frame_type',
-
             'sender.activeFrame:id,name,icon,gif',
-
             'receiver:id,uid,name,image,active_frame_id,active_frame_type',
-
             'receiver.activeFrame:id,name,icon,gif',
-
             'relationshipItem:id,name,type,icon,gif,ring,avatar,frame,badge',
-
         ])
-
-            ->where(
-                'status',
-                'accept'
-            )
-
-            ->whereRaw(
-                'LOWER(type)=?',
-                ['cp']
-            )
-
-            ->where(function ($q)
-            use ($onlineUserIds) {
-
-                $q->whereIn(
-                    'sender_id',
-                    $onlineUserIds
-                )
-
-                    ->orWhereIn(
-                        'receiver_id',
-                        $onlineUserIds
-                    );
-            })
-
-            ->get();
+            ->where('status', 'accept')
+            ->whereRaw('LOWER(type)=?', ['cp'])
+            ->where(function ($q) use ($onlineUserIds) {
+                $q->whereIn('sender_id', $onlineUserIds)
+                    ->orWhereIn('receiver_id', $onlineUserIds);
+            })->get();
 
         $itemsByUserId = $this->getFrameAndUidForUsers($presenceUsers);
 
-        $usersList = $presenceData->map(function ($presence) use ($room, $roles, $itemsByUserId, $cpRelations) {
+        $usersList = $presenceData->map(function ($presence) use ($room, $roles, $itemsByUserId, $cpRelations, $friendIds, $authUserId) {
 
             $userId = $presence->user->id ?? null;
 
@@ -4133,6 +4100,14 @@ class RoomController extends Controller
             $displayUid = $user?->uid;
             $uidBadge = null;
             $uidBadgeColor = null;
+
+            $nicknameMeta = $user
+                ? Helper::getNicknameMeta($user->id)
+                : [
+                    'animated' => false,
+                    'color' => null,
+                    'effect' => null,
+                ];
 
             if ($user) {
 
@@ -4180,13 +4155,9 @@ class RoomController extends Controller
                 }
             }
 
-            $wealthLevel = $user?->wcLevels
-                ?->where('type', 'wealth')
-                ->first();
+            $wealthLevel = $user?->wcLevels?->where('type', 'wealth')->first();
 
-            $charmLevel = $user?->wcLevels
-                ?->where('type', 'charm')
-                ->first();
+            $charmLevel = $user?->wcLevels?->where('type', 'charm')->first();
 
 
             $medals = $user?->userMedals
@@ -4205,81 +4176,37 @@ class RoomController extends Controller
 
             $flag = null;
 
-            if (
-                $user?->countryData?->iso
-            ) {
+            if ($user?->countryData?->iso) {
                 $flag = 'https://flagcdn.com/w40/' . strtolower($user->countryData->iso) . '.png';
             }
 
-            $cpRelation = $cpRelations
-
-                ->filter(function ($relation)
-                use ($userId) {
-
-                    return
-                        (int) $relation->sender_id === (int) $userId
-                        ||
-                        (int) $relation->receiver_id === (int) $userId;
-                })
-
+            $cpRelation = $cpRelations->filter(function ($relation)
+            use ($userId) {
+                return
+                    (int) $relation->sender_id === (int) $userId
+                    ||
+                    (int) $relation->receiver_id === (int) $userId;
+            })
                 ->map(function ($relation)
                 use ($userId) {
-
                     $cpUser =
                         (int) $relation->sender_id === (int) $userId
-
                         ? $relation->receiver
-
                         : $relation->sender;
 
                     return [
 
-                        'id' =>
-                        $cpUser->id,
-
-                        'uid' =>
-                        $cpUser->uid,
-
-                        'name' =>
-                        $cpUser->name,
-
-                        'image' =>
-                        !empty($cpUser->image)
-
-                            ? Helper::showImage(
-                                $cpUser->image,
-                                true
-                            )
-
-                            : null,
-
+                        'id' => $cpUser->id,
+                        'uid' => $cpUser->uid,
+                        'name' => $cpUser->name,
+                        'image' => !empty($cpUser->image) ? Helper::showImage($cpUser->image,  true) : null,
                         'frame' => [
-
-                            'id' =>
-                            $cpUser?->activeFrame?->id,
-
-                            'name' =>
-                            $cpUser?->activeFrame?->name,
-
-                            'icon' =>
-                            $cpUser?->activeFrame?->icon
-
-                                ? Helper::showImage(
-                                    $cpUser->activeFrame->icon,
-                                    true
-                                )
-
-                                : null,
-
-                            'svga' =>
-                            $cpUser?->activeFrame?->gif
-
-                                ? Helper::showImage(
-                                    $cpUser->activeFrame->gif,
-                                    true
-                                )
-
-                                : null,
+                            'id' => $cpUser?->activeFrame?->id,
+                            'name' => $cpUser?->activeFrame?->name,
+                            'icon' => $cpUser?->activeFrame?->icon
+                                ? Helper::showImage($cpUser->activeFrame->icon, true) : null,
+                            'svga' => $cpUser?->activeFrame?->gif
+                                ? Helper::showImage($cpUser->activeFrame->gif, true) : null,
                         ],
                         'cp_data' => [
                             'id' => $relation?->relationshipItem?->id,
@@ -4288,12 +4215,15 @@ class RoomController extends Controller
                         ],
                     ];
                 })
-
                 ->values();
 
             return [
                 'id'    => $presence->user->id ?? null,
+                'is_friend' => $userId ? in_array($userId, $friendIds) : false,
+                'auth_has_any_private_message' => Helper::hasVipPrivilege($authUserId, 'any_private_message'),
                 'name'  => $presence->user->name ?? 'Unknown',
+                'nickname_meta' => $nicknameMeta,
+                'is_rank_top' => $userId ? Helper::hasVipPrivilege($userId, 'rank_the_top') : false,
                 'gender'  => $presence?->user?->gender,
                 // 'uid'   => $presence->user->uid ?? '',
                 'uid' => $displayUid,
@@ -4313,43 +4243,26 @@ class RoomController extends Controller
 
 
                 'wealth_level' => [
-
-                    'level' =>
-                    $wealthLevel?->level ?? 1,
-
-                    'icon' =>
-                    $wealthLevel?->levelData?->icon
-                        ? Helper::showImage(
-                            $wealthLevel->levelData->icon,
-                            true
-                        )
-                        : null
+                    'level' => $wealthLevel?->level ?? 1,
+                    'icon' => $wealthLevel?->levelData?->icon
+                        ? Helper::showImage($wealthLevel->levelData->icon, true) : null
                 ],
 
 
                 'charm_level' => [
-
-                    'level' =>
-                    $charmLevel?->level ?? 1,
-
-                    'icon' =>
-                    $charmLevel?->levelData?->icon
-                        ? Helper::showImage(
-                            $charmLevel->levelData->icon,
-                            true
-                        )
-                        : null
+                    'level' => $charmLevel?->level ?? 1,
+                    'icon' =>  $charmLevel?->levelData?->icon
+                        ? Helper::showImage($charmLevel->levelData->icon, true) : null
                 ],
 
-
                 'medals' => $medals,
-
-                'role_badges' => $userId
-                    ? Helper::getUserRoleBadges($userId)
-                    : [],
-
+                'role_badges' => $userId  ? Helper::getUserRoleBadges($userId) : [],
                 'cp_relation' => $cpRelation,
             ];
+        })->values();
+
+        $usersList = $usersList->sortByDesc(function ($user) {
+            return $user['is_rank_top'] ? 1 : 0;
         })->values();
 
         $onlineCount = $usersList->count();
@@ -4837,6 +4750,78 @@ class RoomController extends Controller
                 ], 409);
             }
 
+            // More Admin Privilege Logic
+
+            if ($role === 'admin') {
+
+                // Default admin limit
+                $maxAdminLimit = $room->admin_limit;
+
+                // Current admin count
+                $currentAdminCount = RoomUserRole::where('room_id', $roomId)
+                    ->where('role', 'admin')
+                    ->count();
+
+                // If target user is already admin, skip limit check
+                $alreadyAdmin = RoomUserRole::where('room_id', $roomId)
+                    ->where('user_id', $targetUserId)
+                    ->where('role', 'admin')
+                    ->exists();
+
+                // Host active svip
+                $activeSvip = SvipTransaction::with('svip')
+                    ->where('user_id', $authUser->id)
+                    ->where('end_at', '>=', now())
+                    ->first();
+
+                if ($activeSvip) {
+
+                    $hasMoreAdminPrivilege = $activeSvip->svip
+                        ->privileges()
+                        ->where('slug', 'more_admin')
+                        ->wherePivot('is_active', 1)
+                        ->exists();
+
+                    if ($hasMoreAdminPrivilege) {
+                        // $maxAdminLimit = $activeSvip->svip->admin_limit ?? 4;  // in this replace 4 with the  the svip limit
+                        $maxAdminLimit += ($activeSvip->svip->admin_limit ?? 0); // in this sum the default limit with the svip limit if needed
+                    }
+                }
+
+                if (!$alreadyAdmin && $currentAdminCount >= $maxAdminLimit) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => "Maximum {$maxAdminLimit} admins allowed."
+                    ], 422);
+                }
+            }
+
+            // Member Limit Logic
+
+            if ($role === 'member') {
+
+                $maxMemberLimit = $room->member_limit;
+
+                // Current Active Members
+                $currentMemberCount = RoomMember::where('room_id', $roomId)
+                    ->whereNull('left_at')
+                    ->count();
+
+                // Check if already active member
+                $alreadyMember = RoomMember::where('room_id', $roomId)
+                    ->where('user_id', $targetUserId)
+                    ->whereNull('left_at')
+                    ->exists();
+
+                if (!$alreadyMember && $currentMemberCount >= $maxMemberLimit) {
+
+                    return response()->json([
+                        'status' => false,
+                        'message' => "Maximum {$maxMemberLimit} members allowed."
+                    ], 422);
+                }
+            }
+
             // user should be in room currently
             $isPresent = RoomPresence::where('room_id', $roomId)
                 ->where('user_id', $targetUserId)
@@ -4955,6 +4940,7 @@ class RoomController extends Controller
                     'user_id' => $targetUserId,
                     'role' => $roleRow->role,
                     'assigned_by' => $roleRow->assigned_by,
+                    'max_admin_limit' => $maxAdminLimit,
                     'user' => $userData,
                 ],
             ]);
@@ -5216,7 +5202,7 @@ class RoomController extends Controller
             }
 
             // Check "Avoid Being Kicked" privilege
-            $cannotBeKicked = SvipTransaction::where('user_id', $targetUserId)
+            $hasSvipAntiKick = SvipTransaction::where('user_id', $targetUserId)
                 ->where('end_at', '>=', now())
                 ->whereHas('svip.privileges', function ($q) {
                     $q->where('svip_privileges.slug', 'avoid_being_kicked')
@@ -5224,13 +5210,18 @@ class RoomController extends Controller
                 })
                 ->exists();
 
+            $hasVipAntiKick = Helper::hasVipPrivilege($targetUserId, 'anti_kick');
+
+
+            $cannotBeKicked = $hasVipAntiKick || $hasSvipAntiKick;
+
             if ($cannotBeKicked) {
 
                 DB::rollBack();
 
                 return response()->json([
                     'status' => false,
-                    'message' => 'This user cannot be removed from the seat because of the SVIP privilege.',
+                    'message' =>  'This user has Anti Kick privilege and cannot be removed from the seat.',
                 ], 403);
             }
 
@@ -5363,10 +5354,21 @@ class RoomController extends Controller
                             ];
                         })
                         ->values();
+
+                    $nicknameMeta = [
+                        'animated' => false,
+                        'color' => null,
+                        'effect' => null,
+                    ];
+
+                    if ($message->user) {
+                        $nicknameMeta = Helper::getNicknameMeta($message->user->id);
+                    }
                 }
                 $sender = $message->user ? [
                     'id'           => $message->user->id,
                     'name'         => $message->user->name,
+                    'nickname_meta' => $nicknameMeta,
                     'gender'         => $message->user->gender,
                     'uid'          => $message->user->uid,
                     'image'        => !empty($message->user->image)
@@ -5394,9 +5396,20 @@ class RoomController extends Controller
                     'medals' => $equippedMedals
                 ] : null;
 
+                $targetNickname = [
+                    'animated' => false,
+                    'color' => null,
+                    'effect' => null,
+                ];
+
+                if ($message->targetUser) {
+                    $targetNickname = Helper::getNicknameMeta($message->targetUser->id);
+                }
+
                 $targetUser = $message->targetUser ? [
                     'id'           => $message->targetUser->id,
                     'name'         => $message->targetUser->name,
+                    'nickname_meta' => $targetNickname,
                     'uid'          => $message->targetUser->uid,
                     'image'        => !empty($message->targetUser->image)
                         ? (preg_match('/^https?:\/\//', $message->targetUser->image)
@@ -5676,6 +5689,8 @@ class RoomController extends Controller
                 ->get()
                 ->map(function ($user) use ($room, $adminUserIds) {
 
+                    $nicknameMeta = Helper::getNicknameMeta($user->id);
+
                     if ((int) $room->user_id === (int) $user->id) {
                         $role = 'owner';
                     } elseif (in_array((int) $user->id, $adminUserIds)) {
@@ -5742,6 +5757,7 @@ class RoomController extends Controller
                         'uid_badge' => $uidBadge,
                         'uid_badge_color' => $uidBadgeColor,
                         'name' => $user->name ?? null,
+                        'nickname_meta' => $nicknameMeta,
                         'image' => Helper::showImage($user->image ?? null, true),
                         'gender' => $user->gender ?? null,
                         'country' => $user->country ?? null,
@@ -5848,7 +5864,7 @@ class RoomController extends Controller
         ]);
     }
 
-    public function run1()
+    public function run()
     {
         Artisan::call('room:check-dead-users');
 
@@ -5859,7 +5875,7 @@ class RoomController extends Controller
         ]);
     }
 
-    public function run()
+    public function run1()
     {
         \Log::info('MANUAL SCHEDULER RUN START');
 
@@ -5871,6 +5887,167 @@ class RoomController extends Controller
             'status' => true,
             'message' => 'Scheduler executed successfully',
             'output' => Artisan::output()
+        ]);
+    }
+
+    public function toggleRoomInvisible()
+    {
+        $user = Auth::user();
+
+        $hasPrivilege = SvipTransaction::where('user_id', $user->id)
+            ->where('end_at', '>=', now())
+            ->whereHas('svip.privileges', function ($q) {
+                $q->where('slug', 'room_invisible')
+                    ->where('svip_level_privileges.is_active', 1);
+            })
+            ->exists();
+
+        if (!$hasPrivilege) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Room invisible privilege not available.'
+            ]);
+        }
+
+        $user->room_invisible = !$user->room_invisible;
+        $user->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => $user->room_invisible
+                ? 'Room invisible enabled.'
+                : 'Room invisible disabled.',
+            'room_invisible' => (bool) $user->room_invisible
+        ]);
+    }
+
+    public function roomEmojis(): JsonResponse
+    {
+        $emojis = RoomEmoji::where('status', 1)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($emoji) {
+
+                return [
+                    'id'    => $emoji->id,
+                    'title' => $emoji->title,
+                    'type'  => $emoji->type,
+                    'file'  => Helper::showImage($emoji->file, true),
+                ];
+            });
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Room emojis fetched successfully.',
+            'data'    => $emojis,
+        ]);
+    }
+
+    public function roomLevelDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'room_id' => 'required|exists:rooms,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()
+            ], 422);
+        }
+
+        $user = Auth::user();
+
+        $room = Room::findOrFail($request->room_id);
+
+        $currentLevel = RoomLevel::where('level', $room->level)->first();
+
+        $nextLevel = RoomLevel::where('level', '>', $room->level)
+            ->orderBy('level')
+            ->first();
+
+        // SVIP More Admin
+
+        $extraAdmin = 0;
+
+        $activeSvip = SvipTransaction::with('svip')
+            ->where('user_id', $user->id)
+            ->where('end_at', '>=', now())
+            ->first();
+
+        if ($activeSvip) {
+
+            $hasMoreAdminPrivilege = $activeSvip->svip
+                ->privileges()
+                ->where('slug', 'more_admin')
+                ->wherePivot('is_active', 1)
+                ->exists();
+
+            if ($hasMoreAdminPrivilege) {
+
+                $extraAdmin = $activeSvip->svip->admin_limit ?? 0;
+            }
+        }
+
+        // XP
+
+        $currentXp = (int)$room->xp;
+
+        $requiredXp = $nextLevel
+            ? (int)$nextLevel->xp
+            : $currentXp;
+
+        $remainingXp = $nextLevel
+            ? max($requiredXp - $currentXp, 0)
+            : 0;
+
+        // Levels
+
+        $levels = RoomLevel::where('status', 1)
+            ->orderBy('level')
+            ->get([
+                'level',
+                'xp',
+                'admins',
+                'members'
+            ]);
+
+        return response()->json([
+
+            'status' => true,
+
+            'message' => 'Room level details.',
+
+            'data' => [
+
+                'current_level' => [
+
+                    'level' => $room->level,
+
+                    'current_xp' => $currentXp,
+
+                    'required_xp' => $requiredXp,
+
+                    'remaining_xp' => $remainingXp,
+
+                    'progress_text' => "{$currentXp}/{$requiredXp}",
+
+                    'perks' => [
+
+                        'admin_limit' => $room->admin_limit + $extraAdmin,
+
+                        'member_limit' => $room->member_limit,
+
+                        'extra_admin_from_svip' => $extraAdmin,
+
+                    ]
+
+                ],
+
+                'levels' => $levels
+
+            ]
+
         ]);
     }
 }

@@ -13,28 +13,95 @@ use App\Helper\Helper;
 use App\Events\SupportMessageSent;
 use App\Events\SupportMessageDeleted;
 use Carbon\Carbon;
+use App\Models\Country;
 
 class CustomerSupportController extends Controller
 {
+    // public function getSupportUser()
+    // {
+    //     $user = Auth::user();
+
+    //     $support = DB::table('customer_supports')
+    //         ->join('app_users', 'app_users.id', '=', 'customer_supports.user_id')
+    //         ->where('customer_supports.region', $user->country)
+    //         ->select(
+    //             'app_users.id as support_user_id',
+    //             'app_users.name',
+    //             'app_users.image'
+    //         )
+    //         ->first();
+
+    //     if (!$support) {
+
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Support not available in your country'
+    //         ]);
+    //     }
+
+    //     return response()->json([
+    //         'status' => true,
+    //         'message' => 'Data Fetch Successfully',
+    //         'data' => [
+    //             'support_user_id' => $support->support_user_id,
+    //             'name' => $support->name,
+    //             'image' => Helper::showImage($support->image, true)
+    //         ]
+    //     ]);
+    // }
+
+
+
+
+
     public function getSupportUser()
     {
         $user = Auth::user();
 
-        $support = DB::table('customer_supports')
-            ->join('app_users', 'app_users.id', '=', 'customer_supports.user_id')
-            ->where('customer_supports.region', $user->country)
-            ->select(
-                'app_users.id as support_user_id',
-                'app_users.name',
-                'app_users.image'
-            )
-            ->first();
+        // Get user's country timezone
+        $timezone = Country::where('nicename', $user->country)
+            ->value('timezone');
 
-        if (!$support) {
+        $timezone = $timezone ?: config('app.timezone');
+
+        // Current local time of user's country
+        $currentTime = Carbon::now($timezone)->format('H:i:s');
+
+        $supports = CustomerSupport::with('user')
+            ->where('region', $user->country)
+            ->where('status', 1)
+            ->get();
+
+        $activeSupport = null;
+
+        foreach ($supports as $support) {
+
+            $start = $support->start_time;
+            $end   = $support->end_time;
+
+            // Normal Shift
+            if ($start < $end) {
+
+                if ($currentTime >= $start && $currentTime < $end) {
+                    $activeSupport = $support;
+                    break;
+                }
+            }
+            // Overnight Shift
+            else {
+
+                if ($currentTime >= $start || $currentTime < $end) {
+                    $activeSupport = $support;
+                    break;
+                }
+            }
+        }
+
+        if (!$activeSupport) {
 
             return response()->json([
                 'status' => false,
-                'message' => 'Support not available in your country'
+                'message' => 'Support not available at this time.'
             ]);
         }
 
@@ -42,12 +109,14 @@ class CustomerSupportController extends Controller
             'status' => true,
             'message' => 'Data Fetch Successfully',
             'data' => [
-                'support_user_id' => $support->support_user_id,
-                'name' => $support->name,
-                'image' => Helper::showImage($support->image, true)
+                'support_user_id' => $activeSupport->user->id,
+                'name'            => $activeSupport->user->name,
+                'image'           => Helper::showImage($activeSupport->user->image, true),
             ]
         ]);
     }
+
+
     public function startChat(Request $request)
     {
         $user = Auth::user();

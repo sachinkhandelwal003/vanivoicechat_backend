@@ -105,7 +105,8 @@
             <ul class="navbar-item theme-brand flex-row text-center">
                 <li class="nav-item theme-logo">
                     <a href="{{ route('dashboard') }}">
-                        <img src="{{ asset('storage/' . $site_settings['favicon']) }}" class="navbar-logo" alt="logo" />
+                        <img src="{{ asset('storage/' . $site_settings['favicon']) }}" class="navbar-logo"
+                            alt="logo" />
                     </a>
                 </li>
                 <li class="nav-item theme-text">
@@ -130,10 +131,10 @@
                                 <div class="me-2"></div>
                                 <div class="media-body">
                                     @if (Auth::check())
-                                    <span class="dropdown-item fw-bold text-warning">
-                                        <h5>{{ Auth::user()->name }}</h5>
-                                        <p>Admin</p>
-                                    </span>
+                                        <span class="dropdown-item fw-bold text-warning">
+                                            <h5>{{ Auth::user()->name }}</h5>
+                                            <p>Admin</p>
+                                        </span>
                                     @endif
                                 </div>
                             </div>
@@ -179,6 +180,7 @@
         <!--  END SIDEBAR  -->
 
         <div id="content" class="main-content">
+            @include('partial.common.page-tabs')
             <!-- ===============================================-->
             <!--    Main Content-->
             <!-- ===============================================-->
@@ -215,7 +217,8 @@
     </div>
 
     <!-- User Profile Offcanvas -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="userProfileCanvas" aria-labelledby="userProfileCanvasLabel" style="width:500px;">
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="userProfileCanvas" aria-labelledby="userProfileCanvasLabel"
+        style="width:500px;">
 
         <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title">User Details</h5>
@@ -244,15 +247,12 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content bg-transparent border-0">
 
-                <button type="button"
-                    class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
                     data-bs-dismiss="modal">
                 </button>
 
                 <div class="text-center">
-                    <img id="globalPreviewImage"
-                        src=""
-                        onclick="event.stopPropagation();"
+                    <img id="globalPreviewImage" src="" onclick="event.stopPropagation();"
                         style="max-width:400px;max-height:400px;">
                 </div>
 
@@ -270,7 +270,7 @@
 
     <script>
         $(document).on('click', '.user-profile-trigger',
-            function () {
+            function() {
 
                 let userId = $(this).data('user-id');
 
@@ -313,7 +313,6 @@
 
             }
         );
-
     </script>
 
     <script>
@@ -359,7 +358,8 @@
                         headers: {
 
                             "Content-Type": "application/json",
-                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')
+                                .content
 
                         },
 

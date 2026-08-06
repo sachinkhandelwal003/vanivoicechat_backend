@@ -49,7 +49,7 @@ class OfficialNotificationController extends Controller
                                 <div class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 p-2"
                                      style="min-width:160px;">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(158, 'can_edit')) {
                         $btn .= '<a class="dropdown-item d-flex align-items-center rounded-2 mb-1"
                                     href="' . route('official_notifications.edit', $row->id) . '"
                                     style="transition:0.2s;">
@@ -58,7 +58,7 @@ class OfficialNotificationController extends Controller
                                  </a>';
                     }
 
-                    if (Helper::userCan(104, 'can_delete')) {
+                    if (Helper::userCan(158, 'can_delete')) {
                         $btn .= '<button class="dropdown-item d-flex align-items-center rounded-2 text-danger deleteNotification"
                                         data-id="' . $row->id . '"
                                         style="transition:0.2s;">

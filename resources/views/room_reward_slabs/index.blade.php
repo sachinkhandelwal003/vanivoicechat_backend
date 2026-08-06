@@ -11,7 +11,7 @@
             <div class="d-flex align-items-center gap-2">
 
                 {{-- ADD BUTTON --}}
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(130, 'can_add'))
                 <a href="{{ route('room_reward_slabs.add') }}" class="btn btn-outline-secondary btn-sm px-3">
                     <i class="fa fa-plus me-1"></i> Add Room Reward
                 </a>

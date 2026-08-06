@@ -17,6 +17,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Models\HostPolicy;
+use App\Models\GiftTransaction;
+use App\Models\AgencySalarySettlement;
 
 class AgencyController extends Controller
 {
@@ -30,7 +33,7 @@ class AgencyController extends Controller
         if ($request->ajax()) {
 
             // $query = Agency::with(['user', 'bdUser', 'country'])->latest();
-            $query = Agency::with(['user', 'bdUser', 'country'])->withCount('hosts')->latest();
+            $query = Agency::with(['user', 'bdUser', 'admin.user', 'country'])->withCount('hosts')->latest();
 
             return DataTables::of($query)
                 ->addIndexColumn()
@@ -41,19 +44,119 @@ class AgencyController extends Controller
                         return '-';
                     }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="' . $row->user->id . '" style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">' . e($row->user->name) . '</div>
-                                <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
+                        </div>
+                    ';
+                })
+                ->addColumn('admin_user', function ($row) {
+
+                    if (!$row->admin || !$row->admin->user) {
+                        return '-';
+                    }
+
+                    $user = $row->admin->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                                <img src="' . $uidData['badge'] . '"
+                                    width="16"
+                                    height="16"
+                                    style="vertical-align:middle;margin-right:4px;">
+                            ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -66,132 +169,62 @@ class AgencyController extends Controller
                         return '-';
                     }
 
-                    $bd = $row->bdUser->user;
+                    $user = $row->bdUser->user;
 
-                    $image = $bd->image
-                        ? Helper::showImage($bd->image, true)
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="' . $bd->id . '" style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
-                            <img src="' . $image . '" width="40" height="40" class="rounded-circle">
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">' . e($bd->name) . '</div>
-                                <small class="text-muted">UID: ' . e($bd->uid) . '</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
                     ';
                 })
-
-
-
-    //             ->addColumn('user', function ($row) {
-
-    //                 if (!$row->user) {
-    //                     return '-';
-    //                 }
-
-    //                 $user = $row->user;
-
-    //                 $image = $user->image
-    //                     ? Helper::showImage($user->image, true)
-    //                     : asset('assets/img/avatar.png');
-
-    //                 $uidData = Helper::getDisplayUidData($user);
-
-    //                 $badgeHtml = '';
-
-    //                 if (!empty($uidData['badge'])) {
-    //                     $badgeHtml = '
-    //         <img src="' . $uidData['badge'] . '"
-    //              width="16"
-    //              height="16"
-    //              style="margin-right:4px;vertical-align:middle;">
-    //     ';
-    //                 }
-
-    //                 $uidColor = $uidData['badge_color'] ?? '#6c757d';
-
-    //                 return '
-    //     <div class="d-flex align-items-center gap-2 user-profile-trigger"
-    //          data-user-id="' . $user->id . '"
-    //          style="cursor:pointer;">
-
-    //         <img src="' . $image . '"
-    //              width="40"
-    //              height="40"
-    //              class="rounded-circle">
-
-    //         <div>
-    //             <div class="fw-bold">' . e($user->name) . '</div>
-    //             <small class="text-muted">
-    //                 UID:
-    //                 ' . $badgeHtml . '
-    //                 <span style="color:' . $uidColor . ';font-weight:600;">
-    //                     ' . e($uidData['uid']) . '
-    //                 </span>
-    //             </small>
-    //         </div>
-
-    //     </div>
-    // ';
-    //             })
-
-    //             ->addColumn('bd_user', function ($row) {
-
-    //                 if (!$row->bdUser || !$row->bdUser->user) {
-    //                     return '-';
-    //                 }
-
-    //                 $bd = $row->bdUser->user;
-
-    //                 $image = $bd->image
-    //                     ? Helper::showImage($bd->image, true)
-    //                     : asset('assets/img/avatar.png');
-
-    //                 $uidData = Helper::getDisplayUidData($bd);
-
-    //                 $badgeHtml = '';
-
-    //                 if (!empty($uidData['badge'])) {
-    //                     $badgeHtml = '
-    //         <img src="' . $uidData['badge'] . '"
-    //              width="16"
-    //              height="16"
-    //              style="margin-right:4px;vertical-align:middle;">
-    //     ';
-    //                 }
-
-    //                 $uidColor = $uidData['badge_color'] ?? '#6c757d';
-
-    //                 return '
-    //     <div class="d-flex align-items-center gap-2 user-profile-trigger"
-    //          data-user-id="' . $bd->id . '"
-    //          style="cursor:pointer;">
-
-    //         <img src="' . $image . '"
-    //              width="40"
-    //              height="40"
-    //              class="rounded-circle">
-
-    //         <div>
-    //             <div class="fw-bold">' . e($bd->name) . '</div>
-    //             <small class="text-muted">
-    //                 UID:
-    //                 ' . $badgeHtml . '
-    //                 <span style="color:' . $uidColor . ';font-weight:600;">
-    //                     ' . e($uidData['uid']) . '
-    //                 </span>
-    //             </small>
-    //         </div>
-
-    //     </div>
-    // ';
-    //             })
 
                 ->addColumn('host_count', function ($row) {
 
@@ -228,23 +261,52 @@ class AgencyController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="' . route('agency.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+
+                    if (!Helper::userCan(140, 'can_edit') && !Helper::userCan(140, 'can_delete')) {
+                        return '-';
+                    }
+
+                    $btn = '
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+
+                                <div class="dropdown-menu">';
+
+                    // Edit Permission (Transfer + Edit)
+                    if (Helper::userCan(140, 'can_edit')) {
+
+                        $btn .= '
+                                <a href="' . route('agency.transfer', $row->id) . '" class="dropdown-item">
+                                    <i class="fas fa-random text-warning me-2"></i> Transfer
+                                </a>';
+
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('agency.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(140, 'can_delete')) {
+
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
-                ->rawColumns(['user', 'bd_user', 'host_count', 'country', 'created_at', 'status', 'action'])
+                ->rawColumns(['user', 'admin_user', 'bd_user', 'host_count', 'country', 'created_at', 'status', 'action'])
                 ->make(true);
         }
 
@@ -430,5 +492,508 @@ class AgencyController extends Controller
     public function delete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new Agency, $request->id);
+    }
+
+    public function transfer($id)
+    {
+        $agency = Agency::with([
+            'user',
+            'bdUser.user',
+            'admin.user',
+            'country'
+        ])->find($id);
+
+        if (!$agency) {
+            return redirect()
+                ->route('agency')
+                ->withError('Agency not found.');
+        }
+
+        return view('agency.transfer', compact('agency'));
+    }
+
+    public function transferStore(Request $request)
+    {
+        $request->validate([
+            'agency_id' => 'required|exists:agencies,id',
+            'type'      => 'required|in:admin,bd',
+            'uid'       => 'required'
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+
+            $agency = Agency::findOrFail($request->agency_id);
+
+            $user = AppUser::where('uid', $request->uid)->first();
+
+            if (!$user) {
+
+                return back()->withInput()->withError('Invalid UID.');
+            }
+
+            if ($request->type == 'admin') {
+
+                $admin = AdminAccount::where('user_id', $user->id)
+                    ->where('status', 1)
+                    ->first();
+
+                if (!$admin) {
+                    return back()->withInput()->withError('Admin not found.');
+                }
+
+                if ($admin->country_id != $agency->country_id) {
+                    return back()->withInput()->withError('Admin country does not match agency country.');
+                }
+
+                if (
+                    $agency->admin_id == $admin->id &&
+                    $agency->is_bd_bound == 0
+                ) {
+                    return back()->withInput()->withError('Agency is already assigned to this Admin.');
+                }
+
+                $agency->update([
+
+                    'admin_id'    => $admin->id,
+                    'bd_user_id'  => null,
+                    'is_bd_bound' => 0,
+
+                ]);
+            } else {
+
+                $bd = BdUser::where('user_id', $user->id)
+                    ->where('status', 1)
+                    ->first();
+
+                if (!$bd) {
+                    return back()->withInput()->withError('BD not found.');
+                }
+
+                if ($bd->country_id != $agency->country_id) {
+                    return back()->withInput()->withError('BD country does not match agency country.');
+                }
+
+                if (
+                    $agency->bd_user_id == $bd->id &&
+                    $agency->is_bd_bound == 1
+                ) {
+                    return back()->withInput()->withError('Agency is already assigned to this BD.');
+                }
+
+                $agency->update([
+
+                    'admin_id'    => $bd->admin_id,
+                    'bd_user_id'  => $bd->id,
+                    'is_bd_bound' => 1,
+
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()
+                ->route('agency')
+                ->withSuccess('Agency transferred successfully.');
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return back()
+                ->withInput()
+                ->withError($e->getMessage());
+        }
+    }
+
+    public function agencyList(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = Agency::with(['user', 'bdUser'])
+                ->latest();
+
+            return DataTables::of($query)
+
+                ->addIndexColumn()
+
+                ->addColumn('agency', function ($row) {
+
+                    if (!$row->user) {
+                        return '-';
+                    }
+
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
+
+                        </div>
+                    ';
+                })
+
+                ->addColumn('host_count', function ($row) {
+                    return $row->hosts()->count();
+                })
+
+                // ->addColumn('bd', function ($row) {
+
+                //     return $row->bdUser?->user?->name ?? '-';
+                // })
+
+                ->addColumn('country', function ($row) {
+
+                    return $row->country->name ?? '-';
+                })
+
+                ->addColumn('team_work', function ($row) {
+
+                    if (!Helper::userCan(165, 'can_view')) {
+                        return '-';
+                    }
+
+                    return '
+                            <a href="' . route('agency-team-work.show', $row->id) . '"
+                                class="btn btn-sm btn-primary">
+                                <i class="fas fa-users me-1"></i> Team Work
+                            </a>
+                        ';
+                })
+
+                ->rawColumns(['agency', 'host_count', 'country', 'team_work'])
+
+                ->make(true);
+        }
+
+        return view('agency.team-work.index');
+    }
+
+    public function teamWork($agencyId)
+    {
+        $agency = Agency::with(['user', 'country'])->find($agencyId);
+
+        if (!$agency) {
+            return redirect()->route('agency-team-work')
+                ->withError('Agency not found.');
+        }
+
+        $hosts = Host::where('agency_id', $agency->id)
+            ->where('status', 1)
+            ->orderBy('created_at')
+            ->get();
+
+        if ($hosts->isEmpty()) {
+
+            return view('agency.team-work.show', [
+                'agency' => $agency,
+                'cycles' => []
+            ]);
+        }
+
+        $today = now();
+
+        // Agency join date se ya first host join date se cycle start kar sakte hain
+        $startMonth = Carbon::parse(
+            $hosts->min('created_at')
+        )->startOfMonth();
+
+        $cycles = [];
+
+        while ($startMonth <= $today) {
+
+            $month = $startMonth->format('Y-m');
+
+            // Cycle 1
+            $cycle1Start = $startMonth->copy()->startOfMonth()->startOfDay();
+            $cycle1End   = $startMonth->copy()->day(15)->endOfDay();
+
+            $cycles[] = $this->buildAgencyTeamWorkCycle(
+                $agency,
+                $month,
+                '01-15',
+                $cycle1Start,
+                $cycle1End,
+                $today
+            );
+
+            // Cycle 2
+            $cycle2Start = $startMonth->copy()->day(16)->startOfDay();
+            $cycle2End   = $startMonth->copy()->endOfMonth()->endOfDay();
+
+            $cycles[] = $this->buildAgencyTeamWorkCycle(
+                $agency,
+                $month,
+                '16-End',
+                $cycle2Start,
+                $cycle2End,
+                $today
+            );
+
+            $startMonth->addMonth();
+        }
+
+        $cycles = collect($cycles)
+            ->sortByDesc('sort_date')
+            ->values();
+
+        return view('agency.team-work.show', compact(
+            'agency',
+            'cycles'
+        ));
+    }
+
+    private function buildAgencyTeamWorkCycle($agency, $month, $cycleName, $startDate, $endDate, $today)
+    {
+
+        $hosts = Host::with('country')
+            ->where('agency_id', $agency->id)
+            ->where('status', 1)
+            ->get();
+
+        $teamPoints = 0;
+        $hostSalary = 0;
+        $agencyCommission = 0;
+        $hostCount = 0;
+        $highestLevel = 0;
+
+        foreach ($hosts as $host) {
+
+
+            $hostCreatedAt = Carbon::parse($host->created_at);
+
+            $fromDate = max($startDate, $hostCreatedAt);
+            $toDate   = min($endDate, $today);
+
+            if ($fromDate > $toDate) {
+                continue;
+            }
+
+
+            $giftTotal = GiftTransaction::where(
+                'receiver_id',
+                $host->user_id
+            )
+                ->whereBetween('created_at', [
+                    $fromDate,
+                    $toDate
+                ])
+                ->sum('total_value');
+
+            $teamPoints += $giftTotal;
+
+            $policy = HostPolicy::where(
+                'country',
+                $host->country->nicename
+            )
+                ->where('status', 1)
+                ->where('target_value', '<=', $giftTotal)
+                ->orderByDesc('level')
+                ->first();
+
+            if ($policy) {
+
+                $hostSalary += $policy->host_salary;
+                $agencyCommission += $policy->agent_commission;
+
+                if ($policy->level > $highestLevel) {
+                    $highestLevel = $policy->level;
+                }
+            }
+
+            $hostCount++;
+        }
+
+        $settlement = AgencySalarySettlement::where(
+            'agency_id',
+            $agency->id
+        )
+            ->where('month', $month)
+            ->where('cycle', $cycleName)
+            ->first();
+
+        return [
+
+            'month' => $month,
+
+            'cycle' => $cycleName,
+            'cycle_no' => $cycleName == '01-15' ? 1 : 2,
+
+            'host_count' => $hostCount,
+
+            'team_points' => $teamPoints,
+
+            'target_level' => $highestLevel,
+
+            'host_salary' => $hostSalary,
+
+            'agency_commission' => $agencyCommission,
+
+            'total_salary' => $hostSalary + $agencyCommission,
+
+            'status' => $settlement
+                ? 'Settled'
+                : 'Unsettled',
+
+            'sort_date' => $endDate->timestamp,
+        ];
+    }
+
+    public function teamWorkDetails($agencyId, $month, $cycle)
+    {
+        $agency = Agency::with('user')->findOrFail($agencyId);
+
+        $monthDate = Carbon::parse($month . '-01');
+
+        if ($cycle == 1) {
+
+            $startDate = $monthDate->copy()
+                ->startOfMonth()
+                ->startOfDay();
+
+            $endDate = $monthDate->copy()
+                ->day(15)
+                ->endOfDay();
+        } else {
+
+            $startDate = $monthDate->copy()
+                ->day(16)
+                ->startOfDay();
+
+            $endDate = $monthDate->copy()
+                ->endOfMonth()
+                ->endOfDay();
+        }
+
+        $today = now();
+
+        $hosts = Host::with([
+            'user',
+            'country'
+        ])
+            ->where('agency_id', $agency->id)
+            ->where('status', 1)
+            ->get();
+
+        $data = [];
+
+        foreach ($hosts as $host) {
+
+            $hostCreatedAt = Carbon::parse($host->created_at);
+
+            $fromDate = $startDate->copy();
+
+            if ($hostCreatedAt->gt($fromDate)) {
+                $fromDate = $hostCreatedAt->copy();
+            }
+
+            $toDate = $endDate->copy();
+
+            if ($today->lt($toDate)) {
+                $toDate = $today->copy();
+            }
+
+            if ($fromDate->gt($toDate)) {
+                continue;
+            }
+
+            if ($fromDate > $toDate) {
+                continue;
+            }
+
+            $giftTotal = GiftTransaction::where(
+                'receiver_id',
+                $host->user_id
+            )
+                ->whereBetween('created_at', [
+                    $fromDate,
+                    $toDate
+                ])
+                ->sum('total_value');
+
+            $policy = HostPolicy::where(
+                'country',
+                $host->country->nicename
+            )
+                ->where('status', 1)
+                ->where('target_value', '<=', $giftTotal)
+                ->orderByDesc('level')
+                ->first();
+
+            $data[] = [
+
+                'user' => $host->user,
+
+                'country' => $host->country,
+
+                'target' => $giftTotal,
+
+                'level' => $policy->level ?? 0,
+
+                'host_salary' => $policy->host_salary ?? 0,
+
+                'agency_commission' => $policy->agent_commission ?? 0,
+
+                'total_salary' => ($policy->host_salary ?? 0) + ($policy->agent_commission ?? 0),
+
+            ];
+        }
+
+        return view(
+            'agency.team-work.details',
+            compact(
+                'agency',
+                'data',
+                'month',
+                'cycle'
+            )
+        );
     }
 }

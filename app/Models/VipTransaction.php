@@ -22,6 +22,6 @@ class VipTransaction extends Model
 
     public function vip()
     {
-        return $this->belongsTo(Vip::class);
+        return $this->belongsTo(Vip::class, 'vip_id');
     }
 }

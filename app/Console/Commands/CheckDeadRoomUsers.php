@@ -77,7 +77,7 @@ class CheckDeadRoomUsers extends Command
                     ->update([
                         'status' => 'stopped',
                         'is_active' => false,
-                        'started_at' => null,
+                        // 'started_at' => null,
                     ]);
 
                 $onlineCount = RoomPresence::where('room_id', $roomId)->count();

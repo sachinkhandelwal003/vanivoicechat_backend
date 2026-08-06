@@ -70,24 +70,38 @@ class SvipController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropup text-center">
-                        <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
 
-                        <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 p-2">
+                    $btn = '
+                            <div class="dropup text-center">
+                                <button class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
 
-                            <a class="dropdown-item d-flex align-items-center gap-2" href="' . route('svip.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
+                                <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 p-2">';
 
-                            <button class="dropdown-item d-flex align-items-center gap-2 text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+                    // Edit Permission
+                    if (Helper::userCan(123, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item d-flex align-items-center gap-2"
+                                href="' . route('svip.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary"></i> Edit
+                                </a>';
+                    }
 
-                        </div>
-                    </div>';
+                    // Delete Permission
+                    if (Helper::userCan(123, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item d-flex align-items-center gap-2 text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['medal', 'medal_gif', 'action'])
@@ -111,7 +125,7 @@ class SvipController extends Controller
 
 
         // all privileges
-        $privileges = SvipPrivilege::orderBy('sort_order')->get();
+        $privileges = SvipPrivilege::where('status', 1)->orderBy('sort_order')->get();
 
         // selected privileges
         $selectedPrivileges = $svip
@@ -127,6 +141,7 @@ class SvipController extends Controller
             'name'       => 'required|string|max:100',
             'need_coins' => 'required|integer',
             'days'       => 'nullable|integer',
+            'admin_limit' => 'nullable|integer',
             'color'      => 'nullable|string|max:55',
             'status'     => 'nullable|in:0,1',
 
@@ -171,6 +186,7 @@ class SvipController extends Controller
                 'name',
                 'need_coins',
                 'days',
+                'admin_limit',
                 'color',
                 'status',
                 'img_key',

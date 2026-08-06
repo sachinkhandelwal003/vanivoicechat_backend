@@ -8,6 +8,8 @@ use App\Models\Room;
 use App\Models\RoomSeat;
 use App\Models\AppUser;
 use App\Models\PremiumNumber;
+use App\Models\VipTransaction;
+use App\Models\VipPrivilege;
 use App\Models\StoreUids;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -423,6 +425,7 @@ class Helper
         if (!$user) {
             return [
                 'uid' => null,
+                'system_uid' => null,
                 'badge' => null,
                 'badge_color' => null,
             ];
@@ -430,6 +433,7 @@ class Helper
 
         $response = [
             'uid' => $user->uid,
+            'system_uid' => $user->uid,
             'badge' => null,
             'badge_color' => null,
         ];
@@ -445,6 +449,7 @@ class Helper
 
         if ($premium) {
             $response['uid'] = $premium->premium_number;
+             $response['system_uid'] = $user->uid;
             $response['badge'] = asset('storage/1000175794.png');
             $response['badge_color'] = '#fcd01c';
 
@@ -476,6 +481,7 @@ class Helper
 
                 if ($valid) {
                     $response['uid'] = $storeUid->unique_id;
+                    $response['system_uid'] = $user->uid;
                     $response['badge'] = !empty($storeUid->rank_badge)
                         ? Helper::showImage($storeUid->rank_badge, true)
                         : null;
@@ -485,5 +491,103 @@ class Helper
         }
 
         return $response;
+    }
+
+    public static function hasVipPrivilege($userId, $slug)
+    {
+        return VipTransaction::where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>=', now());
+            })
+            ->whereHas(
+                'vip.privileges',
+                function ($q) use ($slug) {
+                    $q->where('slug', $slug)
+                        ->where('status', 1);
+                }
+            )
+            ->exists();
+    }
+
+    public static function getActiveVipLevel($userId)
+    {
+        $vip = VipTransaction::with('vip')
+            ->where('user_id', $userId)
+            ->where('end_at', '>=', now())
+            ->latest('vip_id')
+            ->first();
+
+        return $vip?->vip_id ?? 0;
+    }
+
+    public static function getNicknameMeta($userId)
+    {
+        $activeVip = VipTransaction::with('vip')
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>=', now());
+            })
+            ->latest()
+            ->first();
+
+        if (!$activeVip || !$activeVip->vip) {
+            return [
+                'animated' => false,
+                'color' => null,
+                'effect' => null,
+            ];
+        }
+
+        $privilege = VipPrivilege::where(
+            'vip_id',
+            $activeVip->vip_id
+        )
+            ->where('status', 1)
+            ->whereIn('slug', [
+                'emerald_animated_nickname',
+                'sapphire_animated_nickname',
+                'amethyst_animated_nickname',
+                'ruby_animated_nickname',
+                'diamond_animated_nickname',
+                'celestial_rainbow_animated_nickname',
+            ])
+            ->first();
+
+        if (!$privilege) {
+            return [
+                'animated' => false,
+                'color' => null,
+                'effect' => null,
+            ];
+        }
+
+        return [
+            'animated' => true,
+            'color' => $activeVip->vip->username,
+            'effect' => $privilege->slug,
+        ];
+    }
+
+    public static function getWealthExpMultiplier($userId)
+    {
+        if (self::hasVipPrivilege($userId, 'level_accelerator_10')) {
+            return 1.10;
+        }
+
+        if (self::hasVipPrivilege($userId, 'level_accelerator_7')) {
+            return 1.07;
+        }
+
+        if (self::hasVipPrivilege($userId, 'level_accelerator_5')) {
+            return 1.05;
+        }
+
+        if (self::hasVipPrivilege($userId, 'level_accelerator_3')) {
+            return 1.03;
+        }
+
+        return 1;
     }
 }

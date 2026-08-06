@@ -59,8 +59,14 @@
                 <!-- COUNTRY -->
                 <div class="col-md-6">
                     <label class="form-label">Country</label>
-                    <input type="text" name="country" class="form-control"
-                        value="{{ old('country', $user->country ?? '') }}">
+                    <select name="country" class="form-control">
+                        <option value="">Select Country</option>
+                        @foreach($countries as $country)
+                            <option value="{{ $country->nicename }}" {{ old('country', $user->country ?? '') == $country->name ? 'selected' : '' }}>
+                                {{ $country->name }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <!-- EMAIL -->
@@ -95,7 +101,7 @@
                             class="upload-box w-100 d-flex align-items-center justify-content-center text-center"
                             style="height:140px; cursor:pointer; border:2px dashed #ccc;">
 
-                            <img src="{{ isset($user) && $user->image ? (Str::startsWith($user->image, ['http://', 'https://']) 
+                            <img src="{{ isset($user) && $user->image ? (Str::startsWith($user->image, ['http://', 'https://'])
                                             ? $user->image : asset('storage/'.$user->image)): '' }}"
                                 class="preview-image {{ isset($user) && $user->image ? '' : 'd-none' }}"
                                 style="width:100%; height:100%; object-fit:cover;">

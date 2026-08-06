@@ -41,23 +41,57 @@ class AdminAccountController extends Controller
                         return '-';
                     }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
+
+                    $uidData = Helper::getDisplayUidData($user);
+
+                    $badgeHtml = '';
+
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
+
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
+
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                    } else {
+
+                        $uidHtml = '
+                            <small class="text-muted">
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
 
                     return '
                         <div class="d-flex align-items-center gap-2 user-profile-trigger"
-                             data-user-id="' . $row->user->id . '"
-                             style="cursor:pointer;">
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
 
                             <img src="' . $image . '"
-                                 width="40"
-                                 height="40"
-                                 class="rounded-circle">
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
 
                             <div>
-                                <div class="fw-bold">' . e($row->user->name) . '</div>
-                                <small class="text-muted">UID: ' . e($row->user->uid) . '</small>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
                             </div>
 
                         </div>
@@ -162,20 +196,42 @@ class AdminAccountController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
-                    return '
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="' . route('admin.account.form', $row->id) . '">
-                                <i class="fas fa-edit text-primary"></i> Edit
-                            </a>
-                            <button class="dropdown-item text-danger delete" data-id="' . $row->id . '">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>';
+
+                    if (!Helper::userCan(138, 'can_edit') && !Helper::userCan(138, 'can_delete')) {
+                        return '-';
+                    }
+
+                    $btn = '
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+
+                                <div class="dropdown-menu">';
+
+                    // Edit Permission
+                    if (Helper::userCan(138, 'can_edit')) {
+                        $btn .= '
+                                <a class="dropdown-item"
+                                href="' . route('admin.account.form', $row->id) . '">
+                                    <i class="fas fa-edit text-primary me-2"></i> Edit
+                                </a>';
+                    }
+
+                    // Delete Permission
+                    if (Helper::userCan(138, 'can_delete')) {
+                        $btn .= '
+                                <button class="dropdown-item text-danger delete"
+                                        data-id="' . $row->id . '">
+                                    <i class="fas fa-trash me-2"></i> Delete
+                                </button>';
+                    }
+
+                    $btn .= '
+                            </div>
+                        </div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['user', 'bd_count', 'agency_count', 'status', 'action', 'time'])

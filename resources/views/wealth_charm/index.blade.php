@@ -18,14 +18,14 @@
                 </select>
 
                 {{-- LEVEL SETTING BUTTON --}}
-                @if(Helper::userCan(104, 'can_edit'))
+                @if(Helper::userCan(154, 'can_edit'))
                 <a href="{{ route('level-setting.form') }}" class="btn btn-outline-secondary btn-sm px-3">
                     <i class="fa fa-cog me-1"></i> Level Setting
                 </a>
                 @endif
 
                 {{-- ADD BUTTON --}}
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(154, 'can_add'))
                 <a href="{{ route('levels.form') }}" class="btn btn-outline-secondary btn-sm px-3">
                     <i class="fa fa-plus me-1"></i> Add Level
                 </a>
@@ -69,7 +69,7 @@
             ajax: {
                 url: "{{ route('levels') }}",
                 data: function (d) {
-                    d.type = $('#typeFilter').val(); 
+                    d.type = $('#typeFilter').val();
                 }
             },
             order: [[1, 'asc']],

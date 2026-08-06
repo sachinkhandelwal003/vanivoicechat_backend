@@ -9,7 +9,7 @@
             </div>
             <div class="col-auto ms-auto">
                 <div class="nav nav-pills nav-pills-falcon">
-                    @if(Helper::userCan(104, 'can_add'))
+                    @if(Helper::userCan(117, 'can_add'))
                     <a href="{{ route('chat.bubble.add') }}" class="btn btn-outline-secondary">
                         <i class="fa fa-plus me-1"></i>
                         Add Chat Bubble
@@ -28,7 +28,7 @@
                 <thead class="bg-light">
                     <tr>
                         <th>#</th>
-                        <th>Frame Name</th>
+                        <th>Name</th>
                         <th>Visibility Type</th>
                         <th>Validity</th>
                         <th>Icon</th>

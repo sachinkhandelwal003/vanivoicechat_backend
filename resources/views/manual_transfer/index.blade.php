@@ -23,7 +23,7 @@
 
             <div class="col-auto">
 
-                @if(Helper::userCan(104,'can_add'))
+                @if(Helper::userCan(163,'can_add'))
                 <a href="{{ route('manual-transfer.form') }}"
                     class="btn btn-primary">
 

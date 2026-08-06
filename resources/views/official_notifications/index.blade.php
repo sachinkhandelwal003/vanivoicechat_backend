@@ -9,7 +9,7 @@
             </div>
 
             <div class="col-auto ms-auto">
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(158, 'can_add'))
                 <a href="{{ route('official_notifications.create') }}"
                    class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i>

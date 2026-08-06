@@ -10,6 +10,7 @@ use App\Models\Agency;
 use App\Models\BdUser;
 use App\Models\Notification;
 use App\Models\Host;
+use App\Models\AgencySalarySettlement;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -811,6 +812,178 @@ class AdminCenterController extends Controller
                 'invite_status' =>
                 $bd->invite_status
             ]
+        ]);
+    }
+
+    public function adminDashboardAmount(Request $request)
+    {
+        $user = auth()->user();
+
+        $admin = AdminAccount::where(
+            'user_id',
+            $user->id
+        )->first();
+
+        if (!$admin) {
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Admin account not found'
+            ], 404);
+        }
+
+        //   Month Filter
+
+
+        $month = $request->month
+            ?? now()->format('Y-m');
+
+        // Direct Agencies Under Admin
+
+
+        $directAgencyIds = Agency::where(
+            'admin_id',
+            $admin->id
+        )
+            ->where('status', 1)
+            ->pluck('id');
+
+        //   BDs Under Admin
+
+
+        $bdIds = BdUser::where(
+            'admin_id',
+            $admin->id
+        )
+            ->where('status', 1)
+            ->pluck('id');
+
+        //  Agencies Under BDs
+
+
+        $bdAgencyIds = Agency::whereIn(
+            'bd_user_id',
+            $bdIds
+        )
+            ->where('status', 1)
+            ->pluck('id');
+
+        //   Merge All Agencies
+
+
+        $allAgencyIds = $directAgencyIds
+            ->merge($bdAgencyIds)
+            ->unique()
+            ->values();
+
+        //   1 - 15 Cycle
+
+
+        $firstHalf = AgencySalarySettlement::whereIn(
+            'agency_id',
+            $allAgencyIds
+        )
+            ->where(
+                'month',
+                $month
+            )
+            ->where(
+                'cycle',
+                1
+            )
+            ->where(
+                'status',
+                'settled'
+            )
+            ->sum(
+                'total_salary'
+            );
+
+        //    16 - Month End Cycle
+
+
+        $secondHalf = AgencySalarySettlement::whereIn(
+            'agency_id',
+            $allAgencyIds
+        )
+            ->where(
+                'month',
+                $month
+            )
+            ->where(
+                'cycle',
+                2
+            )
+            ->where(
+                'status',
+                'settled'
+            )
+            ->sum(
+                'total_salary'
+            );
+
+        //  Available Months
+
+
+        $months = AgencySalarySettlement::whereIn(
+            'agency_id',
+            $allAgencyIds
+        )
+            ->select('month')
+            ->distinct()
+            ->orderByDesc('month')
+            ->pluck('month');
+
+        return response()->json([
+
+            'status' => true,
+
+            'message' => 'Dashboard data fetched successfully',
+
+            'data' => [
+
+                'month' => $month,
+
+                'team' => [
+
+                    'bd_count' =>
+                    $bdIds->count(),
+
+                    'agency_count' =>
+                    $allAgencyIds->count(),
+                ],
+
+                'salary' => [
+
+                    'first_cycle' => [
+
+                        'cycle' => '1-15',
+
+                        'amount' => round(
+                            $firstHalf,
+                            2
+                        )
+                    ],
+
+                    'second_cycle' => [
+
+                        'cycle' => '16-Month End',
+
+                        'amount' => round(
+                            $secondHalf,
+                            2
+                        )
+                    ],
+
+                    'total' => round(
+                        $firstHalf +
+                            $secondHalf,
+                        2
+                    )
+                ]
+            ],
+
+            'months' => $months
         ]);
     }
 }

@@ -9,7 +9,7 @@
             </div>
             <div class="col-auto ms-auto">
                 <div class="nav nav-pills nav-pills-falcon">
-                    @if(Helper::userCan(104, 'can_add'))
+                    @if(Helper::userCan(159, 'can_add'))
                     <a href="{{ route('customer_support.form') }}" class="btn btn-outline-secondary">
                         <i class="fa fa-plus me-1"></i>
                         Add Support
@@ -28,6 +28,7 @@
                         <th>#</th>
                         <th>User</th>
                         <th>Region</th>
+                        <th>Shift Time</th>
                         <th>Created Date</th>
                         <th>Operate</th>
                     </tr>
@@ -63,6 +64,10 @@
                 {
                     data: 'region',
                     name: 'region'
+                },
+                {
+                    data: 'shift_time',
+                    name: 'shift_time'
                 },
                 {
                     data: 'created_at',

@@ -62,7 +62,7 @@ class PremiumNumberController extends Controller
                         <div>
                             <div class="fw-bold">
                                 ' . e($user->name) . '
-                               
+
                             </div>
 
                             <small class="text-muted">UID: ' . e($row->uid) . '</small>
@@ -76,11 +76,11 @@ class PremiumNumberController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(110, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('premium_number.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(110, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 

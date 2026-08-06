@@ -16,6 +16,7 @@ class Medal extends Model
         'type',
         'level',
         'target_value',
+        'file_type',
         'icon',
         'sort',
         'status'

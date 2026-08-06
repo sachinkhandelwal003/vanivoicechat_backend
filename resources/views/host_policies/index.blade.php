@@ -11,7 +11,7 @@
 
             <div class="col-auto ms-auto d-flex gap-2">
 
-                @if(Helper::userCan(104, 'can_add'))
+                @if(Helper::userCan(147, 'can_add'))
                 <a href="{{ route('host-policy.form') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-plus me-1"></i> Add Policy
                 </a>

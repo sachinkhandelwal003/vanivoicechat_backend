@@ -112,32 +112,61 @@ class ManualMoneyController extends Controller
                         return '-';
                     }
 
-                    $image = $row->user->image
-                        ? Helper::showImage($row->user->image, true)
+                    $user = $row->user;
+
+                    $image = $user->image
+                        ? Helper::showImage($user->image, true)
                         : asset('assets/img/avatar.png');
 
-                    return '
-                    <div class="d-flex align-items-center gap-2">
+                    $uidData = Helper::getDisplayUidData($user);
 
-                        <img src="' . $image . '"
-                             width="40"
-                             height="40"
-                             class="rounded-circle">
+                    $badgeHtml = '';
 
-                        <div>
+                    if (!empty($uidData['badge'])) {
+                        $badgeHtml = '
+                            <img src="' . $uidData['badge'] . '"
+                                width="16"
+                                height="16"
+                                style="vertical-align:middle;margin-right:4px;">
+                        ';
+                    }
 
-                            <div class="fw-bold">'
-                        . e($row->user->name) .
-                        '</div>
+                    if (!empty($uidData['uid']) && $uidData['uid'] != $uidData['system_uid']) {
 
+                        $uidHtml = '
+                            <small class="d-flex align-items-center flex-wrap" style="gap:4px;">
+                                ' . $badgeHtml . '
+                                <span style="color:' . ($uidData['badge_color'] ?? '#000') . ';font-weight:600;">
+                                    ' . e($uidData['uid']) . '
+                                </span>
+                                <span class="text-muted">/</span>
+                                <span class="text-muted">' . e($uidData['system_uid']) . '</span>
+                            </small>';
+                                    } else {
+
+                                        $uidHtml = '
                             <small class="text-muted">
-                                UID : ' . e($row->user->uid) . '
-                            </small>
+                                ' . e($uidData['system_uid'] ?? $user->uid) . '
+                            </small>';
+                    }
+
+                    return '
+                        <div class="d-flex align-items-center gap-2 user-profile-trigger"
+                            data-user-id="' . $user->id . '"
+                            style="cursor:pointer;">
+
+                            <img src="' . $image . '"
+                                width="40"
+                                height="40"
+                                class="rounded-circle">
+
+                            <div>
+                                <div class="fw-bold">' . e($user->name) . '</div>
+                                ' . $uidHtml . '
+                            </div>
 
                         </div>
-
-                    </div>
-                ';
+                    ';
                 })
 
                 ->addColumn('role', function ($row) {
@@ -201,8 +230,8 @@ class ManualMoneyController extends Controller
                     }
 
                     return $row->admin->name;
-                        // '<br><small class="text-muted">UID : ' .
-                        // $row->admin->uid .'</small>';
+                    // '<br><small class="text-muted">UID : ' .
+                    // $row->admin->uid .'</small>';
                 })
 
                 ->editColumn('reason', function ($row) {

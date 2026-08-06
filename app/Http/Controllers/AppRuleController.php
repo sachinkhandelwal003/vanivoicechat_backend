@@ -46,18 +46,18 @@ class AppRuleController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(168, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('app-rules.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(168, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
-
-                    // $btn .= '<a href="' . route('admin.rules.view', $row->id) . '" class="btn btn-sm btn-info">
-                    //     <i class="fa fa-eye"></i>
-                    // </a>';
-
+                    if (Helper::userCan(168, 'can_view')) {
+                        $btn .= '<a href="' . route('admin.rules.view', $row->id) . '" class="dropdown-item">
+                        View
+                    </a>';
+                    }
                     $btn .= '</div></div>';
 
                     return $btn;
@@ -156,10 +156,10 @@ class AppRuleController extends Controller
         return redirect()->route('app-rules.index')->with('success', 'App Rule updated successfully');
     }
 
-public function view($id)
-{
-    $rule = AppRule::findOrFail($id);
+    public function view($id)
+    {
+        $rule = AppRule::findOrFail($id);
 
-    return view('app_rules.view', compact('rule'));
-}
+        return view('app_rules.view', compact('rule'));
+    }
 }

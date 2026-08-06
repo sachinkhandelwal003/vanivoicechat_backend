@@ -33,7 +33,7 @@ class FrameController extends Controller
                 ->editColumn('icon', function ($row) {
 
                     $image = asset('storage/' . $row->icon);
-                
+
                     return '
                         <img src="'.$image.'"
                              width="40"
@@ -57,11 +57,11 @@ class FrameController extends Controller
                     </button>
                     <div class="dropdown-menu">';
 
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(114, 'can_edit')) {
                         $btn .= '<a class="dropdown-item" href="' . route('frame.edit', $row->id) . '">Edit</a>';
                     }
 
-                    if (Helper::userCan(105, 'can_delete')) {
+                    if (Helper::userCan(114, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
