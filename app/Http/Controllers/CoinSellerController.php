@@ -14,6 +14,9 @@ use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Exports\CoinSellerRechargeExport;
+use App\Exports\CoinUserRechargeHistoryExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CoinSellerController extends Controller
 {
@@ -940,9 +943,69 @@ class CoinSellerController extends Controller
         if ($request->ajax()) {
 
             $query = CoinRechargeHistory::with([
-                'seller:id,name,uid,image',
-                'user:id,name,uid,image'
+                'seller:id,name,uid,image,country',
+                'user:id,name,uid,image,country'
             ])->latest();
+
+            // USER UID FILTER
+            if ($request->filled('user_uid')) {
+
+                $userUid = trim($request->user_uid);
+
+                $query->whereHas('user', function ($q) use ($userUid) {
+
+                    $q->where('uid', 'like', '%' . $userUid . '%');
+                });
+            }
+
+            // SELLER / MERCHANT UID FILTER
+            if ($request->filled('sender_uid')) {
+
+                $senderUid = trim($request->sender_uid);
+
+                $query->whereHas('seller', function ($q) use ($senderUid) {
+
+                    $q->where('uid', 'like', '%' . $senderUid . '%');
+                });
+            }
+
+            // ROLE FILTER
+            if ($request->filled('role')) {
+
+                $query->where(
+                    'role',
+                    $request->role
+                );
+            }
+
+            // COUNTRY FILTER
+            if ($request->filled('country')) {
+
+                $country = trim($request->country);
+
+                $query->whereHas('user', function ($q) use ($country) {
+
+                    $q->where('country', $country);
+                });
+            }
+
+            // DATE FILTER
+            if ($request->filled('date')) {
+
+                $query->whereDate(
+                    'created_at',
+                    $request->date
+                );
+            }
+
+            // MONTH FILTER
+            if ($request->filled('month')) {
+
+                $query->whereRaw(
+                    "DATE_FORMAT(created_at, '%Y-%m') = ?",
+                    [$request->month]
+                );
+            }
 
             return DataTables::of($query)
 
@@ -1131,6 +1194,40 @@ class CoinSellerController extends Controller
                 ->make(true);
         }
 
-        return view('coin_seller.sellers_recharge_history');
+        $countries = Country::orderBy('name')->get(['id', 'name']);
+
+        return view('coin_seller.sellers_recharge_history', compact('countries'));
+    }
+
+    public function exportRechargeTransactions()
+    {
+        return Excel::download(
+            new CoinSellerRechargeExport,
+            'seller_recharge_transactions_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+        );
+    }
+
+    public function exportUserRechargeHistory(Request $request)
+    {
+        $filters = [
+            'user_id'     => $request->user_id,
+            'user_uid'    => $request->user_uid,
+
+            'sender_id'   => $request->sender_id,
+            'sender_uid'  => $request->sender_uid,
+
+            'role'        => $request->role,
+
+            'country'     => $request->country,
+
+            'date'        => $request->date,
+
+            'month'       => $request->month,
+        ];
+
+        return Excel::download(
+            new CoinUserRechargeHistoryExport($filters),
+            'user_recharge_history_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+        );
     }
 }

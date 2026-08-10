@@ -8,15 +8,15 @@
                     <h5 class="mb-0" data-anchor="data-anchor">Room :: Room List</h5>
                 </div>
                 <!-- <div class="col-auto ms-auto">
-                            <div class="nav nav-pills nav-pills-falcon">
-                                @if (Helper::userCan(104, 'can_add'))
+                                    <div class="nav nav-pills nav-pills-falcon">
+                                        @if (Helper::userCan(104, 'can_add'))
     <a href="{{ route('gift.add') }}" class="btn btn-outline-secondary">
-                                        <i class="fa fa-plus me-1"></i>
-                                        Add Gift
-                                    </a>
+                                                <i class="fa fa-plus me-1"></i>
+                                                Add Gift
+                                            </a>
     @endif
-                            </div>
-                        </div> -->
+                                    </div>
+                                </div> -->
             </div>
         </div>
 
@@ -292,6 +292,65 @@
 
         </div>
 
+    </div>
+
+    <!-- Edit Room Name Modal -->
+    <div class="modal fade" id="editRoomNameModal" tabindex="-1" aria-labelledby="editRoomNameModalLabel"
+        aria-hidden="true">
+
+        <div class="modal-dialog modal-dialog-centered">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title" id="editRoomNameModalLabel">
+                        Edit Room Name
+                    </h5>
+
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <input type="hidden" id="edit_room_id">
+
+                    <div class="mb-3">
+
+                        <label for="edit_room_name" class="form-label">
+                            Room Name
+                        </label>
+
+                        <input type="text" class="form-control" id="edit_room_name" placeholder="Enter room name"
+                            maxlength="255">
+
+                        <div class="text-danger small mt-1" id="edit_room_name_error">
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="button" class="btn btn-primary" id="saveRoomName">
+
+                        <i class="fas fa-save me-1"></i>
+                        Save Changes
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
     </div>
 @endsection
 
@@ -628,6 +687,134 @@
                         $('.table-datatable').DataTable().ajax.reload(null, false);
 
                     }
+
+                }
+
+            });
+
+        });
+
+        $(document).on('click', '.editRoomName', function() {
+
+            let id = $(this).data('id');
+            let name = $(this).data('name');
+
+            $('#edit_room_id').val(id);
+            $('#edit_room_name').val(name);
+
+            $('#edit_room_name_error').text('');
+
+            let modal = new bootstrap.Modal(
+                document.getElementById('editRoomNameModal')
+            );
+
+            modal.show();
+        });
+
+
+        $(document).on('click', '#saveRoomName', function() {
+
+            let id = $('#edit_room_id').val();
+            let roomName = $('#edit_room_name').val().trim();
+
+            $('#edit_room_name_error').text('');
+
+            if (!roomName) {
+
+                $('#edit_room_name_error')
+                    .text('Room name is required.');
+
+                return;
+            }
+
+            let button = $(this);
+
+            button.prop('disabled', true);
+
+            button.html(`
+            <span class="spinner-border spinner-border-sm me-1"></span>
+            Saving...
+        `);
+
+            $.ajax({
+
+                url: "{{ route('room.update.name') }}",
+
+                type: "POST",
+
+                data: {
+
+                    id: id,
+
+                    room_name: roomName,
+
+                    _token: "{{ csrf_token() }}"
+
+                },
+
+                success: function(res) {
+
+                    if (res.status) {
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Updated',
+                            text: res.message,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+
+                        let modalElement =
+                            document.getElementById('editRoomNameModal');
+
+                        let modal =
+                            bootstrap.Modal.getInstance(modalElement);
+
+                        if (modal) {
+                            modal.hide();
+                        }
+
+                        $('.table-datatable')
+                            .DataTable()
+                            .ajax
+                            .reload(null, false);
+
+                    } else {
+
+                        toastr.error(
+                            res.message || 'Something went wrong.'
+                        );
+                    }
+
+                },
+
+                error: function(xhr) {
+
+                    if (xhr.status === 422) {
+
+                        $('#edit_room_name_error').text(
+                            xhr.responseJSON?.message ||
+                            'Invalid room name.'
+                        );
+
+                    } else {
+
+                        toastr.error(
+                            xhr.responseJSON?.message ||
+                            'Something went wrong.'
+                        );
+                    }
+
+                },
+
+                complete: function() {
+
+                    button.prop('disabled', false);
+
+                    button.html(`
+                    <i class="fas fa-save me-1"></i>
+                    Save Changes
+                `);
 
                 }
 

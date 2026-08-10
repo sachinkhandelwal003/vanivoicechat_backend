@@ -20,6 +20,7 @@ use App\Models\WcLevel;
 use App\Models\UserAlbum;
 use App\Models\ItemDelivery;
 use App\Models\ItemGiftTransaction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Carbon\Carbon;
@@ -1701,18 +1702,18 @@ class AppUserController extends Controller
     {
         if ($request->ajax()) {
 
-            $query = AppUser::selectRaw("
-                imei,
-                MAX(brand) as brand,
-                MAX(equipment_model) as equipment_model,
-                MAX(operating_system) as operating_system,
-                MAX(app_version) as app_version,
-                COUNT(id) as total_accounts
-            ")
+            $query = AppUser::query()
+                ->select([
+                    'imei',
+                    DB::raw('MAX(brand) as brand'),
+                    DB::raw('MAX(equipment_model) as equipment_model'),
+                    DB::raw('MAX(operating_system) as operating_system'),
+                    DB::raw('MAX(app_version) as app_version'),
+                    DB::raw('COUNT(*) as total_accounts'),
+                ])
                 ->whereNotNull('imei')
-                ->where('imei', '!=', '')
-                ->groupBy('imei')
-                ->orderByDesc('total_accounts');
+                ->where('imei', '<>', '')
+                ->groupBy('imei');
 
             return DataTables::of($query)
 
@@ -1768,9 +1769,9 @@ class AppUserController extends Controller
                                 Device Banned
                             </span>
                         ';
-                                    }
+                    }
 
-                                    return '
+                    return '
                         <span class="badge bg-success">
                             <i class="fas fa-check-circle me-1"></i>
                             Active
