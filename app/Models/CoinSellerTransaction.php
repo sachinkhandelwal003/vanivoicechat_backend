@@ -27,7 +27,7 @@ class CoinSellerTransaction extends Model
     // Sender User
     public function sender()
     {
-        return $this->belongsTo(AppUser::class, 'sender_id');
+        return $this->belongsTo(User::class, 'sender_id');
     }
 
     // Receiver User

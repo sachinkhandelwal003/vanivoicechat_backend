@@ -171,4 +171,9 @@ class AppUser extends Authenticatable
         return $this->hasOne(SvipTransaction::class, 'user_id')
             ->where('end_at', '>=', now());
     }
+
+    public function coinSeller()
+    {
+        return $this->hasOne(\App\Models\CoinSeller::class, 'user_id', 'id');
+    }
 }

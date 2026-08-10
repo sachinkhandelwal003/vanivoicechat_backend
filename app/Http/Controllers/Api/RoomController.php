@@ -810,9 +810,9 @@ class RoomController extends Controller
             Room::where('id', $request->room_id)->increment('xp', $totalCost);
             $room = Room::find($request->room_id);
             // Check Room Level
-            $roomLevel = RoomLevel::where('status', 1)->where('xp', '<=', $room->xp)->orderByDesc('level')->first();
+            $roomLevel = RoomLevel::where('status', 1)->where('xp', '<=', $room->xp)->orderByDesc('xp')->first();
 
-            if ($room->level && $room->level != $roomLevel->level) {
+            if ($roomLevel && $room->level != $roomLevel->level) {
 
                 $room->update([
                     'level' => $roomLevel->level,

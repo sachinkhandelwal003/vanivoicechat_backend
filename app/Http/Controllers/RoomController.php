@@ -256,6 +256,18 @@ class RoomController extends Controller
                             </button>';
                         }
                     }
+                    if (Helper::userCan(129, 'can_edit')) {
+                        $btn .= '
+                            <button class="dropdown-item editRoomName"
+                                data-id="' . $row->id . '"
+                                data-name="' . e($row->room_name) . '">
+
+                                <i class="fas fa-edit text-primary me-2"></i>
+                                Edit Room Name
+
+                            </button>
+                        ';
+                    }
                     if (Helper::userCan(129, 'can_delete')) {
                         $btn .= '
                         <button class="dropdown-item text-warning deleteRoomImage"
@@ -1080,6 +1092,39 @@ class RoomController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Member limit updated successfully.'
+        ]);
+    }
+
+    public function updateRoomName(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:rooms,id',
+            'room_name' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $room = Room::find($request->id);
+
+        if (!$room) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Room not found.',
+            ], 404);
+        }
+
+        $room->room_name = trim($request->room_name);
+        $room->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Room name updated successfully.',
+            'room_name' => $room->room_name,
         ]);
     }
 }
