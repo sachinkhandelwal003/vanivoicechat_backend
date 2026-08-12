@@ -214,7 +214,9 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
         Route::get('host/transfer/{id}', 'transferForm')->name('host.transfer.form')->middleware('isAllow:141,can_view');
         Route::post('host/transfer/{id}', 'transferSave')->name('host.transfer.save')->middleware('isAllow:141,can_edit');
+
         Route::get('host/host-work', 'hostWorkindex')->name('host.work')->middleware('isAllow:164,can_view');
+        Route::get('/host/work/export', 'exportHostWork')->name('host.work.export')->middleware('isAllow:164,can_view');
     });
 
     Route::controller(BdUserController::class)->group(function () {
