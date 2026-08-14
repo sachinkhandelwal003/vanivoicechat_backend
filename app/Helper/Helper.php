@@ -705,11 +705,7 @@ class Helper
         $vipBadge = null;
         $svipBadge = null;
 
-        /*
-    |--------------------------------------------------------------------------
-    | ACTIVE VIP FROM VIP TRANSACTIONS
-    |--------------------------------------------------------------------------
-    */
+        //    ACTIVE VIP
         $vipTransaction = DB::table('vip_transactions')
             ->where('user_id', $userId)
             ->where('start_at', '<=', now())
@@ -717,98 +713,11 @@ class Helper
             ->latest('end_at')
             ->first();
 
-        /*
-    |--------------------------------------------------------------------------
-    | ACTIVE VIP FROM TREASURE LEVEL CLAIM
-    |--------------------------------------------------------------------------
-    |
-    | Treasure VIP is NOT stored in vip_transactions.
-    | So we calculate its expiry using:
-    |
-    | created_at + valid_days
-    |
-    */
-        $treasureVip = DB::table('treasure_level_claims')
-            ->where('user_id', $userId)
-            ->where('reward_type', 'vip')
-            ->whereNotNull('reward_item_id')
-            ->whereNotNull('valid_days')
-            ->whereRaw(
-                'DATE_ADD(created_at, INTERVAL valid_days DAY) >= ?',
-                [now()]
-            )
-            ->latest('created_at')
-            ->first();
-
-        /*
-    |--------------------------------------------------------------------------
-    | FIND ACTIVE VIP
-    |--------------------------------------------------------------------------
-    */
-        $activeVipId = null;
-
-        $vipTransactionEnd = null;
-        $treasureVipEnd = null;
-
+        //    GET VIP BADGE
         if ($vipTransaction) {
-            $vipTransactionEnd = Carbon::parse(
-                $vipTransaction->end_at
-            );
-        }
-
-        if ($treasureVip) {
-            $treasureVipEnd = Carbon::parse(
-                $treasureVip->created_at
-            )->addDays(
-                (int) $treasureVip->valid_days
-            );
-        }
-
-        /*
-    |--------------------------------------------------------------------------
-    | BOTH VIP SOURCES ACTIVE
-    |--------------------------------------------------------------------------
-    */
-        if ($vipTransaction && $treasureVip) {
-
-            /*
-         * Whichever VIP remains active for longer
-         * will be considered the active VIP.
-         */
-            if ($vipTransactionEnd->gte($treasureVipEnd)) {
-
-                $activeVipId = $vipTransaction->vip_id;
-            } else {
-
-                $activeVipId = $treasureVip->reward_item_id;
-            }
-        }
-        /*
-    |--------------------------------------------------------------------------
-    | ONLY VIP TRANSACTION ACTIVE
-    |--------------------------------------------------------------------------
-    */ elseif ($vipTransaction) {
-
-            $activeVipId = $vipTransaction->vip_id;
-        }
-        /*
-    |--------------------------------------------------------------------------
-    | ONLY TREASURE VIP ACTIVE
-    |--------------------------------------------------------------------------
-    */ elseif ($treasureVip) {
-
-            $activeVipId = $treasureVip->reward_item_id;
-        }
-
-        /*
-    |--------------------------------------------------------------------------
-    | GET VIP BADGE
-    |--------------------------------------------------------------------------
-    */
-        if ($activeVipId) {
 
             $vip = DB::table('vips')
-                ->where('id', $activeVipId)
+                ->where('id', $vipTransaction->vip_id)
                 ->first();
 
             if ($vip && !empty($vip->title_tag)) {
@@ -820,11 +729,7 @@ class Helper
             }
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | ACTIVE SVIP
-    |--------------------------------------------------------------------------
-    */
+        //  ACTIVE SVIP
         $svipTransaction = DB::table('svip_transactions')
             ->where('user_id', $userId)
             ->where('start_at', '<=', now())
@@ -832,11 +737,7 @@ class Helper
             ->latest('end_at')
             ->first();
 
-        /*
-    |--------------------------------------------------------------------------
-    | GET SVIP BADGE
-    |--------------------------------------------------------------------------
-    */
+        //  GET SVIP BADGE
         if ($svipTransaction) {
 
             $svip = DB::table('svips')
@@ -852,11 +753,6 @@ class Helper
             }
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | RESPONSE
-    |--------------------------------------------------------------------------
-    */
         return [
             'vip_badge' => $vipBadge,
             'svip_badge' => $svipBadge,
