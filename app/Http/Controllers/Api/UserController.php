@@ -691,6 +691,7 @@ class UserController extends Controller
 
             $nicknameMeta = Helper::getNicknameMeta($user->id);
             $membershipBadges = Helper::getUserMembershipBadges($user->id);
+            $authHasAnyPrivateMessage = Helper::hasVipPrivilege($authUser->id, 'any_private_message');
             return response()->json([
                 'status' => true,
                 'message' => 'User Details fethed Successfuly',
@@ -736,6 +737,7 @@ class UserController extends Controller
 
                     'is_following' => $isFollowing,
                     'is_friend' => $isFriend,
+                    'auth_has_any_private_message' => $authHasAnyPrivateMessage,
                     'role_badges' => Helper::getUserRoleBadges($user->id),
                     'membership_badges' => $membershipBadges,
                     'wealth_level' => [
@@ -768,9 +770,6 @@ class UserController extends Controller
                     // ] : null,
 
                     'frame' => $frameData,
-
-
-
                 ]
             ]);
         } catch (\Exception $e) {
@@ -2159,6 +2158,357 @@ class UserController extends Controller
                 'status' => false,
                 'message' =>
                 $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getFollowingUsers(Request $request)
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthenticated',
+                'data' => [],
+            ], 401);
+        }
+
+        try {
+
+            //  USERS FOLLOWED BY AUTH USER
+
+            $followingIds = DB::table('user_follows')
+                ->where('follower_id', $authUser->id)
+                ->pluck('following_id')
+                ->unique()
+                ->values();
+
+            if ($followingIds->isEmpty()) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Following users fetched successfully',
+                    'data' => [],
+                ]);
+            }
+
+            $users = AppUser::with([
+                'countryData:id,name,iso',
+                'wcLevels.levelData',
+                'userMedals.medal',
+            ])
+                ->whereIn('id', $followingIds)
+                ->get();
+
+
+            $data = $users->map(function ($user) {
+
+                $displayUid = $user->uid;
+                $uidBadge = null;
+                $uidBadgeColor = null;
+
+                // Premium UID
+                $premiumUid = PremiumNumber::where('user_id', $user->id)
+                    ->where('end_at', '>', now())
+                    ->latest()
+                    ->first();
+
+                if ($premiumUid) {
+                    $displayUid = $premiumUid->premium_number;
+                    $uidBadge = asset('storage/1000175794.png');
+                    $uidBadgeColor = '#fcd01c';
+                } else {
+                    // Store UID
+                    if (!empty($user->active_uid_id)) {
+                        $storeUid = StoreUids::find($user->active_uid_id);
+
+                        if ($storeUid) {
+
+                            $hasValidPurchase = DB::table('item_deliveries')
+                                ->where('recipient', $user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            $hasValidGift = DB::table('item_gift_transactions')
+                                ->where('receiver_id', $user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            if ($hasValidPurchase || $hasValidGift) {
+
+                                $displayUid = $storeUid->unique_id;
+                                $uidBadge = !empty($storeUid->rank_badge)
+                                    ? Helper::showImage($storeUid->rank_badge, true) : null;
+                                $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                            }
+                        }
+                    }
+                }
+
+                $nicknameMeta = Helper::getNicknameMeta($user->id);
+
+                $membershipBadges = Helper::getUserMembershipBadges($user->id);
+
+                $roleBadges = Helper::getUserRoleBadges($user->id);
+
+                $medals = $user->userMedals
+                    ->where('is_equipped', 1)
+                    ->sortBy('slot_no')
+                    ->map(function ($item) {
+
+                        if (!$item->medal) {
+                            return null;
+                        }
+
+                        return [
+                            'id' => $item->medal->id,
+                            'name' => $item->medal->title,
+                            'icon' => !empty($item->medal->icon)
+                                ? Helper::showImage($item->medal->icon, true) : null,
+                        ];
+                    })
+                    ->filter()
+                    ->values();
+
+                $flag = null;
+
+                if ($user->countryData?->iso) {
+                    $flag = 'https://flagcdn.com/w40/' . strtolower($user->countryData->iso) . '.png';
+                }
+
+                $wealthLevel = $user->wcLevels->where('type', 'wealth')->first();
+                $charmLevel = $user->wcLevels->where('type', 'charm')->first();
+
+                $image = null;
+
+                if (!empty($user->image)) {
+
+                    if (\Illuminate\Support\Str::startsWith($user->image, ['http://', 'https://'])) {
+                        $image = $user->image;
+                    } else {
+                        $image = Helper::showImage($user->image, true);
+                    }
+                }
+
+                return [
+
+                    'id' => $user->id,
+                    'uid' => $displayUid,
+                    'uid_badge' => $uidBadge,
+                    'uid_badge_color' => $uidBadgeColor,
+                    'name' => $user->name,
+                    'nickname_meta' => $nicknameMeta,
+                    'gender' => $user->gender,
+                    'image' => $image,
+                    'flag' => $flag,
+                    'role_badges' => $roleBadges,
+                    'membership_badges' => $membershipBadges,
+                    'wealth_level' => [
+                        'level' => $wealthLevel?->level ?? 1,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $wealthLevel->levelData->icon,
+                                true
+                            )
+                            : null,
+                    ],
+                    'charm_level' => [
+                        'level' => $charmLevel?->level ?? 1,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $charmLevel->levelData->icon,
+                                true
+                            )
+                            : null,
+                    ],
+                    'medals' => $medals,
+                ];
+            })->values();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Following users fetched successfully',
+                'data' => $data,
+            ], 200);
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'data' => [],
+            ], 500);
+        }
+    }
+
+    public function getFanUsers(Request $request)
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthenticated',
+                'data' => [],
+            ], 401);
+        }
+
+        try {
+            $fanIds = DB::table('user_follows')
+                ->where('following_id', $authUser->id)
+                ->pluck('follower_id')
+                ->unique()
+                ->values();
+
+            if ($fanIds->isEmpty()) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Fan users fetched successfully',
+                    'data' => [],
+                ], 200);
+            }
+
+            $users = AppUser::with([
+                'countryData:id,name,iso',
+                'wcLevels.levelData',
+                'userMedals.medal',
+            ])
+                ->whereIn('id', $fanIds)
+                ->get();
+
+            $data = $users->map(function ($user) {
+
+                $displayUid = $user->uid;
+                $uidBadge = null;
+                $uidBadgeColor = null;
+
+                $premiumUid = PremiumNumber::where('user_id', $user->id)
+                    ->where('end_at', '>', now())
+                    ->latest()
+                    ->first();
+
+                if ($premiumUid) {
+                    $displayUid = $premiumUid->premium_number;
+                    $uidBadge = asset('storage/1000175794.png');
+                    $uidBadgeColor = '#fcd01c';
+                } else {
+                    if (!empty($user->active_uid_id)) {
+
+                        $storeUid = StoreUids::find($user->active_uid_id);
+                        if ($storeUid) {
+
+                            $hasValidPurchase = DB::table('item_deliveries')
+                                ->where('recipient', $user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            $hasValidGift = DB::table('item_gift_transactions')
+                                ->where('receiver_id', $user->id)
+                                ->where('type', 'id')
+                                ->where('item_id', $storeUid->id)
+                                ->where('end_at', '>', now())
+                                ->exists();
+
+                            if ($hasValidPurchase || $hasValidGift) {
+                                $displayUid = $storeUid->unique_id;
+                                $uidBadge = !empty($storeUid->rank_badge)
+                                    ? Helper::showImage($storeUid->rank_badge, true) : null;
+                                $uidBadgeColor = $storeUid->rank_badge_color ?? null;
+                            }
+                        }
+                    }
+                }
+
+                $nicknameMeta = Helper::getNicknameMeta($user->id);
+
+                $membershipBadges = Helper::getUserMembershipBadges($user->id);
+
+                $roleBadges = Helper::getUserRoleBadges($user->id);
+
+                $medals = $user->userMedals
+                    ->where('is_equipped', 1)
+                    ->sortBy('slot_no')
+                    ->map(function ($item) {
+
+                        if (!$item->medal) {
+                            return null;
+                        }
+
+                        return [
+                            'id' => $item->medal->id,
+                            'name' => $item->medal->title,
+                            'icon' => !empty($item->medal->icon)
+                                ? Helper::showImage($item->medal->icon, true) : null,
+                        ];
+                    })
+                    ->filter()
+                    ->values();
+
+                $flag = null;
+
+                if ($user->countryData?->iso) {
+
+                    $flag = 'https://flagcdn.com/w40/' . strtolower($user->countryData->iso) . '.png';
+                }
+
+                $wealthLevel = $user->wcLevels->where('type', 'wealth')->first();
+                $charmLevel = $user->wcLevels->where('type', 'charm')->first();
+
+                $image = null;
+
+                if (!empty($user->image)) {
+
+                    if (\Illuminate\Support\Str::startsWith($user->image, ['http://', 'https://'])) {
+                        $image = $user->image;
+                    } else {
+                        $image = Helper::showImage($user->image, true);
+                    }
+                }
+
+                return [
+
+                    'id' => $user->id,
+                    'uid' => $displayUid,
+                    'uid_badge' => $uidBadge,
+                    'uid_badge_color' => $uidBadgeColor,
+                    'name' => $user->name,
+                    'nickname_meta' => $nicknameMeta,
+                    'gender' => $user->gender,
+                    'image' => $image,
+                    'flag' => $flag,
+                    'role_badges' => $roleBadges,
+                    'membership_badges' => $membershipBadges,
+                    'wealth_level' => [
+                        'level' => $wealthLevel?->level ?? 1,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage($wealthLevel->levelData->icon, true) : null,
+                    ],
+                    'charm_level' => [
+                        'level' => $charmLevel?->level ?? 1,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage($charmLevel->levelData->icon, true) : null,
+                    ],
+                    'medals' => $medals,
+
+                ];
+            })->values();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Fan users fetched successfully',
+                'data' => $data,
+            ], 200);
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'data' => [],
             ], 500);
         }
     }
