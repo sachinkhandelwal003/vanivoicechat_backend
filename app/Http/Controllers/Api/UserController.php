@@ -221,7 +221,55 @@ class UserController extends Controller
 
             // $user = AppUser::find($userId);
 
-            $roomId  = Room::where('user_id', $userId)->first();
+            // CURRENT ACTIVE ROOM
+            // $roomId  = Room::where('user_id', $userId)->first();
+            $hideCurrentRoom = false;
+
+            // VIP - Forbidden To Follow
+
+            $hasVipForbiddenToFollow = VipTransaction::where('user_id', $userId)
+                ->where('start_at', '<=', now())
+                ->where(function ($q) {
+                    $q->whereNull('end_at')
+                        ->orWhere('end_at', '>=', now());
+                })
+                ->whereHas('vip.privileges', function ($q) {
+                    $q->where('slug', 'forbidden_to_follow')
+                        ->where('status', 1);
+                })
+                ->exists();
+
+            //  SVIP - Avoid Following
+
+            $hasSvipAvoidFollowing = SvipTransaction::where('user_id', $userId)
+                ->where('start_at', '<=', now())
+                ->where(function ($q) {
+                    $q->whereNull('end_at')
+                        ->orWhere('end_at', '>=', now());
+                })
+                ->whereHas('svip.privileges', function ($q) {
+                    $q->where('slug', 'avoid_following')
+                        ->where('svip_level_privileges.is_active', 1);
+                })
+                ->exists();
+
+            // IF ANY ROOM-HIDING PRIVILEGE EXISTS
+
+            if ($hasVipForbiddenToFollow || $hasSvipAvoidFollowing) {
+                $hideCurrentRoom = true;
+            }
+
+            // GET CURRENT ROOM
+
+            $currentRoom = null;
+
+            if (!$hideCurrentRoom) {
+
+                $currentRoom = DB::table('room_presences')
+                    ->where('user_id', $userId)
+                    ->orderByDesc('last_ping_at')
+                    ->first();
+            }
 
             $user = AppUser::with([
                 'countryData:id,name,iso',
@@ -649,7 +697,8 @@ class UserController extends Controller
                 'data' =>  [
                     'is_own_profile' => $isOwnProfile,
                     'id' => $user->id,
-                    'room_id' => $roomId ? $roomId->id : null,
+                    // 'room_id' => $roomId ? $roomId->id : null,
+                    'room_id' => $currentRoom?->room_id,
                     // 'uid' => $user->uid,
                     'uid' => $displayUid,
                     'uid_badge' => $uidBadge,
