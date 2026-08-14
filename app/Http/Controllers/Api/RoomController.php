@@ -290,6 +290,12 @@ class RoomController extends Controller
                         'color' => null,
                         'effect' => null,
                     ];
+                $membershipBadges = $seat && $seat->user
+                    ? Helper::getUserMembershipBadges($seat->user->id)
+                    : [
+                        'vip_badge' => null,
+                        'svip_badge' => null,
+                    ];
 
                 if ($seat && $seat->user) {
 
@@ -343,6 +349,7 @@ class RoomController extends Controller
                     'uid_badge_color' => $uidBadgeColor,
                     'name' => $seat && $seat->user ? $seat->user->name : null,
                     'nickname_meta' => $nicknameMeta,
+                    'membership_badges' => $membershipBadges,
                     'gender' => $seat && $seat->user ? $seat->user->gender : null,
                     'image' => ($seat && $seat->user && !empty($seat->user->image))
                         ? Helper::showImage($seat->user->image, true)
@@ -2039,6 +2046,13 @@ class RoomController extends Controller
                         'effect' => null,
                     ];
 
+                $membershipBadges = $seat && $seat->user
+                    ? Helper::getUserMembershipBadges($seat->user->id)
+                    : [
+                        'vip_badge' => null,
+                        'svip_badge' => null,
+                    ];
+
                 if ($seat && $seat->user) {
 
                     $premiumUid = PremiumNumber::where('user_id', $seat->user->id)
@@ -2092,6 +2106,7 @@ class RoomController extends Controller
                     'uid_badge_color' => $uidBadgeColor,
                     'name' => $seat && $seat->user ? $seat->user->name : null,
                     'nickname_meta' => $nicknameMeta,
+                    'membership_badges' => $membershipBadges,
                     'gender' => $seat && $seat->user ? $seat->user->gender : null,
                     'image' => ($seat && $seat->user && !empty($seat->user->image))
                         ? Helper::showImage($seat->user->image, true)
@@ -3599,6 +3614,7 @@ class RoomController extends Controller
         $roomMessage->load('user:id,name,uid,image,gender');
 
         $nicknameMeta = Helper::getNicknameMeta($user->id);
+        $membershipBadges = Helper::getUserMembershipBadges($user->id);
         $roomMessage->user->nickname_meta =
             [
                 'animated' => $nicknameMeta['animated'] ?? false,
@@ -3649,6 +3665,7 @@ class RoomController extends Controller
                     'id' => $roomMessage->user?->id,
                     'name' => $roomMessage->user?->name,
                     'nickname_meta' => $nicknameMeta,
+                    'membership_badges' => $membershipBadges,
                     'uid' => $roomMessage->user?->uid,
                     'image' => Helper::showImage($roomMessage->user?->image, true),
                 ],
@@ -4110,6 +4127,12 @@ class RoomController extends Controller
                     'effect' => null,
                 ];
 
+            $membershipBadges = $user
+                ? Helper::getUserMembershipBadges($user->id)
+                : [
+                    'vip_badge' => null,
+                    'svip_badge' => null,
+                ];
             if ($user) {
 
                 $premiumUid = PremiumNumber::where('user_id', $user->id)
@@ -4224,6 +4247,7 @@ class RoomController extends Controller
                 'auth_has_any_private_message' => Helper::hasVipPrivilege($authUserId, 'any_private_message'),
                 'name'  => $presence->user->name ?? 'Unknown',
                 'nickname_meta' => $nicknameMeta,
+                'membership_badges' => $membershipBadges,
                 'is_rank_top' => $userId ? Helper::hasVipPrivilege($userId, 'rank_the_top') : false,
                 'gender'  => $presence?->user?->gender,
                 // 'uid'   => $presence->user->uid ?? '',
@@ -5691,6 +5715,7 @@ class RoomController extends Controller
                 ->map(function ($user) use ($room, $adminUserIds) {
 
                     $nicknameMeta = Helper::getNicknameMeta($user->id);
+                    $membershipBadges = Helper::getUserMembershipBadges($user->id);
 
                     if ((int) $room->user_id === (int) $user->id) {
                         $role = 'owner';
@@ -5759,6 +5784,7 @@ class RoomController extends Controller
                         'uid_badge_color' => $uidBadgeColor,
                         'name' => $user->name ?? null,
                         'nickname_meta' => $nicknameMeta,
+                        'membership_badges' => $membershipBadges,
                         'image' => Helper::showImage($user->image ?? null, true),
                         'gender' => $user->gender ?? null,
                         'country' => $user->country ?? null,

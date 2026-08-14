@@ -642,7 +642,7 @@ class UserController extends Controller
             }
 
             $nicknameMeta = Helper::getNicknameMeta($user->id);
-
+            $membershipBadges = Helper::getUserMembershipBadges($user->id);
             return response()->json([
                 'status' => true,
                 'message' => 'User Details fethed Successfuly',
@@ -688,7 +688,7 @@ class UserController extends Controller
                     'is_following' => $isFollowing,
                     'is_friend' => $isFriend,
                     'role_badges' => Helper::getUserRoleBadges($user->id),
-
+                    'membership_badges' => $membershipBadges,
                     'wealth_level' => [
                         'level' => $wealthLevel?->level ?? 1,
                         'icon' => $wealthLevel?->levelData?->icon
