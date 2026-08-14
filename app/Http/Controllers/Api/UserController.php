@@ -899,6 +899,7 @@ class UserController extends Controller
 
         $currentVip = VipTransaction::with('vip.privileges')
             ->where('user_id', $userId)
+            ->where('start_at', '<=', now())
             ->where(function ($q) {
                 $q->whereNull('end_at')
                     ->orWhere('end_at', '>=', now());
@@ -936,6 +937,11 @@ class UserController extends Controller
             ->orderByDesc('updated_at')
             ->get()
             ->map(function ($visit) {
+                if (!$visit->visitor) {
+                    return null;
+                }
+
+                $visitor = $visit->visitor;
                 $nicknameMeta = Helper::getNicknameMeta($visit->visitor->id);
                 return [
                     'id'   => $visit->visitor->id,
@@ -947,7 +953,8 @@ class UserController extends Controller
                         ? Helper::showImage($visit->visitor->image, true)
                         : null,
                 ];
-            });
+            })->filter()
+            ->values();
 
         return response()->json([
             'status' => true,
