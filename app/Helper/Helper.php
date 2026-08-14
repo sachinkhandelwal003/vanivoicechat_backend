@@ -12,6 +12,8 @@ use App\Models\VipTransaction;
 use App\Models\VipPrivilege;
 use App\Models\StoreUids;
 use App\Models\UserRoleTag;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -23,7 +25,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Twilio\Rest\Client;
-use Illuminate\Support\Facades\DB;
 
 
 class Helper
@@ -698,5 +699,167 @@ class Helper
         }
 
         return 1;
+    }
+    public static function getUserMembershipBadges($userId)
+    {
+        $vipBadge = null;
+        $svipBadge = null;
+
+        /*
+    |--------------------------------------------------------------------------
+    | ACTIVE VIP FROM VIP TRANSACTIONS
+    |--------------------------------------------------------------------------
+    */
+        $vipTransaction = DB::table('vip_transactions')
+            ->where('user_id', $userId)
+            ->where('start_at', '<=', now())
+            ->where('end_at', '>=', now())
+            ->latest('end_at')
+            ->first();
+
+        /*
+    |--------------------------------------------------------------------------
+    | ACTIVE VIP FROM TREASURE LEVEL CLAIM
+    |--------------------------------------------------------------------------
+    |
+    | Treasure VIP is NOT stored in vip_transactions.
+    | So we calculate its expiry using:
+    |
+    | created_at + valid_days
+    |
+    */
+        $treasureVip = DB::table('treasure_level_claims')
+            ->where('user_id', $userId)
+            ->where('reward_type', 'vip')
+            ->whereNotNull('reward_item_id')
+            ->whereNotNull('valid_days')
+            ->whereRaw(
+                'DATE_ADD(created_at, INTERVAL valid_days DAY) >= ?',
+                [now()]
+            )
+            ->latest('created_at')
+            ->first();
+
+        /*
+    |--------------------------------------------------------------------------
+    | FIND ACTIVE VIP
+    |--------------------------------------------------------------------------
+    */
+        $activeVipId = null;
+
+        $vipTransactionEnd = null;
+        $treasureVipEnd = null;
+
+        if ($vipTransaction) {
+            $vipTransactionEnd = Carbon::parse(
+                $vipTransaction->end_at
+            );
+        }
+
+        if ($treasureVip) {
+            $treasureVipEnd = Carbon::parse(
+                $treasureVip->created_at
+            )->addDays(
+                (int) $treasureVip->valid_days
+            );
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | BOTH VIP SOURCES ACTIVE
+    |--------------------------------------------------------------------------
+    */
+        if ($vipTransaction && $treasureVip) {
+
+            /*
+         * Whichever VIP remains active for longer
+         * will be considered the active VIP.
+         */
+            if ($vipTransactionEnd->gte($treasureVipEnd)) {
+
+                $activeVipId = $vipTransaction->vip_id;
+            } else {
+
+                $activeVipId = $treasureVip->reward_item_id;
+            }
+        }
+        /*
+    |--------------------------------------------------------------------------
+    | ONLY VIP TRANSACTION ACTIVE
+    |--------------------------------------------------------------------------
+    */ elseif ($vipTransaction) {
+
+            $activeVipId = $vipTransaction->vip_id;
+        }
+        /*
+    |--------------------------------------------------------------------------
+    | ONLY TREASURE VIP ACTIVE
+    |--------------------------------------------------------------------------
+    */ elseif ($treasureVip) {
+
+            $activeVipId = $treasureVip->reward_item_id;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | GET VIP BADGE
+    |--------------------------------------------------------------------------
+    */
+        if ($activeVipId) {
+
+            $vip = DB::table('vips')
+                ->where('id', $activeVipId)
+                ->first();
+
+            if ($vip && !empty($vip->title_tag)) {
+
+                $vipBadge = Helper::showImage(
+                    $vip->title_tag,
+                    true
+                );
+            }
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | ACTIVE SVIP
+    |--------------------------------------------------------------------------
+    */
+        $svipTransaction = DB::table('svip_transactions')
+            ->where('user_id', $userId)
+            ->where('start_at', '<=', now())
+            ->where('end_at', '>=', now())
+            ->latest('end_at')
+            ->first();
+
+        /*
+    |--------------------------------------------------------------------------
+    | GET SVIP BADGE
+    |--------------------------------------------------------------------------
+    */
+        if ($svipTransaction) {
+
+            $svip = DB::table('svips')
+                ->where('id', $svipTransaction->svip_id)
+                ->first();
+
+            if ($svip && !empty($svip->title)) {
+
+                $svipBadge = Helper::showImage(
+                    $svip->title,
+                    true
+                );
+            }
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
+        return [
+            'vip_badge' => $vipBadge,
+            'svip_badge' => $svipBadge,
+        ];
     }
 }
