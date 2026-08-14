@@ -377,4 +377,58 @@ class VipController extends Controller
             ]);
         }
     }
+
+    public function svipExp()
+    {
+        try {
+
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthenticated',
+                ], 401);
+            }
+
+            $svipPoints = (int) ($user->buy_coins_wallet ?? 0);
+
+            $activeSvipTransaction = SvipTransaction::with('svip')
+                ->where('user_id', $user->id)
+                ->where('start_at', '<=', now())
+                ->where('end_at', '>=', now())
+                ->latest('end_at')
+                ->first();
+
+            $activeSvip = null;
+
+            if ($activeSvipTransaction && $activeSvipTransaction->svip) {
+
+                $activeSvip = [
+                    'id' => $activeSvipTransaction->svip->id,
+                    'name' => $activeSvipTransaction->svip->name,
+                    'start_at' => $activeSvipTransaction->start_at,
+                    'end_at' => $activeSvipTransaction->end_at,
+                    'days' => $activeSvipTransaction->svip->days,
+                ];
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'SVIP information fetched successfully',
+
+                'data' => [
+                    'svip_points' => $svipPoints,
+                    'active_svip' => $activeSvip,
+                ]
+            ], 200);
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to fetch SVIP information',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

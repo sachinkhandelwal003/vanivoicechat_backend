@@ -417,6 +417,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::post('buy-svip', [VipController::class, 'buySvip']);
+    Route::get('svip-exp',[VipController::class, 'svipExp']);
     Route::post('buy-vip', [VipController::class, 'buyVip']);
     Route::post('gift-vip', [VipController::class, 'giftVip']);
 });
