@@ -159,6 +159,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/album/{id}', [UserController::class, 'deleteAlbum']);
     Route::get('get/profile/details', [UserController::class, 'getProfile']);
     Route::post('/profile/update', [UserController::class, 'updateProfile']);
+    Route::get('/following-users-list',[UserController::class, 'getFollowingUsers']);
+    Route::get('/fan-users-list',[UserController::class, 'getFanUsers']);
 
     Route::post('/create/room', [RoomController::class, 'createRoom']);
     Route::post('/update/room-seat', [RoomController::class, 'updateRoomSeat']);
