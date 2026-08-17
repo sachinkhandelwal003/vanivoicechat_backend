@@ -6148,4 +6148,100 @@ class RoomController extends Controller
             'data' => $data,
         ]);
     }
+
+    public function getMyRoomInvisibleStatus()
+    {
+        try {
+
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthenticated',
+                ], 401);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | ROOM INVISIBLE
+        |--------------------------------------------------------------------------
+        */
+
+            $roomInvisible = (int) ($user->room_invisible ?? 0);
+
+            /*
+        |--------------------------------------------------------------------------
+        | ACTIVE SVIP
+        |--------------------------------------------------------------------------
+        */
+
+            $svipTransaction = SvipTransaction::with([
+                'svip.privileges'
+            ])
+                ->where('user_id', $user->id)
+                ->where('start_at', '<=', now())
+                ->where('end_at', '>=', now())
+                ->latest('end_at')
+                ->first();
+
+            $activeSvip = false;
+            $rankInvisible = false;
+            $svip = null;
+
+            if ($svipTransaction && $svipTransaction->svip) {
+
+                $activeSvip = true;
+
+                /*
+            |--------------------------------------------------------------------------
+            | RANK INVISIBLE PRIVILEGE
+            |--------------------------------------------------------------------------
+            */
+
+                $rankInvisible = $svipTransaction->svip
+                    ->privileges
+                    ->where('slug', 'rank_invisible')
+                    ->where('pivot.is_active', 1)
+                    ->isNotEmpty();
+
+                /*
+            |--------------------------------------------------------------------------
+            | SVIP DATA
+            |--------------------------------------------------------------------------
+            */
+
+                $svip = [
+                    'id' => $svipTransaction->svip->id,
+                    'name' => $svipTransaction->svip->name,
+                ];
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Room invisible status fetched successfully',
+
+                'data' => [
+                    'room_invisible' => $roomInvisible,
+                    'active_svip' => $activeSvip,
+                    'svip' => $svip,
+                    'rank_invisible' => $rankInvisible,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+
+            Log::error('MY ROOM INVISIBLE STATUS API ERROR', [
+                'user_id' => Auth::id(),
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
