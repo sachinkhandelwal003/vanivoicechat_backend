@@ -328,14 +328,13 @@ class HomeController extends Controller
             'user_id',
             'svip_id'
         )
-            ->where(function ($q) {
-                $q->whereNull('end_at')
-                    ->orWhere('end_at', '>=', now());
-            })
+            ->where('start_at', '<=', now())
+            ->where('end_at', '>=', now())
             ->whereHas('svip.privileges', function ($q) {
                 $q->where('slug', 'top_your_room')
                     ->where('svip_level_privileges.is_active', 1);
-            });
+            })
+            ->groupBy('user_id', 'svip_id');
 
         // $rooms = Room::with([
         //     'user:id,uid,name,image,country,active_uid_id',
