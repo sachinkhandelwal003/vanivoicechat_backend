@@ -323,18 +323,19 @@ class HomeController extends Controller
 
 
         //  Top Your Room Users
-
+        $latestActiveSvipIds = SvipTransaction::selectRaw('MAX(id)')
+            ->where('start_at', '<=', now())
+            ->where('end_at', '>=', now())
+            ->groupBy('user_id');
         $topRoomUsers = SvipTransaction::select(
             'user_id',
             'svip_id'
         )
-            ->where('start_at', '<=', now())
-            ->where('end_at', '>=', now())
+            ->whereIn('id', $latestActiveSvipIds)
             ->whereHas('svip.privileges', function ($q) {
                 $q->where('slug', 'top_your_room')
                     ->where('svip_level_privileges.is_active', 1);
-            })
-            ->groupBy('user_id', 'svip_id');
+            });
 
         // $rooms = Room::with([
         //     'user:id,uid,name,image,country,active_uid_id',

@@ -102,6 +102,9 @@ class VipController extends Controller
 
         try {
 
+            $user = AppUser::where('id', $user->id)
+                ->lockForUpdate()
+                ->first();
             $svip = Svip::findOrFail($request->svip_id);
 
             if ($user->buy_coins_wallet < $svip->need_coins) {
