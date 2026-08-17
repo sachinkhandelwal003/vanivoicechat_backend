@@ -381,6 +381,7 @@ class HomeController extends Controller
             ->orderByDesc('room_priority')
             ->orderByDesc('online_count')
             ->orderByDesc('rooms.total_points')
+            ->orderByDesc('rooms.id')
             ->paginate(10);
 
 
