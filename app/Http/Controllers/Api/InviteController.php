@@ -105,7 +105,8 @@ class InviteController extends Controller
             'message' => 'Invite code fetched successfully.',
             'data' => [
                 'invite_code' => $user->invite_code,
-                'invite_link' => url('/register?invite_code=' . $user->invite_code),
+                // 'invite_link' => url('/register?invite_code=' . $user->invite_code),
+                'invite_link' => 'https://play.google.com/store/apps/details?id=com.anantam.vanivoice',
                 'share_message' => "Join our app using my invite code {$user->invite_code} and enjoy exciting rewards.",
             ]
         ]);

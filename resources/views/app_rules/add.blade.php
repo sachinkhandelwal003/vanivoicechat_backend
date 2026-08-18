@@ -20,10 +20,18 @@
 
                 <div class="mb-3">
                     <label class="form-label">Type <span class="text-danger">*</span></label>
-                    <input type="text" name="type" class="form-control"
+                      <select name="type" class="form-control">
+                        <option value="" selected>Select Type</option>
+                        <option value="family" selected>Family</option>
+                        <option value="redenvelop">Redenvelop</option>
+                        <option value="treasure">Treasure</option>
+                        <option value="vip">Vip</option>
+                        <option value="svip">Svip</option>
+                    </select>
+                    {{-- <input type="text" name="type" class="form-control"
                         placeholder="Enter rule Type" value="{{ old('type') }}" required>
-                        <span style="color: red;">Note:Do not give space</span>
-                    
+                        <span style="color: red;">Note:Do not give space</span> --}}
+
                 </div>
 
                 <div class="mb-3">
