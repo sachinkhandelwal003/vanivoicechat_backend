@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Helper\Helper;
-use App\Models\AppUser;
+use App\Models\AppRule;
 use App\Models\StaticPage;
 use App\Models\InviteUser;
 use App\Models\InviteRewardHistory;
@@ -177,6 +177,29 @@ class InviteController extends Controller
                 'total_revenue' => $totalRevenue,
                 'histories' => $histories
             ]
+        ]);
+    }
+
+    public function appRules(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|string',
+        ]);
+
+        $rules = AppRule::where('type', $request->type)
+            ->where('status', 1)
+            ->orderBy('id', 'asc')
+            ->get([
+                'id',
+                'heading',
+                'type',
+                'rule',
+            ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'App Rules Fetched Successfully',
+            'data' => $rules,
         ]);
     }
 }
