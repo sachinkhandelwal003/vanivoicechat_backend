@@ -23,7 +23,7 @@
                       <select name="type" class="form-control">
                         <option value="" selected>Select Type</option>
                         <option value="family" selected>Family</option>
-                        <option value="redenvelop">Redenvelop</option>
+                        <option value="redenvelop">Redenvelope</option>
                         <option value="treasure">Treasure</option>
                         <option value="vip">Vip</option>
                         <option value="svip">Svip</option>
