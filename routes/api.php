@@ -98,6 +98,7 @@ Route::post('filter-store-uids', [StoreController::class, 'filterStoreUids']);
 
 Route::get('svip-list', [VipController::class, 'getSvipList']);
 Route::get('vip-list', [VipController::class, 'getVipList']);
+Route::get('/app-rules', [InviteController::class, 'appRules']);
 
 
 
