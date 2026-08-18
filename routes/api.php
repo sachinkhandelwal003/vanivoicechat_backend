@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\BDController;
 use App\Http\Controllers\Api\AgencyController;
 use App\Http\Controllers\Api\HostCenterController;
 use App\Http\Controllers\Api\RechargeController;
+use App\Http\Controllers\Api\GameController;
 use Illuminate\Support\Facades\Broadcast;
 
 use Illuminate\Http\Request;
@@ -160,8 +161,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/album/{id}', [UserController::class, 'deleteAlbum']);
     Route::get('get/profile/details', [UserController::class, 'getProfile']);
     Route::post('/profile/update', [UserController::class, 'updateProfile']);
-    Route::get('/following-users-list',[UserController::class, 'getFollowingUsers']);
-    Route::get('/fan-users-list',[UserController::class, 'getFanUsers']);
+    Route::get('/following-users-list', [UserController::class, 'getFollowingUsers']);
+    Route::get('/fan-users-list', [UserController::class, 'getFanUsers']);
 
     Route::post('/create/room', [RoomController::class, 'createRoom']);
     Route::post('/update/room-seat', [RoomController::class, 'updateRoomSeat']);
@@ -204,8 +205,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/room/room-members', [RoomController::class, 'getRoomMembers']);
     Route::post('/room/ping', [RoomController::class, 'ping']);
     Route::get('/room/room-emoji', [RoomController::class, 'roomEmojis']);
-    Route::get('/room/room-level-details',[RoomController::class,'roomLevelDetails']);
-    Route::post('/room/send-room-emoji',[RoomController::class,'sendRoomEmoji']);
+    Route::get('/room/room-level-details', [RoomController::class, 'roomLevelDetails']);
+    Route::post('/room/send-room-emoji', [RoomController::class, 'sendRoomEmoji']);
     Route::get('room-invisible-status', [RoomController::class, 'getMyRoomInvisibleStatus']);
 
     Route::post('room-music/add-song', [RoomMusicController::class, 'addSong']);
@@ -387,8 +388,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('agency/team-bill', [AgencyController::class, 'teamBill']);
     Route::get('agency/team-bill-details', [AgencyController::class, 'teamBillDetails']);
 
-    Route::get('run-agency-salary-settlement',[AgencyController::class,'runAgencySalarySettlement']
-);
+    Route::get('run-agency-salary-settlement',[AgencyController::class, 'runAgencySalarySettlement']);
 
 
     Route::post('host/apply-for-host', [HostCenterController::class, 'applyForHost']);
@@ -405,7 +405,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('withdrawal-history', [HostCenterController::class, 'withdrawalHistory']);
 
 
-    Route::get('/run-host-settlement',[HostCenterController::class, 'runHostSettlement']);
+    Route::get('/run-host-settlement', [HostCenterController::class, 'runHostSettlement']);
 
 
     Route::get('coinseller/seller-dashboard', [RechargeController::class, 'sellerDashboard']);
@@ -421,12 +421,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::post('buy-svip', [VipController::class, 'buySvip']);
-    Route::get('svip-exp',[VipController::class, 'svipExp']);
+    Route::get('svip-exp', [VipController::class, 'svipExp']);
     Route::post('buy-vip', [VipController::class, 'buyVip']);
     Route::post('gift-vip', [VipController::class, 'giftVip']);
 });
 
+Route::prefix('sud')->group(function () {
 
+    // SUD authentication callbacks
+    Route::post('get-sstoken', [GameController::class, 'getSsToken']);
+    Route::post('update-sstoken', [GameController::class, 'updateSsToken']);
+    Route::post('get-user-info', [GameController::class, 'getUserInfo']);
+
+    // Game callbacks
+    Route::post('report-game-info', [GameController::class, 'reportGameInfo']);
+    Route::post('notify', [GameController::class, 'notify']);
+
+});
 
 Route::any('{path}', function () {
     return response()->json([
