@@ -121,7 +121,7 @@ class RedEnvelopeController extends Controller
             }
 
             $allowedAmounts = [1999, 9999, 29999, 99999];
-            $allowedUsers   = [1, 20, 40, 60];
+            $allowedUsers   = [10, 20, 40, 60];
 
             $totalAmount = (int) $request->total_amount;
             $totalUsers  = (int) $request->total_users;
