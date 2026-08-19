@@ -31,4 +31,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'sud' => [
+        'app_id' => env('SUD_APP_ID'),
+        'app_key' => env('SUD_APP_KEY'),
+        'app_secret' => env('SUD_APP_SECRET'),
+    ],
+
 ];
