@@ -434,7 +434,8 @@ class RoomController extends Controller
             }
 
             $agora = [
-                'app_id' => env('AGORA_APP_ID'),
+                // 'app_id' => env('AGORA_APP_ID'),
+                'app_id' => config('services.agora.app_id'),
                 'channel_name' => 'room_' . $room->id,
                 'uid' => (int) $user->id,
                 'role' => $mySeatNo ? 'broadcaster' : 'audience',
@@ -2194,7 +2195,8 @@ class RoomController extends Controller
             }
 
             $agora = [
-                'app_id' => env('AGORA_APP_ID'),
+                // 'app_id' => env('AGORA_APP_ID'),
+                'app_id' => config('services.agora.app_id'),
                 'channel_name' => 'room_' . $room->id,
                 'uid' => (int) $user->id,
                 'role' => $mySeatNo ? 'broadcaster' : 'audience',
