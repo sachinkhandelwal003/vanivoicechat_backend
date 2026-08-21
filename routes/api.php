@@ -430,7 +430,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('sud/get-code', [GameController::class, 'getCode']);
     Route::get('games-list', [GameController::class, 'gameList']);
 });
-
+Route::get('phonepe/callback', [PaymentController::class, 'phonePeCallback']);
 Route::prefix('sud')->group(function () {
 
     // SUD authentication callbacks
