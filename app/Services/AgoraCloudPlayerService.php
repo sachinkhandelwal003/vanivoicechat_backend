@@ -10,15 +10,20 @@ class AgoraCloudPlayerService
     protected function baseUrl(): string
     {
         $region = strtolower((string) env('AGORA_REGION'));
-        $appId  = env('AGORA_APP_ID');
+        // $appId  = env('AGORA_APP_ID');
+        $appId = config('services.agora.app_id');
 
         return "https://api.agora.io/{$region}/v1/projects/{$appId}/cloud-player";
     }
 
     protected function authHeader(): string
     {
-        $customerId     = env('AGORA_CUSTOMER_ID');
-        $customerSecret = env('AGORA_CUSTOMER_SECRET');
+        // $customerId     = env('AGORA_CUSTOMER_ID');
+        // $customerSecret = env('AGORA_CUSTOMER_SECRET');
+        $customerId     = config('services.agora.customer_id');
+        $customerSecret = config('services.agora.customer_secret');
+
+
 
         return 'Basic ' . base64_encode($customerId . ':' . $customerSecret);
     }
