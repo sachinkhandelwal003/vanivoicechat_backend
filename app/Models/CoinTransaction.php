@@ -14,6 +14,9 @@ class CoinTransaction extends Model
     protected $fillable = [
         'user_id',
         'package_id',
+        'merchant_transaction_id',
+        'transaction_id',
+        'payment_status',
         'coins',
         'bonus_coins',
         'total_coins',

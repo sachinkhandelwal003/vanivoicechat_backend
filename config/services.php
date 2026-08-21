@@ -45,4 +45,12 @@ return [
         'app_secret' => env('SUD_APP_SECRET'),
     ],
 
+    'phonepe' => [
+        'merchant_id'    => env('PHONEPE_MERCHANT_ID'),
+        'client_id'      => env('PHONEPE_CLIENT_ID'),
+        'client_secret'  => env('PHONEPE_CLIENT_SECRET'),
+        'client_version' => env('PHONEPE_CLIENT_VERSION', 1),
+        'callback'       => env('PHONEPE_CALLBACK_URL'),
+    ],
+
 ];
