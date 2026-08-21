@@ -8,6 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use PhonePe\payments\v2\standardCheckout\StandardCheckoutClient;
+use PhonePe\payments\v2\models\request\builders\StandardCheckoutPayRequestBuilder;
+use PhonePe\Env;
 
 class PaymentController extends Controller
 {
@@ -60,74 +65,261 @@ class PaymentController extends Controller
 
         $user = Auth::user();
 
+        $package = DB::table('coin_packages')
+            ->where('id', $request->package_id)
+            ->where('status', 1)
+            ->first();
+
+        if (!$package) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Package not found'
+            ], 404);
+        }
+
         DB::beginTransaction();
+
         try {
 
-            // package get
-            $package = DB::table('coin_packages')
-                ->where('id', $request->package_id)
-                ->where('status', 1)
-                ->first();
+            $client = StandardCheckoutClient::getInstance(
+                config('services.phonepe.client_id'),
+                (int) config('services.phonepe.client_version'),
+                config('services.phonepe.client_secret'),
+                // Env::PRODUCTION
+                Env::UAT,
+            );
 
-            if (!$package) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Package not found'
-                ], 404);
-            }
+            $merchantOrderId = 'VANI' . now()->format('YmdHis') . rand(1000, 9999);
 
-            $coinsToAdd = (int) ($package->total_coins ?? 0);
+            $payRequest = StandardCheckoutPayRequestBuilder::builder()
+                ->merchantOrderId($merchantOrderId)
+                ->amount((int) ($package->price * 100))
+                ->redirectUrl(config('services.phonepe.callback'))
+                ->message('Vani Coin Recharge')
+                ->udf1((string) $user->id)
+                ->udf2((string) $package->id)
+                ->build();
 
-            if ($coinsToAdd <= 0) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Invalid package coins'
-                ], 400);
-            }
-
-            // add coins to user
-            DB::table('app_users')
-                ->where('id', $user->id)
-                ->increment('total_points', $coinsToAdd);
-            // add coins to user
-            DB::table('app_users')
-                ->where('id', $user->id)
-                ->increment('buy_coins_wallet', $coinsToAdd);
+            $payResponse = $client->pay($payRequest);
 
             DB::table('coin_transactions')->insert([
-                'user_id'    => $user->id,
-                'package_id' => $package->id,
-                'coins'      => $package->coins,
-                'bonus_coins'  => (int) ($package->bonus_coins ?? 0),
-                'total_coins'  => $coinsToAdd,
-                'amount'     => $package->price,
-                'type'       => 'credit',
-                'created_at' => now(),
-                'updated_at' => now()
+                'user_id'                 => $user->id,
+                'package_id'              => $package->id,
+                'merchant_transaction_id' => $merchantOrderId,
+                'coins'                   => $package->coins,
+                'bonus_coins'             => $package->bonus_coins,
+                'total_coins'             => $package->total_coins,
+                'amount'                  => $package->price,
+                'payment_status'          => 'pending',
+                'type'                    => 'pending',
+                'created_at'              => now(),
+                'updated_at'              => now(),
             ]);
-
-            $updatedTotalCoins = (int) DB::table('app_users')
-                ->where('id', $user->id)
-                ->value('total_points');
 
             DB::commit();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Coins added successfully',
+                'message' => 'Payment initiated successfully',
                 'data' => [
-                    'coins_added' => (int)$package->coins,
-                    'bonus_coins'  => (int) ($package->bonus_coins ?? 0),
-                    'total_added'  => $coinsToAdd,
-                    'total_coins' => $updatedTotalCoins
+                    'merchant_order_id' => $merchantOrderId,
+                    'order_id'          => $payResponse->getOrderId(),
+                    'redirect_url'      => $payResponse->getRedirectUrl(),
+                    'expire_at'         => $payResponse->getExpireAt(),
+                    'amount'            => (float) $package->price,
                 ]
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage()
             ], 500);
         }
     }
+
+    public function phonePeCallback(Request $request)
+    {
+        $merchantOrderId = $request->merchantOrderId;
+
+        if (!$merchantOrderId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Merchant Order ID missing'
+            ], 400);
+        }
+
+        return $this->verifyAndCreditCoins($merchantOrderId);
+    }
+
+    public function checkPhonePeStatus(Request $request)
+    {
+        $request->validate([
+            'merchant_order_id' => 'required|string'
+        ]);
+
+        return $this->verifyAndCreditCoins($request->merchant_order_id);
+    }
+
+    private function verifyAndCreditCoins($merchantOrderId)
+    {
+        DB::beginTransaction();
+
+        try {
+
+            $client = StandardCheckoutClient::getInstance(
+                config('services.phonepe.client_id'),
+                (int) config('services.phonepe.client_version'),
+                config('services.phonepe.client_secret'),
+                Env::UAT // Production me Env::PRODUCTION
+            );
+
+            $status = $client->getOrderStatus($merchantOrderId, true);
+
+            $transaction = DB::table('coin_transactions')
+                ->where('merchant_transaction_id', $merchantOrderId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$transaction) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Transaction not found'
+                ], 404);
+            }
+
+            if (
+                $status->getState() === 'COMPLETED' &&
+                $transaction->payment_status !== 'success'
+            ) {
+
+                DB::table('app_users')
+                    ->where('id', $transaction->user_id)
+                    ->increment('total_points', $transaction->total_coins);
+
+                DB::table('app_users')
+                    ->where('id', $transaction->user_id)
+                    ->increment('buy_coins_wallet', $transaction->total_coins);
+
+                $paymentDetails = $status->getPaymentDetails();
+
+                DB::table('coin_transactions')
+                    ->where('id', $transaction->id)
+                    ->update([
+                        'transaction_id' => !empty($paymentDetails)
+                            ? $paymentDetails[0]->getTransactionId()
+                            : null,
+                        'payment_status' => 'success',
+                        'type' => 'credit',
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'payment_status' => $status->getState(),
+                'merchant_order_id' => $merchantOrderId,
+                'amount' => $status->getAmount() / 100,
+            ]);
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // public function buyCoinPackage(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'package_id' => 'required|exists:coin_packages,id',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $validator->errors()
+    //         ], 422);
+    //     }
+
+    //     $user = Auth::user();
+
+    //     DB::beginTransaction();
+    //     try {
+
+    //         // package get
+    //         $package = DB::table('coin_packages')
+    //             ->where('id', $request->package_id)
+    //             ->where('status', 1)
+    //             ->first();
+
+    //         if (!$package) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Package not found'
+    //             ], 404);
+    //         }
+
+    //         $coinsToAdd = (int) ($package->total_coins ?? 0);
+
+    //         if ($coinsToAdd <= 0) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Invalid package coins'
+    //             ], 400);
+    //         }
+
+    //         // add coins to user
+    //         DB::table('app_users')
+    //             ->where('id', $user->id)
+    //             ->increment('total_points', $coinsToAdd);
+    //         // add coins to user
+    //         DB::table('app_users')
+    //             ->where('id', $user->id)
+    //             ->increment('buy_coins_wallet', $coinsToAdd);
+
+    //         DB::table('coin_transactions')->insert([
+    //             'user_id'    => $user->id,
+    //             'package_id' => $package->id,
+    //             'coins'      => $package->coins,
+    //             'bonus_coins'  => (int) ($package->bonus_coins ?? 0),
+    //             'total_coins'  => $coinsToAdd,
+    //             'amount'     => $package->price,
+    //             'type'       => 'credit',
+    //             'created_at' => now(),
+    //             'updated_at' => now()
+    //         ]);
+
+    //         $updatedTotalCoins = (int) DB::table('app_users')
+    //             ->where('id', $user->id)
+    //             ->value('total_points');
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Coins added successfully',
+    //             'data' => [
+    //                 'coins_added' => (int)$package->coins,
+    //                 'bonus_coins'  => (int) ($package->bonus_coins ?? 0),
+    //                 'total_added'  => $coinsToAdd,
+    //                 'total_coins' => $updatedTotalCoins
+    //             ]
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 }
