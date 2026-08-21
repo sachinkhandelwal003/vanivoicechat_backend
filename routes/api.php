@@ -426,6 +426,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('gift-vip', [VipController::class, 'giftVip']);
     
     Route::post('sud/get-code', [GameController::class, 'getCode']);
+    Route::get('games-list', [GameController::class, 'gameList']);
 });
 
 Route::prefix('sud')->group(function () {

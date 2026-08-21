@@ -30,6 +30,11 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
+    'agora' => [
+        'app_id'          => env('AGORA_APP_ID'),
+        'app_certificate' => env('AGORA_APP_CERTIFICATE'),
+        'token_expire'    => env('AGORA_TOKEN_EXPIRE', 3600),
+    ],
 
     'sud' => [
         'app_id' => env('SUD_APP_ID'),

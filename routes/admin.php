@@ -67,6 +67,7 @@ use App\Http\Controllers\ManualMoneyController;
 use App\Http\Controllers\UserRoleTagController;
 use App\Http\Controllers\RoomEmojiController;
 use App\Http\Controllers\RoomLevelController;
+use App\Http\Controllers\GameController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -801,6 +802,17 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('room-levels/add/{id?}', 'form')->name('room-levels.form')->middleware('isAllow:137,can_edit');
         Route::post('room-levels/add/{id?}', 'save')->name('room-levels.save')->middleware('isAllow:137,can_edit');
         Route::delete('room-levels/delete', 'delete')->name('room-levels.delete')->middleware('isAllow:137,can_delete');
+    });
+
+    Route::controller(GameController::class)->group(function () {
+        Route::get('games', 'index')->name('game')->middleware('isAllow:142,can_view');
+        Route::get('games/add', 'add')->name('game.add')->middleware('isAllow:142,can_add');
+        Route::post('games/add', 'save')->name('game.add')->middleware('isAllow:142,can_add');
+        Route::get('games/{id}', 'edit')->name('game.edit')->middleware('isAllow:142,can_edit');
+        Route::post('games/{id}', 'update')->name('game.edit')->middleware('isAllow:142,can_edit');
+        Route::delete('games', 'delete')->name('game')->middleware('isAllow:142,can_delete');
+        Route::post('games-status', 'gameStatus')->name('game.status')->middleware('isAllow:142,can_delete');
+        Route::post('games-featured', 'gameFeatured')->name('game.featured')->middleware('isAllow:142,can_delete');
     });
 
     // ----------------------- Feed Back Routes ----------------------------------------------------
