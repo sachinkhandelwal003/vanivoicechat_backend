@@ -206,12 +206,16 @@ class PaymentController extends Controller
 
                 $paymentDetails = $status->getPaymentDetails();
 
+                $phonePeTxnId = null;
+
+                if (!empty($paymentDetails)) {
+                    $phonePeTxnId = $paymentDetails[0]->transactionId ?? null;
+                }
+
                 DB::table('coin_transactions')
                     ->where('id', $transaction->id)
                     ->update([
-                        'transaction_id' => !empty($paymentDetails)
-                            ? $paymentDetails[0]->getTransactionId()
-                            : null,
+                        'transaction_id' => $phonePeTxnId,
                         'payment_status' => 'success',
                         'type' => 'credit',
                         'updated_at' => now(),
