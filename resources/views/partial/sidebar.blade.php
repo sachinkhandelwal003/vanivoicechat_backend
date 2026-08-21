@@ -558,6 +558,28 @@
         </li>
         @endif
 
+        @if(Helper::userCan([142]))
+        <li class="menu @routeis('game') active @endrouteis">
+            <a href="#officialnotification" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('game') }}" class="dropdown-toggle">
+                <div class="">
+                    <i class="fa-solid fa-comments"></i>
+
+                    <span>Game Management</span>
+                </div>
+                <div> <i class="fa-solid fa-chevron-right"></i> </div>
+            </a>
+            <ul class="collapse submenu list-unstyled @routeis('game') show @endrouteis" id="officialnotification">
+
+                @if(Helper::userCan(142))
+                <li class="@routeis('game') active @endrouteis">
+                    <a href="{{ route('game') }}">Game List</a>
+                </li>
+                @endif
+
+            </ul>
+        </li>
+        @endif
+
         @if(Helper::userCan([160,161,162,163,164,165]))
         <li class="menu @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work') active @endrouteis">
             <a href="#financial" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work') }}" class="dropdown-toggle">

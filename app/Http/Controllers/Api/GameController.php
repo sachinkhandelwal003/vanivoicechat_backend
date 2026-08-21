@@ -5,14 +5,50 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Helper\Helper;
 use App\Models\AppUser;
+use App\Models\Game;
+use App\Models\GameSession;
+use App\Models\GameSessionPlayer;
 use Illuminate\Http\Request;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
 class GameController extends Controller
 {
+
+public function gameList(Request $request)
+    {
+        $games = Game::where('status', 1)
+            ->orderBy('sort_order')
+            ->get();
+
+        $data = $games->map(function ($game) {
+
+            return [
+                'id' => $game->id,
+                'name' => $game->name,
+                'slug' => $game->slug,
+                'sud_game_id' => $game->sud_game_id,
+                'sud_game_type' => $game->sud_game_type,
+                'description' => $game->description,
+                'icon' => Helper::showImage($game->icon, true),
+                'banner' => Helper::showImage($game->banner, true),
+                'entry_coins' => (int) $game->entry_coins,
+                'min_coins' => (int) $game->min_coins,
+                'max_coins' => (int) $game->max_coins,
+                'is_featured' => (bool) $game->is_featured,
+                'sort_order' => (int) $game->sort_order,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Game list fetched successfully',
+            'games' => $data,
+        ]);
+    }
 
     public function getCode(Request $request)
     {
@@ -384,22 +420,419 @@ class GameController extends Controller
     {
         try {
 
-            Log::info('SUD Report Game Info', [
-                'request' => $request->all(),
-            ]);
+            $reportType = $request->input('report_type');
+            $reportMsg = $request->input('report_msg', []);
+
+            if (!$reportType) {
+                return response()->json([
+                    'ret_code' => 1,
+                    'ret_msg' => 'report_type is required',
+                    'sdk_error_code' => 1001,
+                    'data' => [],
+                ], 400);
+            }
+
+            if (!in_array($reportType, ['game_start', 'game_settle'])) {
+                return response()->json([
+                    'ret_code' => 1,
+                    'ret_msg' => 'Invalid report_type',
+                    'sdk_error_code' => 1002,
+                    'data' => [],
+                ], 400);
+            }
+
+            if (empty($reportMsg)) {
+                return response()->json([
+                    'ret_code' => 1,
+                    'ret_msg' => 'report_msg is required',
+                    'sdk_error_code' => 1003,
+                    'data' => [],
+                ], 400);
+            }
+
+            $gameRoundId = $reportMsg['game_round_id'] ?? null;
+
+            if (!$gameRoundId) {
+                return response()->json([
+                    'ret_code' => 1,
+                    'ret_msg' => 'game_round_id is required',
+                    'sdk_error_code' => 1004,
+                    'data' => [],
+                ], 400);
+            }
+
+            // GAME START
+
+
+            if ($reportType === 'game_start') {
+
+                DB::transaction(function () use ($request, $reportMsg, $gameRoundId) {
+
+                    /*
+                |--------------------------------------------------------------------------
+                | Find existing game
+                |--------------------------------------------------------------------------
+                |
+                | SUD can send the same report again.
+                | game_round_id is our unique identifier.
+                |
+                */
+
+                    $gameSession = GameSession::where(
+                        'game_round_id',
+                        $gameRoundId
+                    )->first();
+
+                    //  Create Game Session
+
+
+                    if (!$gameSession) {
+
+                        $gameSession = GameSession::create([
+                            'mg_id' => $reportMsg['mg_id'] ?? null,
+
+                            'mg_id_str' => $reportMsg['mg_id_str'] ?? null,
+
+                            'room_id' => $reportMsg['room_id'] ?? null,
+
+                            'game_mode' => $reportMsg['game_mode'] ?? null,
+
+                            'game_mode_ex' => $reportMsg['game_mode_ex'] ?? null,
+
+                            'game_round_id' => $gameRoundId,
+
+                            'report_game_info_key' =>
+                            $reportMsg['report_game_info_key']
+                                ?? $request->input('report_game_info_key'),
+
+                            'report_game_info_extras' =>
+                            $request->input('report_game_info_extras'),
+
+                            'status' => 'started',
+
+                            'battle_start_at' =>
+                            $reportMsg['battle_start_at'] ?? null,
+
+                            'start_payload' => $request->all(),
+                        ]);
+                    } else {
+
+                        /*
+                    |--------------------------------------------------------------------------
+                    | If duplicate game_start comes
+                    |--------------------------------------------------------------------------
+                    |
+                    | Don't create another game.
+                    | Just update missing/basic information.
+                    |
+                    */
+
+                        $gameSession->update([
+                            'mg_id' => $reportMsg['mg_id']
+                                ?? $gameSession->mg_id,
+
+                            'mg_id_str' => $reportMsg['mg_id_str']
+                                ?? $gameSession->mg_id_str,
+
+                            'room_id' => $reportMsg['room_id']
+                                ?? $gameSession->room_id,
+
+                            'game_mode' => $reportMsg['game_mode']
+                                ?? $gameSession->game_mode,
+
+                            'game_mode_ex' => $reportMsg['game_mode_ex']
+                                ?? $gameSession->game_mode_ex,
+
+                            'battle_start_at' => $reportMsg['battle_start_at']
+                                ?? $gameSession->battle_start_at,
+
+                            'start_payload' => $request->all(),
+                        ]);
+                    }
+
+                    // Save Players
+
+
+                    $players = $reportMsg['players'] ?? [];
+
+                    foreach ($players as $player) {
+
+                        $uid = isset($player['uid'])
+                            ? (string) $player['uid']
+                            : null;
+
+                        if (!$uid) {
+                            continue;
+                        }
+                        // Find Vani User
+
+
+                        $user = AppUser::where('uid', $uid)->first();
+
+                        //  Create / Update Player
+
+
+                        GameSessionPlayer::updateOrCreate(
+                            [
+                                'game_session_id' => $gameSession->id,
+                                'uid' => $uid,
+                            ],
+                            [
+                                'user_id' => $user?->id,
+
+                                'is_ai' =>
+                                (int) ($player['is_ai'] ?? 0),
+
+                                'ai_level' =>
+                                (int) ($player['ai_level'] ?? 0),
+                            ]
+                        );
+                    }
+                });
+
+
+                Log::info('SUD Game Started', [
+                    'game_round_id' => $gameRoundId,
+                    'mg_id' => $reportMsg['mg_id'] ?? null,
+                    'room_id' => $reportMsg['room_id'] ?? null,
+                ]);
+
+
+                return response()->json([
+                    'ret_code' => 0,
+                    'ret_msg' => '',
+                    'sdk_error_code' => 0,
+                    'data' => [
+                        'received' => true,
+                    ],
+                ]);
+            }
+
+
+            //   GAME SETTLE
+
+
+            if ($reportType === 'game_settle') {
+
+                DB::transaction(function () use ($request, $reportMsg, $gameRoundId) {
+
+                    /*
+                |--------------------------------------------------------------------------
+                | Find Game Session
+                |--------------------------------------------------------------------------
+                */
+
+                    $gameSession = GameSession::where(
+                        'game_round_id',
+                        $gameRoundId
+                    )
+                        ->lockForUpdate()
+                        ->first();
+
+                    /*
+                |--------------------------------------------------------------------------
+                | If game_start callback was missed
+                |--------------------------------------------------------------------------
+                |
+                | We still create the game session so that
+                | settlement data is not lost.
+                |
+                */
+
+                    if (!$gameSession) {
+
+                        $gameSession = GameSession::create([
+                            'mg_id' => $reportMsg['mg_id'] ?? null,
+
+                            'mg_id_str' => $reportMsg['mg_id_str'] ?? null,
+
+                            'room_id' => $reportMsg['room_id'] ?? null,
+
+                            'game_mode' => $reportMsg['game_mode'] ?? null,
+
+                            'game_mode_ex' => $reportMsg['game_mode_ex'] ?? null,
+
+                            'game_round_id' => $gameRoundId,
+
+                            'report_game_info_key' =>
+                            $reportMsg['report_game_info_key'] ?? null,
+
+                            'report_game_info_extras' =>
+                            $reportMsg['extras']
+                                ?? $request->input('report_game_info_extras'),
+
+                            'status' => 'completed',
+
+                            'battle_start_at' =>
+                            $reportMsg['battle_start_at'] ?? null,
+
+                            'battle_end_at' =>
+                            $reportMsg['battle_end_at'] ?? null,
+
+                            'battle_duration' =>
+                            $reportMsg['battle_duration'] ?? null,
+
+                            'settle_payload' => $request->all(),
+                        ]);
+                    } else {
+
+                        //    Update Game Session
+
+
+                        $gameSession->update([
+                            'mg_id' => $reportMsg['mg_id']
+                                ?? $gameSession->mg_id,
+
+                            'mg_id_str' => $reportMsg['mg_id_str']
+                                ?? $gameSession->mg_id_str,
+
+                            'room_id' => $reportMsg['room_id']
+                                ?? $gameSession->room_id,
+
+                            'game_mode' => $reportMsg['game_mode']
+                                ?? $gameSession->game_mode,
+
+                            'game_mode_ex' => $reportMsg['game_mode_ex']
+                                ?? $gameSession->game_mode_ex,
+
+                            'status' => 'completed',
+
+                            'battle_start_at' =>
+                            $reportMsg['battle_start_at']
+                                ?? $gameSession->battle_start_at,
+
+                            'battle_end_at' =>
+                            $reportMsg['battle_end_at'] ?? null,
+
+                            'battle_duration' =>
+                            $reportMsg['battle_duration'] ?? null,
+
+                            'settle_payload' => $request->all(),
+                        ]);
+                    }
+
+
+                    //   Save Player Results
+
+
+                    $results = $reportMsg['results'] ?? [];
+
+                    foreach ($results as $result) {
+
+                        $uid = isset($result['uid'])
+                            ? (string) $result['uid']
+                            : null;
+
+                        if (!$uid) {
+                            continue;
+                        }
+
+                        // Find Vani User
+
+
+                        $user = AppUser::where('uid', $uid)->first();
+
+                        // Find Existing Player
+
+
+                        $player = GameSessionPlayer::where(
+                            'game_session_id',
+                            $gameSession->id
+                        )
+                            ->where('uid', $uid)
+                            ->first();
+
+
+                        //  If player wasn't received in game_start
+
+
+                        if (!$player) {
+
+                            $player = new GameSessionPlayer();
+
+                            $player->game_session_id =
+                                $gameSession->id;
+
+                            $player->uid = $uid;
+
+                            $player->user_id = $user?->id;
+                        }
+
+                        // Update Result
+
+
+                        $player->user_id = $user?->id;
+
+                        $player->is_ai =
+                            (int) ($result['is_ai'] ?? 0);
+
+                        $player->rank =
+                            $result['rank'] ?? null;
+
+                        $player->is_escaped =
+                            (int) ($result['is_escaped'] ?? 0);
+
+                        $player->is_win =
+                            $result['is_win'] ?? null;
+
+                        $player->score =
+                            (int) ($result['score'] ?? 0);
+
+                        $player->commission_score =
+                            (int) ($result['commission_score'] ?? 0);
+
+                        $player->award =
+                            (int) ($result['award'] ?? 0);
+
+                        $player->role =
+                            $result['role'] ?? null;
+
+                        $player->is_managed =
+                            (int) ($result['is_managed'] ?? 0);
+
+                        //   NOTE: Coin values are NOT calculated here.
+
+
+                        $player->save();
+                    }
+                });
+
+
+                Log::info('SUD Game Settled', [
+                    'game_round_id' => $gameRoundId,
+                    'mg_id' => $reportMsg['mg_id'] ?? null,
+                    'room_id' => $reportMsg['room_id'] ?? null,
+                    'results_count' => count($reportMsg['results'] ?? []),
+                ]);
+
+
+                return response()->json([
+                    'ret_code' => 0,
+                    'ret_msg' => '',
+                    'sdk_error_code' => 0,
+                    'data' => [
+                        'received' => true,
+                    ],
+                ]);
+            }
+
+
+            // Fallback
+
 
             return response()->json([
-                'ret_code' => 0,
-                'ret_msg' => '',
-                'sdk_error_code' => 0,
-                'data' => [
-                    'received' => true,
-                ],
-            ]);
-        } catch (\Exception $e) {
+                'ret_code' => 1,
+                'ret_msg' => 'Unsupported report type',
+                'sdk_error_code' => 1005,
+                'data' => [],
+            ], 400);
+        } catch (\Throwable $e) {
 
-            Log::error('SUD reportGameInfo Error', [
+            Log::error('SUD Report Game Info Error', [
                 'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'request' => $request->all(),
             ]);
 
             return response()->json([
@@ -407,7 +840,7 @@ class GameController extends Controller
                 'ret_msg' => 'Unable to process game information',
                 'sdk_error_code' => 1004,
                 'data' => [],
-            ]);
+            ], 500);
         }
     }
 
