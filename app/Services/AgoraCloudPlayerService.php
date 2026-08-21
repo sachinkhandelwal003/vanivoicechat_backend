@@ -9,8 +9,9 @@ class AgoraCloudPlayerService
 {
     protected function baseUrl(): string
     {
-        $region = strtolower((string) env('AGORA_REGION'));
+        // $region = strtolower((string) env('AGORA_REGION'));
         // $appId  = env('AGORA_APP_ID');
+        $region = strtolower((string) config('services.agora.region'));
         $appId = config('services.agora.app_id');
 
         return "https://api.agora.io/{$region}/v1/projects/{$appId}/cloud-player";
