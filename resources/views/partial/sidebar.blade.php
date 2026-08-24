@@ -560,7 +560,7 @@
 
         @if(Helper::userCan([142]))
         <li class="menu @routeis('game') active @endrouteis">
-            <a href="#officialnotification" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('game') }}" class="dropdown-toggle">
+            <a href="#game" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('game') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-comments"></i>
 
@@ -568,7 +568,7 @@
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('game') show @endrouteis" id="officialnotification">
+            <ul class="collapse submenu list-unstyled @routeis('game') show @endrouteis" id="game">
 
                 @if(Helper::userCan(142))
                 <li class="@routeis('game') active @endrouteis">
