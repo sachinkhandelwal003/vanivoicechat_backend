@@ -90,11 +90,12 @@ class PaymentController extends Controller
             );
 
             $merchantOrderId = 'VANI' . now()->format('YmdHis') . rand(1000, 9999);
-
+            $callbackUrl = config('services.phonepe.callback')
+                . '?merchantOrderId=' . $merchantOrderId;
             $payRequest = StandardCheckoutPayRequestBuilder::builder()
                 ->merchantOrderId($merchantOrderId)
                 ->amount((int) ($package->price * 100))
-                ->redirectUrl(config('services.phonepe.callback'))
+                ->redirectUrl($callbackUrl)
                 ->message('Vani Coin Recharge')
                 ->udf1((string) $user->id)
                 ->udf2((string) $package->id)
@@ -208,8 +209,8 @@ class PaymentController extends Controller
 
                 $phonePeTxnId = null;
 
-                if (!empty($paymentDetails)) {
-                    $phonePeTxnId = $paymentDetails[0]->transactionId ?? null;
+                if (!empty($paymentDetails) && isset($paymentDetails[0]->transactionId)) {
+                    $phonePeTxnId = $paymentDetails[0]->transactionId;
                 }
 
                 DB::table('coin_transactions')
