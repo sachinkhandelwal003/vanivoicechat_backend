@@ -805,14 +805,14 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
     });
 
     Route::controller(GameController::class)->group(function () {
-        Route::get('games', 'index')->name('game')->middleware('isAllow:142,can_view');
-        Route::get('games/add', 'add')->name('game.add')->middleware('isAllow:142,can_add');
-        Route::post('games/add', 'save')->name('game.add')->middleware('isAllow:142,can_add');
-        Route::get('games/{id}', 'edit')->name('game.edit')->middleware('isAllow:142,can_edit');
-        Route::post('games/{id}', 'update')->name('game.edit')->middleware('isAllow:142,can_edit');
-        Route::delete('games', 'delete')->name('game')->middleware('isAllow:142,can_delete');
-        Route::post('games-status', 'gameStatus')->name('game.status')->middleware('isAllow:142,can_delete');
-        Route::post('games-featured', 'gameFeatured')->name('game.featured')->middleware('isAllow:142,can_delete');
+        Route::get('games', 'index')->name('game')->middleware('isAllow:170,can_view');
+        Route::get('games/add', 'add')->name('game.add')->middleware('isAllow:170,can_add');
+        Route::post('games/add', 'save')->name('game.add')->middleware('isAllow:170,can_add');
+        Route::get('games/{id}', 'edit')->name('game.edit')->middleware('isAllow:170,can_edit');
+        Route::post('games/{id}', 'update')->name('game.edit')->middleware('isAllow:170,can_edit');
+        Route::delete('games', 'delete')->name('game')->middleware('isAllow:170,can_delete');
+        Route::post('games-status', 'gameStatus')->name('game.status')->middleware('isAllow:170,can_delete');
+        Route::post('games-featured', 'gameFeatured')->name('game.featured')->middleware('isAllow:170,can_delete');
     });
 
     // ----------------------- Feed Back Routes ----------------------------------------------------

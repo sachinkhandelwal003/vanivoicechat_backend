@@ -12,7 +12,7 @@
 
                 <div class="col-auto ms-auto d-flex gap-2">
 
-                    @if (Helper::userCan(142, 'can_add'))
+                    @if (Helper::userCan(170, 'can_add'))
                         <a href="{{ route('game.add') }}" class="btn btn-outline-secondary">
                             <i class="fa fa-plus me-1"></i> Add Game
                         </a>

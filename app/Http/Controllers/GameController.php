@@ -129,7 +129,7 @@ class GameController extends Controller
                             <div class="dropdown-menu">
                     ';
 
-                    if (Helper::userCan(142, 'can_edit')) {
+                    if (Helper::userCan(170, 'can_edit')) {
 
                         $btn .= '
                             <a class="dropdown-item"
@@ -142,7 +142,7 @@ class GameController extends Controller
                         ';
                     }
 
-                    if (Helper::userCan(142, 'can_delete')) {
+                    if (Helper::userCan(170, 'can_delete')) {
 
                         $btn .= '
                             <button
@@ -184,12 +184,6 @@ class GameController extends Controller
     {
         return view('games.add');
     }
-
-    /*
-|--------------------------------------------------------------------------
-| Save Game
-|--------------------------------------------------------------------------
-*/
 
     public function save(Request $request): RedirectResponse
     {
