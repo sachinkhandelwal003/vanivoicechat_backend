@@ -1707,7 +1707,7 @@ class RoomController extends Controller
                 $activePlayer->update([
                     'status' => 'stopped',
                     'is_active' => false,
-                    'started_at' => null,
+                    // 'started_at' => null,
                 ]);
             }
 
