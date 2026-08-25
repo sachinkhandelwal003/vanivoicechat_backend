@@ -695,7 +695,7 @@ class RoomMusicController extends Controller
                 $existingUserActivePlayer->update([
                     'status' => 'stopped',
                     'is_active' => false,
-                    'started_at' => null,
+                    // 'started_at' => null,
                 ]);
             }
 
@@ -1179,7 +1179,7 @@ class RoomMusicController extends Controller
                     $musicState->update([
                         'status' => 'stopped',
                         'is_active' => false,
-                        'started_at' => null,
+                        // 'started_at' => null,
                         'agora_sequence' => $usedSequence + 1,
                     ]);
 
@@ -1205,7 +1205,7 @@ class RoomMusicController extends Controller
             $musicState->update([
                 'status' => 'paused',
                 'current_position_sec' => (int) $request->current_position_sec,
-                'started_at' => null,
+                // 'started_at' => null,
                 'agora_sequence' => $usedSequence + 1,
             ]);
 
@@ -1226,7 +1226,7 @@ class RoomMusicController extends Controller
                     'agora_sequence' => $musicState->agora_sequence,
                     'status' => $musicState->status,
                     'current_position_sec' => $musicState->current_position_sec,
-                    'started_at' => null,
+                    'started_at' => $musicState->started_at,
                     'last_action_by' => $user->id,
                     'is_music_active' => $musicState->is_active,
                 ]
@@ -1445,7 +1445,7 @@ class RoomMusicController extends Controller
                     $musicState->update([
                         'status' => 'stopped',
                         'is_active' => false,
-                        'started_at' => null,
+                        // 'started_at' => null,
                         'agora_sequence' => $nextSequence,
                     ]);
 
@@ -1806,7 +1806,7 @@ class RoomMusicController extends Controller
                     $musicState->update([
                         'status' => 'stopped',
                         'is_active' => false,
-                        'started_at' => null,
+                        // 'started_at' => null,
                         'agora_sequence' => $nextSequence,
                     ]);
 
@@ -1848,17 +1848,27 @@ class RoomMusicController extends Controller
                 ], 500);
             }
 
+            // $updateData = [
+            //     'current_position_sec' => $seekPosition,
+            //     'agora_sequence' => $nextSequence,
+            // ];
+
+            // if ($musicState->status === 'playing') {
+            //     $updateData['started_at'] = now();
+            //     $updateData['is_active'] = true;
+            // } else {
+            //     $updateData['started_at'] = null;
+            //     $updateData['is_active'] = true;
+            // }
+
             $updateData = [
                 'current_position_sec' => $seekPosition,
                 'agora_sequence' => $nextSequence,
+                'is_active' => true,
             ];
 
             if ($musicState->status === 'playing') {
                 $updateData['started_at'] = now();
-                $updateData['is_active'] = true;
-            } else {
-                $updateData['started_at'] = null;
-                $updateData['is_active'] = true;
             }
 
             $musicState->update($updateData);
@@ -2170,7 +2180,7 @@ class RoomMusicController extends Controller
                     $musicState->update([
                         'status' => 'stopped',
                         'is_active' => false,
-                        'started_at' => null,
+                        // 'started_at' => null,
                         'agora_sequence' => $nextSequence,
                     ]);
 
@@ -2567,7 +2577,7 @@ class RoomMusicController extends Controller
                 $activePlayer->update([
                     'status' => 'stopped',
                     'is_active' => false,
-                    'started_at' => null,
+                    // 'started_at' => null,
                 ]);
 
                 $deletedActivePlayerIds[] = $activePlayer->id;
@@ -2763,7 +2773,7 @@ class RoomMusicController extends Controller
                 $musicState->update([
                     'status' => 'stopped',
                     'is_active' => false,
-                    'started_at' => null,
+                    // 'started_at' => null,
                 ]);
                 return;
             }
@@ -2774,7 +2784,7 @@ class RoomMusicController extends Controller
             $musicState->update([
                 'status' => 'stopped',
                 'is_active' => false,
-                'started_at' => null,
+                // 'started_at' => null,
             ]);
 
             // loop on => same song again
