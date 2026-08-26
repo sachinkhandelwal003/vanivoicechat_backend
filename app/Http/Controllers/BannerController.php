@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Banner;
 use App\Models\Country;
+use App\Models\Room;
 use App\Helper\Helper;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
@@ -162,6 +163,23 @@ class BannerController extends Controller
                 }
             }
 
+            $roomId = null;
+
+            if (
+                $request->jump_type === 'app' &&
+                $request->type_address_app === 'room'
+            ) {
+                $room = Room::where('room_id', $request->roomId)->first();
+
+                if (!$room) {
+                    return redirect()->back()
+                        ->with('error', 'Room not found')
+                        ->withInput();
+                }
+
+                $roomId = $room->id;
+            }
+
             Banner::create([
                 'large_banner'     => $largeBanner,
                 'small_banner'     => $smallBanner,
@@ -169,7 +187,7 @@ class BannerController extends Controller
                 'address'          => $typeAddress,
                 'type_address_app' => $request->type_address_app,
                 'uid'              => $request->uid,
-                'room_id'          => $request->roomId,
+                'room_id'          => $roomId,
                 'display'          => $request->display_space,
                 'start_time'       => $request->start_time,
                 'end_time'         => $request->end_time,
