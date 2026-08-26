@@ -4185,9 +4185,25 @@ class RoomController extends Controller
                 }
             }
 
-            $wealthLevel = $user?->wcLevels?->where('type', 'wealth')->first();
+            $wealthLevel = WCLevel::with([
+                'levelData' => function ($q) {
+                    $q->where('type', 'wealth');
+                }
+            ])
+                ->where('user_id', $userId)
+                ->where('type', 'wealth')
+                ->first();
 
-            $charmLevel = $user?->wcLevels?->where('type', 'charm')->first();
+
+
+            $charmLevel = WCLevel::with([
+                'levelData' => function ($q) {
+                    $q->where('type', 'charm');
+                }
+            ])
+                ->where('user_id', $userId)
+                ->where('type', 'charm')
+                ->first();
 
 
             $medals = $user?->userMedals
