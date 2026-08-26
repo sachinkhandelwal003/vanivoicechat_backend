@@ -84,8 +84,8 @@ class HomeController extends Controller
                     $room = Room::find($item->room_id);
 
                     if ($room) {
-                        $roomNumber = (int) $room->room_id;
-                        $redirectAddress = "app://enterRoom?roomId={$room->room_id}";
+                        $roomNumber = (int) $room->id;
+                        $redirectAddress = "app://enterRoom?roomId={$room->id}";
                     }
                 }
             }
