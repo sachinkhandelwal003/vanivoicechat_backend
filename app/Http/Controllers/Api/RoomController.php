@@ -2021,37 +2021,21 @@ class RoomController extends Controller
                         'voice' => null,
                     ];
 
-                $wealthLevel = $user->wcLevels
-                    ->where('type', 'wealth')
+                $wealthLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'wealth')
                     ->first();
 
-                $wealthIcon = null;
+                $wealthIcon = $wealthLevel && $wealthLevel->levelData->first()
+                    ? Helper::showImage($wealthLevel->levelData->first()->icon, true)
+                    : null;
 
-                if ($wealthLevel) {
-                    $wealthData = $wealthLevel->levelData
-                        ->where('type', 'wealth')
-                        ->first();
-
-                    $wealthIcon = $wealthData
-                        ? Helper::showImage($wealthData->icon, true)
-                        : null;
-                }
-
-                $charmLevel = $user->wcLevels
-                    ->where('type', 'charm')
+                $charmLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'charm')
                     ->first();
 
-                $charmIcon = null;
-
-                if ($charmLevel) {
-                    $charmData = $charmLevel->levelData
-                        ->where('type', 'charm')
-                        ->first();
-
-                    $charmIcon = $charmData
-                        ? Helper::showImage($charmData->icon, true)
-                        : null;
-                }
+                $charmIcon = $charmLevel && $charmLevel->levelData->first()
+                    ? Helper::showImage($charmLevel->levelData->first()->icon, true)
+                    : null;
 
 
                 $medals = $seat?->user?->userMedals
