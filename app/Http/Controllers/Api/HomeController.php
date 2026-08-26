@@ -21,6 +21,7 @@ use App\Models\StoreUids;
 use App\Models\PremiumNumber;
 use App\Models\VipTransaction;
 use App\Models\SvipTransaction;
+use App\Models\Country;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -32,35 +33,41 @@ use App\Events\BroadcastMessageSent;
 
 class HomeController extends Controller
 {
-
     public function banner()
     {
         $user = Auth::user();
-        $timezone = $user->timezone ?? 'UTC';
 
-        $timezoneMap = [
-            'IST' => 'Asia/Kolkata',
-            'UTC' => 'UTC',
-        ];
-        $timezone = $timezoneMap[$timezone] ?? $timezone;
+        $country = Country::where('name', $user->country)->first();
+        $timezone = $country->timezone ?? 'UTC';
 
         try {
             $nowUtc = Carbon::now($timezone)->setTimezone('UTC');
         } catch (\Exception $e) {
             $nowUtc = Carbon::now('UTC');
         }
-        $banners = Banner::with('country')->where(function ($q) use ($nowUtc) {
-            $q->whereNull('start_time')
-                ->orWhere('start_time', '<=', $nowUtc);
-        })
+
+        $banners = Banner::with('country')
+            ->where(function ($q) use ($nowUtc) {
+                $q->whereNull('start_time')
+                    ->orWhere('start_time', '<=', $nowUtc);
+            })
             ->where(function ($q) use ($nowUtc) {
                 $q->whereNull('end_time')
                     ->orWhere('end_time', '>=', $nowUtc);
             })
+            ->where(function ($q) use ($country) {
+                $q->whereNull('region');
+
+                if ($country) {
+                    $q->orWhere('region', $country->id);
+                }
+            })
             ->get();
 
         $bannerData = $banners->map(function ($item) {
+
             $redirectAddress = null;
+            $roomNumber = null;
 
             if ($item->jump === 'h5') {
                 $redirectAddress = $item->address;
@@ -73,23 +80,30 @@ class HomeController extends Controller
                 }
 
                 if ($item->type_address_app === 'room' && !empty($item->room_id)) {
-                    $redirectAddress = "app://enterRoom?roomId={$item->room_id}";
+
+                    $room = Room::find($item->room_id);
+
+                    if ($room) {
+                        $roomNumber = (int) $room->room_id;
+                        $redirectAddress = "app://enterRoom?roomId={$room->room_id}";
+                    }
                 }
             }
+
             return [
-                'large_banner'     => Helper::showImage($item->large_banner, true),
-                'small_banner'   => Helper::showImage($item->small_banner, true),
-                'jump'   => $item->jump,
-                'redirect_address' => $redirectAddress,
-                'type_address_app'   => $item->type_address_app,
-                'uid'   => $item->uid,
-                'room_id'   => $item->room_id,
-                'display'   => $item->display,
-                'start_time'   => $item->start_time,
-                'end_time'   => $item->end_time,
-                'region_id' => $item->region,
-                'region_name' => optional($item->country)->name,
-                'description'   => $item->description,
+                'large_banner'      => Helper::showImage($item->large_banner, true),
+                'small_banner'      => Helper::showImage($item->small_banner, true),
+                'jump'              => $item->jump,
+                'redirect_address'  => $redirectAddress,
+                'type_address_app'  => $item->type_address_app,
+                'uid'               => $item->uid ? (int) $item->uid : null,
+                'room_id'           => $roomNumber,
+                'display'           => $item->display,
+                'start_time'        => $item->start_time,
+                'end_time'          => $item->end_time,
+                'region_id'         => $item->region,
+                'region_name'       => optional($item->country)->name,
+                'description'       => $item->description,
             ];
         });
 
@@ -99,7 +113,6 @@ class HomeController extends Controller
             'data' => $bannerData
         ], 200);
     }
-
 
     public function topCharms(Request $request)
     {
