@@ -17,6 +17,6 @@ class WCLevel extends Model
 
     public function levelData()
     {
-        return $this->hasMany(Level::class, 'level', 'level');
+        return $this->belongsTo( Level::class, 'level', 'level');
     }
 }

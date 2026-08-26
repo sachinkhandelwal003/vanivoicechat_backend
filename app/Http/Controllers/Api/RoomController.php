@@ -248,37 +248,13 @@ class RoomController extends Controller
                         'data_cards' => null,
                     ];
 
-                $wealthLevel = $user->wcLevels
-                    ->where('type', 'wealth')
+                $wealthLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'wealth')
                     ->first();
 
-                $wealthIcon = null;
-
-                if ($wealthLevel) {
-                    $wealthData = $wealthLevel->levelData
-                        ->where('type', 'wealth')
-                        ->first();
-
-                    $wealthIcon = $wealthData
-                        ? Helper::showImage($wealthData->icon, true)
-                        : null;
-                }
-
-                $charmLevel = $user->wcLevels
-                    ->where('type', 'charm')
+                $charmLevel = $seat?->user?->wcLevels
+                    ?->where('type', 'charm')
                     ->first();
-
-                $charmIcon = null;
-
-                if ($charmLevel) {
-                    $charmData = $charmLevel->levelData
-                        ->where('type', 'charm')
-                        ->first();
-
-                    $charmIcon = $charmData
-                        ? Helper::showImage($charmData->icon, true)
-                        : null;
-                }
 
 
                 $medals = $seat?->user?->userMedals
@@ -400,12 +376,22 @@ class RoomController extends Controller
 
                     'wealth_level' => [
                         'level' => $wealthLevel?->level ?? 1,
-                        'icon'  => $wealthIcon,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $wealthLevel->levelData->icon,
+                                true
+                            )
+                            : null
                     ],
 
                     'charm_level' => [
                         'level' => $charmLevel?->level ?? 1,
-                        'icon'  => $charmIcon,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $charmLevel->levelData->icon,
+                                true
+                            )
+                            : null
                     ],
 
                     'medals' => $medals,
@@ -1249,7 +1235,6 @@ class RoomController extends Controller
         $presences = RoomPresence::with([
             'user:id,name,image,country,gender,active_car_id,active_frame_id,active_chat_bubble_id,active_theme_id,active_uid_id,active_voice_id,active_entry_id,active_card_id,active_entry_type,active_entry_tag_type,active_frame_type,active_chat_bubble_type,active_voice_type,active_profile_card_type',
             'user.countryData:id,name,iso',
-            'user.wcLevels:user_id,type,level',
             'user.wcLevels.levelData',
             'user.userMedals.medal'
         ])
@@ -1276,21 +1261,14 @@ class RoomController extends Controller
                 : ($roles[$presence->user_id] ?? 'guest');
 
 
-            $wealthLevel = $presenceUser->wcLevels
-                ->where('type', 'wealth')
+            $wealthLevel = $presenceUser?->wcLevels
+                ?->where('type', 'wealth')
                 ->first();
 
-            $wealthIcon = $wealthLevel && $wealthLevel->levelData->first()
-                ? Helper::showImage($wealthLevel->levelData->first()->icon, true)
-                : null;
-
-            $charmLevel = $presenceUser->wcLevels
-                ->where('type', 'charm')
+            $charmLevel = $presenceUser?->wcLevels
+                ?->where('type', 'charm')
                 ->first();
 
-            $charmIcon = $charmLevel && $charmLevel->levelData->first()
-                ? Helper::showImage($charmLevel->levelData->first()->icon, true)
-                : null;
 
             $medals = $presenceUser?->userMedals
                 ?->where('is_equipped', 1)
@@ -1338,12 +1316,16 @@ class RoomController extends Controller
 
                 'wealth_level' => [
                     'level' => $wealthLevel?->level ?? 1,
-                    'icon'  => $wealthIcon,
+                    'icon' => $wealthLevel?->levelData?->icon
+                        ? Helper::showImage($wealthLevel->levelData->icon, true)
+                        : null
                 ],
 
                 'charm_level' => [
                     'level' => $charmLevel?->level ?? 1,
-                    'icon'  => $charmIcon,
+                    'icon' => $charmLevel?->levelData?->icon
+                        ? Helper::showImage($charmLevel->levelData->icon, true)
+                        : null
                 ],
 
                 'medals' => $medals,
@@ -2025,17 +2007,9 @@ class RoomController extends Controller
                     ?->where('type', 'wealth')
                     ->first();
 
-                $wealthIcon = $wealthLevel && $wealthLevel->levelData->first()
-                    ? Helper::showImage($wealthLevel->levelData->first()->icon, true)
-                    : null;
-
                 $charmLevel = $seat?->user?->wcLevels
                     ?->where('type', 'charm')
                     ->first();
-
-                $charmIcon = $charmLevel && $charmLevel->levelData->first()
-                    ? Helper::showImage($charmLevel->levelData->first()->icon, true)
-                    : null;
 
 
                 $medals = $seat?->user?->userMedals
@@ -2161,12 +2135,22 @@ class RoomController extends Controller
 
                     'wealth_level' => [
                         'level' => $wealthLevel?->level ?? 1,
-                        'icon'  => $wealthIcon,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $wealthLevel->levelData->icon,
+                                true
+                            )
+                            : null
                     ],
 
                     'charm_level' => [
                         'level' => $charmLevel?->level ?? 1,
-                        'icon'  => $charmIcon,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage(
+                                $charmLevel->levelData->icon,
+                                true
+                            )
+                            : null
                     ],
 
                     'medals' => $medals,
@@ -3587,35 +3571,26 @@ class RoomController extends Controller
                 }
             }
         }
-        $wcLevels = WCLevel::with('levelData')
+
+        $wealthLevel = WCLevel::with([
+            'levelData' => function ($q) {
+                $q->where('type', 'wealth');
+            }
+        ])
             ->where('user_id', $user->id)
-            ->get();
+            ->where('type', 'wealth')
+            ->first();
 
-        $wealthLevel = $wcLevels->where('type', 'wealth')->first();
-        $charmLevel  = $wcLevels->where('type', 'charm')->first();
+        // dd($wealthLevel->levelData);
 
-        $wealthIcon = null;
-        $charmIcon = null;
-
-        if ($wealthLevel) {
-            $wealthData = $wealthLevel->levelData
-                ->where('type', 'wealth')
-                ->first();
-
-            $wealthIcon = $wealthData
-                ? Helper::showImage($wealthData->icon, true)
-                : null;
-        }
-
-        if ($charmLevel) {
-            $charmData = $charmLevel->levelData
-                ->where('type', 'charm')
-                ->first();
-
-            $charmIcon = $charmData
-                ? Helper::showImage($charmData->icon, true)
-                : null;
-        }
+        $charmLevel = WCLevel::with([
+            'levelData' => function ($q) {
+                $q->where('type', 'charm');
+            }
+        ])
+            ->where('user_id', $user->id)
+            ->where('type', 'charm')
+            ->first();
 
 
 
@@ -3653,8 +3628,22 @@ class RoomController extends Controller
                 'effect' => $nicknameMeta['effect'] ?? null,
             ];
 
-        $roomMessage->user->wealth_icon = $wealthIcon;
-        $roomMessage->user->charm_icon  = $charmIcon;
+        $roomMessage->user->wealth_icon =
+            $wealthLevel?->levelData?->icon
+            ? Helper::showImage(
+                $wealthLevel->levelData->icon,
+                true
+            )
+            : null;
+
+
+        $roomMessage->user->charm_icon =
+            $charmLevel?->levelData?->icon
+            ? Helper::showImage(
+                $charmLevel->levelData->icon,
+                true
+            )
+            : null;
 
 
         $roomMessage->user->medals =
@@ -4196,25 +4185,9 @@ class RoomController extends Controller
                 }
             }
 
-            $wealthLevel = WCLevel::with([
-                'levelData' => function ($q) {
-                    $q->where('type', 'wealth');
-                }
-            ])
-                ->where('user_id', $userId)
-                ->where('type', 'wealth')
-                ->first();
+            $wealthLevel = $user?->wcLevels?->where('type', 'wealth')->first();
 
-
-
-            $charmLevel = WCLevel::with([
-                'levelData' => function ($q) {
-                    $q->where('type', 'charm');
-                }
-            ])
-                ->where('user_id', $userId)
-                ->where('type', 'charm')
-                ->first();
+            $charmLevel = $user?->wcLevels?->where('type', 'charm')->first();
 
 
             $medals = $user?->userMedals
@@ -5380,35 +5353,22 @@ class RoomController extends Controller
 
                 if ($message->user) {
 
-                    $wcLevels = WCLevel::with('levelData')
+                    $wealthLevel = WCLevel::with([
+                        'levelData' => fn($q) =>
+                        $q->where('type', 'wealth')
+                    ])
                         ->where('user_id', $message->user->id)
-                        ->get();
+                        ->where('type', 'wealth')
+                        ->first();
 
-                    $wealthLevel = $wcLevels->where('type', 'wealth')->first();
-                    $charmLevel  = $wcLevels->where('type', 'charm')->first();
 
-                    $wealthIcon = null;
-                    $charmIcon  = null;
-
-                    if ($wealthLevel) {
-                        $wealthData = $wealthLevel->levelData
-                            ->where('type', 'wealth')
-                            ->first();
-
-                        $wealthIcon = $wealthData
-                            ? Helper::showImage($wealthData->icon, true)
-                            : null;
-                    }
-
-                    if ($charmLevel) {
-                        $charmData = $charmLevel->levelData
-                            ->where('type', 'charm')
-                            ->first();
-
-                        $charmIcon = $charmData
-                            ? Helper::showImage($charmData->icon, true)
-                            : null;
-                    }
+                    $charmLevel = WCLevel::with([
+                        'levelData' => fn($q) =>
+                        $q->where('type', 'charm')
+                    ])
+                        ->where('user_id', $message->user->id)
+                        ->where('type', 'charm')
+                        ->first();
 
 
                     $equippedMedals = UserMedal::with('medal')
@@ -5450,12 +5410,17 @@ class RoomController extends Controller
 
                     'wealth_level' => [
                         'level' => $wealthLevel?->level ?? 1,
-                        'icon'  => $wealthIcon,
+                        'icon' => $wealthLevel?->levelData?->icon
+                            ? Helper::showImage($wealthLevel->levelData->icon, true)
+                            : null
                     ],
+
 
                     'charm_level' => [
                         'level' => $charmLevel?->level ?? 1,
-                        'icon'  => $charmIcon,
+                        'icon' => $charmLevel?->levelData?->icon
+                            ? Helper::showImage($charmLevel->levelData->icon, true)
+                            : null
                     ],
 
 
