@@ -1276,37 +1276,21 @@ class RoomController extends Controller
                 : ($roles[$presence->user_id] ?? 'guest');
 
 
-            $wealthLevel = $presenceUser?->wcLevels
+            $wealthLevel = $presenceUser->wcLevels
                 ->where('type', 'wealth')
                 ->first();
 
-            $wealthIcon = null;
+            $wealthIcon = $wealthLevel && $wealthLevel->levelData->first()
+                ? Helper::showImage($wealthLevel->levelData->first()->icon, true)
+                : null;
 
-            if ($wealthLevel) {
-                $wealthData = $wealthLevel->levelData
-                    ->where('type', 'wealth')
-                    ->first();
-
-                $wealthIcon = $wealthData
-                    ? Helper::showImage($wealthData->icon, true)
-                    : null;
-            }
-
-            $charmLevel = $presenceUser?->wcLevels
+            $charmLevel = $presenceUser->wcLevels
                 ->where('type', 'charm')
                 ->first();
 
-            $charmIcon = null;
-
-            if ($charmLevel) {
-                $charmData = $charmLevel->levelData
-                    ->where('type', 'charm')
-                    ->first();
-
-                $charmIcon = $charmData
-                    ? Helper::showImage($charmData->icon, true)
-                    : null;
-            }
+            $charmIcon = $charmLevel && $charmLevel->levelData->first()
+                ? Helper::showImage($charmLevel->levelData->first()->icon, true)
+                : null;
 
             $medals = $presenceUser?->userMedals
                 ?->where('is_equipped', 1)
