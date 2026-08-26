@@ -646,119 +646,6 @@ class StoreController extends Controller
         }
     }
 
-    // public function myItems($type)
-    // {
-    //     $user = Auth::user();
-    //     $type = strtolower(trim($type));
-
-    //     $modelMap = [
-    //         'theme' => Theme::class,
-    //         'entry' => Cars::class,
-    //         'frame' => Frame::class,
-    //         'entry_tag' => EntryTag::class,
-    //         'voice' => Voice::class,
-    //         'profile_card' => DataCard::class,
-    //         'chat_bubble' => ChatBubble::class,
-    //         'id' => StoreUids::class,
-    //     ];
-
-    //     $activeColumnMap = [
-    //         'theme' => 'active_theme_id',
-    //         'entry' => 'active_car_id',
-    //         'frame' => 'active_frame_id',
-    //         'entry_tag' => 'active_entry_id',
-    //         'voice' => 'active_voice_id',
-    //         'profile_card' => 'active_card_id',
-    //         'chat_bubble' => 'active_chat_bubble_id',
-    //         'id' => 'active_uid_id',
-    //     ];
-
-    //     if (!isset($modelMap[$type])) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Invalid type'
-    //         ]);
-    //     }
-
-    //     // BUY ITEMS (valid time range only)
-    //     $deliveryIds = DB::table('item_deliveries')
-    //         ->where('recipient', $user->id)
-    //         ->where('type', $type)
-    //         ->where(function ($q) {
-    //             $q->whereNull('start_at')
-    //                 ->orWhere('start_at', '<=', now());
-    //         })
-    //         ->where(function ($q) {
-    //             $q->whereNull('end_at')
-    //                 ->orWhere('end_at', '>', now());
-    //         })
-    //         ->pluck('item_id')
-    //         ->toArray();
-
-    //     // GIFT ITEMS (valid time range only)
-    //     $giftIds = DB::table('item_gift_transactions')
-    //         ->where('receiver_id', $user->id)
-    //         ->where('type', $type)
-    //         ->where(function ($q) {
-    //             $q->whereNull('start_at')
-    //                 ->orWhere('start_at', '<=', now());
-    //         })
-    //         ->where(function ($q) {
-    //             $q->whereNull('end_at')
-    //                 ->orWhere('end_at', '>', now());
-    //         })
-    //         ->pluck('item_id')
-    //         ->toArray();
-
-    //     $ids = collect(array_merge($deliveryIds, $giftIds))
-    //         ->unique()
-    //         ->values()
-    //         ->toArray();
-
-    //     // CUSTOM THEMES
-    //     if ($type === 'theme') {
-    //         $customThemeIds = Theme::where('user_id', $user->id)
-    //             ->where('status', 1)
-    //             ->pluck('id')
-    //             ->toArray();
-
-    //         $ids = collect(array_merge($ids, $customThemeIds))
-    //             ->unique()
-    //             ->values()
-    //             ->toArray();
-    //     }
-
-    //     $items = $modelMap[$type]::whereIn('id', $ids)
-    //         ->where('status', 1)
-    //         ->get();
-
-    //     $activeId = $user->{$activeColumnMap[$type]} ?? null;
-
-    //     foreach ($items as $item) {
-    //         if (isset($item->icon)) {
-    //             $item->icon = Helper::showImage($item->icon, true);
-    //         }
-
-    //         if (isset($item->gif) && !empty($item->gif)) {
-    //             $item->gif = Helper::showImage($item->gif, true);
-    //         }
-
-    //         if (isset($item->badge) && !empty($item->badge)) {
-    //             $item->badge = Helper::showImage($item->badge, true);
-    //         }
-
-    //         $item->in_use = ((int) $item->id === (int) $activeId);
-    //     }
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'user_id' => $user->id,
-    //         'type' => $type,
-    //         'ids' => $ids,
-    //         'data' => $items
-    //     ]);
-    // }
-
 
     public function myItems($type)
     {
@@ -837,12 +724,6 @@ class StoreController extends Controller
             ->pluck('item_id')
             ->toArray();
 
-        // $treasuryIds = DB::table('treasure_level_claims')
-        //     ->where('user_id', $user->id)
-        //     ->where('reward_type', $type)
-        //     ->pluck('reward_item_id')
-        //     ->toArray();
-
         $ids = collect(array_merge(
             $deliveryIds,
             $giftIds,
@@ -874,15 +755,6 @@ class StoreController extends Controller
             ->with('vip')
             ->get();
         //  dd($vips);
-
-        // $treasuryVipIds = DB::table('treasure_level_claims')
-        //     ->where('user_id', $user->id)
-        //     ->where('reward_type', 'vip')
-        //     ->pluck('reward_item_id')
-        //     ->unique()
-        //     ->toArray();
-
-        // $treasuryVips = Vip::whereIn('id', $treasuryVipIds)->get();
 
         $svips = SvipTransaction::where('user_id', $user->id)
             ->where('end_at', '>', now())
@@ -1000,88 +872,6 @@ class StoreController extends Controller
             }
         }
 
-        // foreach ($treasuryVips as $vip) {
-
-        //     if ($type === 'frame' && !empty($vip->image_frame)) {
-
-        //         $items->push((object)[
-        //             'id' => $vip->id,
-        //             'name' => $vip->name,
-        //             'validity' => [(string)$vip->days],
-        //             'icon' => asset('storage/' . $vip->image_frame),
-
-        //             'gif' => !empty($vip->image_frame_animation)
-        //                 ? asset('storage/' . $vip->image_frame_animation)
-        //                 : null,
-        //             'status' => 1,
-        //             'is_vip' => true,
-        //         ]);
-        //     }
-
-        //     // ENTRY TAG TAB
-        //     if ($type === 'entry_tag' && !empty($vip->entry_tag)) {
-
-        //         $items->push((object)[
-        //             'id' => $vip->id,
-        //             'name' => $vip->name,
-        //             'validity' => [(string)$vip->days],
-        //             'icon' => asset('storage/' . $vip->entry_tag),
-        //             'gif' => !empty($vip->entry_tag_animation)
-        //                 ? asset('storage/' . $vip->entry_tag_animation)
-        //                 : null,
-        //             'status' => 1,
-        //             'is_vip' => true,
-        //         ]);
-        //     }
-
-        //     // VOICE TAB
-        //     if ($type === 'entry' && !empty($vip->voice_frame)) {
-
-        //         $items->push((object)[
-        //             'id' => $vip->id,
-        //             'name' => $vip->name,
-        //             'validity' => [(string)$vip->days],
-        //             'icon' => asset('storage/' . $vip->voice_frame),
-        //             'gif' => !empty($vip->voice_animation)
-        //                 ? asset('storage/' . $vip->voice_animation)
-        //                 : null,
-        //             'status' => 1,
-        //             'is_vip' => true,
-        //         ]);
-        //     }
-
-        //     // PROFILE CARD TAB
-        //     if ($type === 'profile_card' && !empty($vip->profile_frame)) {
-
-        //         $items->push((object)[
-        //             'id' => $vip->id,
-        //             'name' => $vip->name,
-        //             'validity' => [(string)$vip->days],
-        //             'icon' => asset('storage/' . $vip->profile_frame),
-        //             'gif' => !empty($vip->profile_frame_animation)
-        //                 ? asset('storage/' . $vip->profile_frame_animation)
-        //                 : null,
-        //             'status' => 1,
-        //             'is_vip' => true,
-        //         ]);
-        //     }
-
-        //     // CHAT BUBBLE TAB
-        //     if ($type === 'chat_bubble' && !empty($vip->chat_card)) {
-
-        //         $items->push((object)[
-        //             'id' => $vip->id,
-        //             'name' => $vip->name,
-        //             'validity' => [(string)$vip->days],
-        //             'icon' => asset('storage/' . $vip->chat_card),
-        //             'status' => 1,
-        //             'is_vip' => true,
-        //         ]);
-        //     }
-        // }
-
-
-
         foreach ($svips as $svipTransaction) {
 
             if (!$svipTransaction->svip) {
@@ -1184,30 +974,6 @@ class StoreController extends Controller
             }
         }
 
-        // foreach ($relations as $relation) {
-
-        //     if (!$relation->relationshipItem) {
-        //         continue;
-        //     }
-
-        //     $item = $relation->relationshipItem;
-
-        //     if (
-        //         $type === 'frame' &&
-        //         !empty($item->frame)
-        //     ) {
-
-        //         $items->push((object)[
-        //             'id' => $item->id,
-        //             'name' => $item->name,
-        //             'icon' => asset('storage/' . $item->frame),
-        //             'status' => 1,
-        //             'is_cp' => true,
-        //             'relation_type' => $item->type,
-        //         ]);
-        //     }
-        // }
-
         foreach ($relations as $relation) {
 
             $cp = $relation->relationshipItem;
@@ -1234,8 +1000,14 @@ class StoreController extends Controller
             'voice' => 'active_voice_type',
         ];
 
-        $activeType = $activeTypeColumnMap[$type]
-            ? $user->{$activeTypeColumnMap[$type]} ?? 'store'
+        // $activeType = $activeTypeColumnMap[$type]
+        //     ? $user->{$activeTypeColumnMap[$type]} ?? 'store'
+        //     : 'store';
+
+        $activeTypeColumn = $activeTypeColumnMap[$type] ?? null;
+
+        $activeType = $activeTypeColumn
+            ? ($user->{$activeTypeColumn} ?? 'store')
             : 'store';
 
         foreach ($items as $item) {
@@ -1310,122 +1082,6 @@ class StoreController extends Controller
         ]);
     }
 
-    // public function useMyItem(Request $request)
-    // {
-    //     $validator = \Validator::make($request->all(), [
-    //         'type' => 'required|string',
-    //         'item_id' => 'nullable|integer',
-    //         'action' => 'nullable|in:apply,remove'
-    //     ]);
-
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => $validator->errors()
-    //         ], 422);
-    //     }
-
-    //     $user = Auth::user();
-
-    //     $type = strtolower(trim($request->type));
-
-    //     $itemId = $request->item_id;
-
-    //     $action = strtolower($request->action ?? 'apply');
-
-    //     $columnMap = [
-    //         'theme' => 'active_theme_id',
-    //         'entry' => 'active_car_id',
-    //         'frame' => 'active_frame_id',
-    //         'entry_tag' => 'active_entry_id',
-    //         'voice' => 'active_voice_id',
-    //         'profile_card' => 'active_card_id',
-    //         'chat_bubble' => 'active_chat_bubble_id',
-    //         'id' => 'active_uid_id',
-    //     ];
-
-    //     if (!isset($columnMap[$type])) {
-
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Invalid type'
-    //         ], 422);
-    //     }
-
-    //     $column = $columnMap[$type];
-
-    //     //  REMOVE ITEM
-
-    //     if ($action === 'remove') {
-
-    //         $user->update([
-    //             $column => null
-    //         ]);
-
-    //         return response()->json([
-    //             'status' => true,
-    //             'message' => ucfirst($type) . ' removed successfully',
-    //             'data' => [
-    //                 'type' => $type,
-    //                 'item_id' => null,
-    //                 'action' => 'remove'
-    //             ]
-    //         ]);
-    //     }
-
-    //     // APPLY ITEM
-
-    //     if (!$itemId) {
-
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'item_id is required for apply action'
-    //         ], 422);
-    //     }
-
-    //     $existsInGift = DB::table('item_gift_transactions')
-    //         ->where('receiver_id', $user->id)
-    //         ->whereRaw('LOWER(type) = ?', [$type])
-    //         ->where('item_id', $itemId)
-    //         ->exists();
-
-    //     $existsInDelivery = DB::table('item_deliveries')
-    //         ->where('recipient', $user->id)
-    //         ->whereRaw('LOWER(type) = ?', [$type])
-    //         ->where('item_id', $itemId)
-    //         ->where(function ($q) {
-    //             $q->whereNull('end_at')
-    //                 ->orWhere('end_at', '>=', now());
-    //         })
-    //         ->exists();
-
-    //     $exists = $existsInGift || $existsInDelivery;
-
-    //     if (!$exists) {
-
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Item not owned or expired'
-    //         ], 403);
-    //     }
-
-    //     $user->update([
-    //         $column => $itemId
-    //     ]);
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'message' => ucfirst($type) . ' applied successfully',
-    //         'data' => [
-    //             'type' => $type,
-    //             'item_id' => $itemId,
-    //             'action' => 'apply'
-    //         ]
-    //     ]);
-    // }
-
-
-
     public function useMyItem(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1479,12 +1135,6 @@ class StoreController extends Controller
 
         $column = $columnMap[$type];
 
-        /*
-    |--------------------------------------------------------------------------
-    | REMOVE ITEM
-    |--------------------------------------------------------------------------
-    */
-
         if ($action === 'remove') {
 
             $updateData = [
@@ -1509,12 +1159,6 @@ class StoreController extends Controller
             ]);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | APPLY ITEM
-    |--------------------------------------------------------------------------
-    */
-
         if (!$itemId) {
 
             return response()->json([
@@ -1523,11 +1167,6 @@ class StoreController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | VIP ITEM
-    |--------------------------------------------------------------------------
-    */
 
         if ($source === 'vip') {
 
@@ -1566,12 +1205,6 @@ class StoreController extends Controller
             ]);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | SVIP ITEM
-    |--------------------------------------------------------------------------
-    */
-
         if ($source === 'svip') {
 
             $svipExists = SvipTransaction::where('user_id', $user->id)
@@ -1608,12 +1241,6 @@ class StoreController extends Controller
                 ]
             ]);
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | CP / RELATIONSHIP FRAME
-    |--------------------------------------------------------------------------
-    */
 
         if ($source === 'cp') {
 
@@ -1654,12 +1281,6 @@ class StoreController extends Controller
                 ]
             ]);
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | STORE ITEM
-    |--------------------------------------------------------------------------
-    */
 
         $existsInGift = DB::table('item_gift_transactions')
             ->where('receiver_id', $user->id)
