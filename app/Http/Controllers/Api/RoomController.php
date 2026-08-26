@@ -1249,6 +1249,7 @@ class RoomController extends Controller
         $presences = RoomPresence::with([
             'user:id,name,image,country,gender,active_car_id,active_frame_id,active_chat_bubble_id,active_theme_id,active_uid_id,active_voice_id,active_entry_id,active_card_id,active_entry_type,active_entry_tag_type,active_frame_type,active_chat_bubble_type,active_voice_type,active_profile_card_type',
             'user.countryData:id,name,iso',
+            'user.wcLevels:user_id,type,level',
             'user.wcLevels.levelData',
             'user.userMedals.medal'
         ])
@@ -1275,7 +1276,7 @@ class RoomController extends Controller
                 : ($roles[$presence->user_id] ?? 'guest');
 
 
-            $wealthLevel = $user->wcLevels
+            $wealthLevel = $presenceUser?->wcLevels
                 ->where('type', 'wealth')
                 ->first();
 
@@ -1291,7 +1292,7 @@ class RoomController extends Controller
                     : null;
             }
 
-            $charmLevel = $user->wcLevels
+            $charmLevel = $presenceUser?->wcLevels
                 ->where('type', 'charm')
                 ->first();
 
@@ -1306,7 +1307,6 @@ class RoomController extends Controller
                     ? Helper::showImage($charmData->icon, true)
                     : null;
             }
-
 
             $medals = $presenceUser?->userMedals
                 ?->where('is_equipped', 1)
