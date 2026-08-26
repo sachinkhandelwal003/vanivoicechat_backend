@@ -506,11 +506,90 @@ class HomeController extends Controller
                 'active_uid_id'         => 'id',
             ];
 
+            // foreach ($itemColumns as $column => $type) {
+
+            //     $itemId = $user->{$column};
+
+            //     if (!$itemId) {
+            //         continue;
+            //     }
+
+            //     $hasDelivery = DB::table('item_deliveries')
+            //         ->where('recipient', $user->id)
+            //         ->where('type', $type)
+            //         ->where('item_id', $itemId)
+            //         ->where(function ($q) {
+            //             $q->whereNull('end_at')
+            //                 ->orWhere('end_at', '>', now());
+            //         })
+            //         ->exists();
+
+            //     $hasGift = DB::table('item_gift_transactions')
+            //         ->where('receiver_id', $user->id)
+            //         ->where('type', $type)
+            //         ->where('item_id', $itemId)
+            //         ->where(function ($q) {
+            //             $q->whereNull('end_at')
+            //                 ->orWhere('end_at', '>', now());
+            //         })
+            //         ->exists();
+
+            //     // store/gift item expired
+            //     if (!$hasDelivery && !$hasGift) {
+
+            //         $updates[$column] = null;
+
+            //         switch ($column) {
+
+            //             case 'active_frame_id':
+            //                 $updates['active_frame_type'] = null;
+            //                 break;
+
+            //             case 'active_voice_id':
+            //                 $updates['active_voice_type'] = null;
+            //                 break;
+
+            //             case 'active_chat_bubble_id':
+            //                 $updates['active_chat_bubble_type'] = null;
+            //                 break;
+
+            //             case 'active_card_id':
+            //                 $updates['active_profile_card_type'] = null;
+            //                 break;
+
+            //             case 'active_car_id':
+            //                 $updates['active_entry_type'] = null;
+            //                 break;
+
+            //             case 'active_entry_id':
+            //                 $updates['active_entry_tag_type'] = null;
+            //                 break;
+            //         }
+            //     }
+            // }
+
             foreach ($itemColumns as $column => $type) {
 
                 $itemId = $user->{$column};
 
                 if (!$itemId) {
+                    continue;
+                }
+
+                // VIP/SVIP active item kabhi expire mat karo
+                $typeColumn = match ($column) {
+                    'active_frame_id'       => 'active_frame_type',
+                    'active_voice_id'       => 'active_voice_type',
+                    'active_chat_bubble_id' => 'active_chat_bubble_type',
+                    'active_card_id'        => 'active_profile_card_type',
+                    'active_car_id'         => 'active_entry_type',
+                    'active_entry_id'       => 'active_entry_tag_type',
+                    default                 => null,
+                };
+
+                $currentType = $typeColumn ? $user->{$typeColumn} : null;
+
+                if (in_array($currentType, ['vip', 'svip'])) {
                     continue;
                 }
 
@@ -534,13 +613,11 @@ class HomeController extends Controller
                     })
                     ->exists();
 
-                // store/gift item expired
                 if (!$hasDelivery && !$hasGift) {
 
                     $updates[$column] = null;
 
                     switch ($column) {
-
                         case 'active_frame_id':
                             $updates['active_frame_type'] = null;
                             break;
