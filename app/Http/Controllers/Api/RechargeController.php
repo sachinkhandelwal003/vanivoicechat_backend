@@ -984,17 +984,23 @@ class RechargeController extends Controller
     {
         $user = Auth::user();
 
-        // Merchant / Coin Seller History
+        // Recharge History
         $recharges = CoinRechargeHistory::with('seller:id,name,uid')
             ->where('user_id', $user->id)
             ->get()
-            ->map(function ($item) {
+            ->map(function ($item) use ($user) {
 
-                $title = $item->role === 'merchant'
-                    ? 'Merchant Recharge'
-                    : 'Seller Recharge';
-
-                $description = number_format($item->coin) . ' Coins added';
+                // Role wise title + description
+                if ($item->role === 'merchant') {
+                    $title = 'Merchant Recharge';
+                    $description = number_format($item->coin) . ' Coins added by a merchant';
+                } elseif ($item->role === 'coinseller') {
+                    $title = 'Seller Recharge';
+                    $description = number_format($item->coin) . ' Coins added by a coin seller';
+                } else {
+                    $title = 'Recharge';
+                    $description = number_format($item->coin) . ' Coins added';
+                }
 
                 return [
                     'id' => (int) $item->id,
@@ -1002,16 +1008,17 @@ class RechargeController extends Controller
                     'description' => $description,
                     'type' => 'credit',
                     'amount' => (int) $item->coin,
-                    'balance' => null,
+                    'balance' => (int) $user->total_points, // Current Balance
                     'from_name' => $item->seller->name ?? null,
                     'from_uid' => $item->seller->uid ?? null,
+                    'role' => $item->role,
                     'icon_type' => 'wallet',
                     'created_at' => $item->created_at,
                     'created_date' => $item->created_at->format('d M Y, h:i A'),
                 ];
             });
 
-        // Admin Recharge / Deduct History
+        // Admin History
         $adminTransactions = CoinSellerTransaction::where('receiver_id', $user->id)
             ->where('receiver_type', 'user')
             ->get()
@@ -1028,13 +1035,13 @@ class RechargeController extends Controller
                     'balance' => (int) $item->balance_after,
                     'from_name' => 'Admin',
                     'from_uid' => null,
+                    'role' => 'admin',
                     'icon_type' => 'wallet',
                     'created_at' => $item->created_at,
                     'created_date' => $item->created_at->format('d M Y, h:i A'),
                 ];
             });
 
-        // Merge + Sort
         $history = $recharges
             ->concat($adminTransactions)
             ->sortByDesc('created_at')
@@ -1050,6 +1057,7 @@ class RechargeController extends Controller
                     'balance' => $item['balance'],
                     'from_name' => $item['from_name'],
                     'from_uid' => $item['from_uid'],
+                    'role' => $item['role'],
                     'icon_type' => $item['icon_type'],
                     'created_at' => $item['created_date'],
                 ];
