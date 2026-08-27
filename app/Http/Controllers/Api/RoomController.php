@@ -4057,20 +4057,12 @@ class RoomController extends Controller
         $roles = RoomUserRole::where('room_id', $roomId)
             ->pluck('role', 'user_id');
 
-       $presenceData = RoomPresence::with([
-    'user:id,name,uid,image,gender,country,active_frame_id,active_uid_id,active_voice_id,active_card_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type',
-    'user.countryData:id,name,iso',
-
-    'user.wcLevels' => function ($q) {
-        $q->with([
-            'levelData' => function ($subQ) {
-                $subQ->whereColumn('wc_level_details.type', 'wc_levels.type');
-            }
-        ]);
-    },
-
-    'user.userMedals.medal'
-])
+        $presenceData = RoomPresence::with([
+            'user:id,name,uid,image,gender,country,active_frame_id,active_uid_id,active_voice_id,active_card_id,active_frame_type,active_voice_type,active_chat_bubble_type,active_profile_card_type',
+            'user.countryData:id,name,iso',
+            'user.wcLevels.levelData',
+            'user.userMedals.medal'
+        ])
             ->where('room_id', $roomId)
             ->orderBy('joined_at', 'desc')
             ->get();
@@ -4193,9 +4185,23 @@ class RoomController extends Controller
                 }
             }
 
-            $wealthLevel = $user?->wcLevels?->where('type', 'wealth')->first();
+            $wealthLevel = WCLevel::with([
+                'levelData' => function ($q) {
+                    $q->where('type', 'wealth');
+                }
+            ])
+                ->where('user_id', $userId)
+                ->where('type', 'wealth')
+                ->first();
 
-            $charmLevel = $user?->wcLevels?->where('type', 'charm')->first();
+            $charmLevel = WCLevel::with([
+                'levelData' => function ($q) {
+                    $q->where('type', 'charm');
+                }
+            ])
+                ->where('user_id', $userId)
+                ->where('type', 'charm')
+                ->first();
 
 
             $medals = $user?->userMedals
