@@ -979,4 +979,86 @@ class RechargeController extends Controller
             'data'    => $transactions,
         ]);
     }
+
+    public function coinsHistory(Request $request)
+    {
+        $user = Auth::user();
+
+        // Merchant / Coin Seller History
+        $recharges = CoinRechargeHistory::with('seller:id,name,uid')
+            ->where('user_id', $user->id)
+            ->get()
+            ->map(function ($item) {
+
+                $title = $item->role === 'merchant'
+                    ? 'Merchant Recharge'
+                    : 'Seller Recharge';
+
+                $description = number_format($item->coin) . ' Coins added';
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => $title,
+                    'description' => $description,
+                    'type' => 'credit',
+                    'amount' => (int) $item->coin,
+                    'balance' => null,
+                    'from_name' => $item->seller->name ?? null,
+                    'from_uid' => $item->seller->uid ?? null,
+                    'icon_type' => 'wallet',
+                    'created_at' => $item->created_at,
+                    'created_date' => $item->created_at->format('d M Y, h:i A'),
+                ];
+            });
+
+        // Admin Recharge / Deduct History
+        $adminTransactions = CoinSellerTransaction::where('receiver_id', $user->id)
+            ->where('receiver_type', 'user')
+            ->get()
+            ->map(function ($item) {
+
+                $isCredit = $item->transaction_type === 'recharge';
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => $isCredit ? 'Admin Recharge' : 'Admin Deduct',
+                    'description' => $item->remark,
+                    'type' => $isCredit ? 'credit' : 'deduct',
+                    'amount' => (int) $item->coins,
+                    'balance' => (int) $item->balance_after,
+                    'from_name' => 'Admin',
+                    'from_uid' => null,
+                    'icon_type' => 'wallet',
+                    'created_at' => $item->created_at,
+                    'created_date' => $item->created_at->format('d M Y, h:i A'),
+                ];
+            });
+
+        // Merge + Sort
+        $history = $recharges
+            ->concat($adminTransactions)
+            ->sortByDesc('created_at')
+            ->values()
+            ->map(function ($item) {
+
+                return [
+                    'id' => $item['id'],
+                    'title' => $item['title'],
+                    'description' => $item['description'],
+                    'type' => $item['type'],
+                    'amount' => $item['amount'],
+                    'balance' => $item['balance'],
+                    'from_name' => $item['from_name'],
+                    'from_uid' => $item['from_uid'],
+                    'icon_type' => $item['icon_type'],
+                    'created_at' => $item['created_date'],
+                ];
+            });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Coins history fetched successfully',
+            'data' => $history,
+        ]);
+    }
 }

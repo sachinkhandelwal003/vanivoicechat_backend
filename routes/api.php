@@ -421,6 +421,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('merchant/merchant-recharge-seller', [RechargeController::class, 'merchantRechargeSeller']);
     Route::get('merchant/merchant-history', [RechargeController::class, 'merchantHistory']);
     Route::get('/manual-money-history',[RechargeController::class, 'manualMoneyHistory']);
+    Route::get('/coins-history',[RechargeController::class, 'coinsHistory']);
 
     Route::post('buy-svip', [VipController::class, 'buySvip']);
     Route::get('svip-exp', [VipController::class, 'svipExp']);
