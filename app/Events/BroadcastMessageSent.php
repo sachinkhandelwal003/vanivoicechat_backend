@@ -13,7 +13,9 @@ class BroadcastMessageSent implements ShouldBroadcastNow
     protected $country;
     public function __construct($user, $message)
     {
-        $imageUrl = asset('storage/broadcast.png');
+        $imageUrl = asset('storage/1776759640_7915.svga');
+        $img_key = 'avator';
+        $text_key = 'name';
         $this->country = strtoupper($user->country);
         $this->data = [
             'id'      => $user->id,
@@ -21,6 +23,8 @@ class BroadcastMessageSent implements ShouldBroadcastNow
             'name'    => $user->name,
             'message' => $message,
             'image'   => $imageUrl,
+            'img_key'   => $img_key,
+            'text_key'   => $text_key,
         ];
     }
 
