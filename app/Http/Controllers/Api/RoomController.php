@@ -248,13 +248,28 @@ class RoomController extends Controller
                         'data_cards' => null,
                     ];
 
-                $wealthLevel = $seat?->user?->wcLevels
-                    ?->where('type', 'wealth')
-                    ->first();
+                $wealthLevel = null;
+                $charmLevel = null;
 
-                $charmLevel = $seat?->user?->wcLevels
-                    ?->where('type', 'charm')
-                    ->first();
+                if ($userId) {
+                    $wealthLevel = WCLevel::with([
+                        'levelData' => function ($q) {
+                            $q->where('type', 'wealth');
+                        }
+                    ])
+                        ->where('user_id', $userId)
+                        ->where('type', 'wealth')
+                        ->first();
+
+                    $charmLevel = WCLevel::with([
+                        'levelData' => function ($q) {
+                            $q->where('type', 'charm');
+                        }
+                    ])
+                        ->where('user_id', $userId)
+                        ->where('type', 'charm')
+                        ->first();
+                }
 
 
                 $medals = $seat?->user?->userMedals
@@ -1261,13 +1276,28 @@ class RoomController extends Controller
                 : ($roles[$presence->user_id] ?? 'guest');
 
 
-            $wealthLevel = $presenceUser?->wcLevels
-                ?->where('type', 'wealth')
-                ->first();
+            $wealthLevel = null;
+            $charmLevel = null;
 
-            $charmLevel = $presenceUser?->wcLevels
-                ?->where('type', 'charm')
-                ->first();
+            if ($presenceUser) {
+                $wealthLevel = WCLevel::with([
+                    'levelData' => function ($q) {
+                        $q->where('type', 'wealth');
+                    }
+                ])
+                    ->where('user_id', $presenceUser->id)
+                    ->where('type', 'wealth')
+                    ->first();
+
+                $charmLevel = WCLevel::with([
+                    'levelData' => function ($q) {
+                        $q->where('type', 'charm');
+                    }
+                ])
+                    ->where('user_id', $presenceUser->id)
+                    ->where('type', 'charm')
+                    ->first();
+            }
 
 
             $medals = $presenceUser?->userMedals
@@ -2003,13 +2033,29 @@ class RoomController extends Controller
                         'voice' => null,
                     ];
 
-                $wealthLevel = $seat?->user?->wcLevels
-                    ?->where('type', 'wealth')
-                    ->first();
+                $wealthLevel = null;
+                $charmLevel = null;
 
-                $charmLevel = $seat?->user?->wcLevels
-                    ?->where('type', 'charm')
-                    ->first();
+                if ($userId) {
+
+                    $wealthLevel = WCLevel::with([
+                        'levelData' => function ($q) {
+                            $q->where('type', 'wealth');
+                        }
+                    ])
+                        ->where('user_id', $userId)
+                        ->where('type', 'wealth')
+                        ->first();
+
+                    $charmLevel = WCLevel::with([
+                        'levelData' => function ($q) {
+                            $q->where('type', 'charm');
+                        }
+                    ])
+                        ->where('user_id', $userId)
+                        ->where('type', 'charm')
+                        ->first();
+                }
 
 
                 $medals = $seat?->user?->userMedals
