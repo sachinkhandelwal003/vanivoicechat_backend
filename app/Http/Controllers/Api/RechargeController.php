@@ -15,6 +15,7 @@ use App\Models\CoinSeller;
 use App\Models\CoinConversionRate;
 use App\Models\CoinSellerTransaction;
 use App\Models\Country;
+use App\Models\ManualMoneyTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -950,6 +951,32 @@ class RechargeController extends Controller
             'total_records' => $history->count(),
 
             'data' => $history,
+        ]);
+    }
+
+    public function manualMoneyHistory(Request $request)
+    {
+        $user = Auth::user();
+
+        $transactions = ManualMoneyTransaction::where('user_id', $user->id)
+            ->orderByDesc('id')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id'             => (int) $item->id,
+                    'type'           => $item->type, // credit / deduct
+                    'amount'         => (float) $item->amount,
+                    'before_balance' => (float) $item->before_balance,
+                    'after_balance'  => (float) $item->after_balance,
+                    'reason'         => $item->reason,
+                    'created_at'     => $item->created_at->format('Y-m-d H:i:s'),
+                ];
+            });
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Manual transaction history fetched successfully',
+            'data'    => $transactions,
         ]);
     }
 }
