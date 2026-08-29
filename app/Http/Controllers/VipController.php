@@ -8,7 +8,6 @@ use App\Models\Frame;
 use App\Models\Vip;
 use App\Models\VipPrivilege;
 use App\Models\VipTransaction;;
-
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
