@@ -231,6 +231,7 @@ class PropsController extends Controller
                     VipTransaction::create([
                         'user_id'  => $user->id,
                         'vip_id'   => $request->resource_id,
+                        'source'   => 'admin',
                         'start_at' => now(),
                         'end_at'   => now()->addDays($validDays),
                     ]);
