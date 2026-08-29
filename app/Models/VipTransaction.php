@@ -24,4 +24,9 @@ class VipTransaction extends Model
     {
         return $this->belongsTo(Vip::class, 'vip_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(AppUser::class, 'user_id');
+    }
 }
