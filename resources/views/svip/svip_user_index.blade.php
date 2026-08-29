@@ -48,6 +48,7 @@
 
 
 @section('js')
+    <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
     <script>
         $(function() {
 
