@@ -267,6 +267,9 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('svip-privilege/add/{id?}', 'privilegeForm')->name('svip-privilege')->middleware('isAllow:123,can_edit');
         Route::post('svip-privilege/add/{id?}', 'privilegeAdd')->name('svip-privilege.add')->middleware('isAllow:123,can_edit');
         Route::delete('svip-privilege/delete', 'privilegeDelete')->name('svip-privilege.delete')->middleware('isAllow:123,can_delete');
+
+        Route::get('/svip-users', 'svipUserIndex')->name('svip.users');
+        Route::delete('/svip-users/delete', 'deleteUserSvip')->name('svip.users.delete');
     });
 
     // -------------------------------- VIP Routes --------------------------------
@@ -284,6 +287,9 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('vip/privilege/edit/{id}', 'privilegeEdit')->name('privilege.edit')->middleware('isAllow:104,can_edit');
         Route::post('vip/privilege/update/{id}', 'privilegeUpdate')->name('privilege.update')->middleware('isAllow:104,can_edit');
         Route::delete('vip/privilege/delete', 'privilegeDelete')->name('privilege.delete')->middleware('isAllow:104,can_delete');
+
+        Route::get('/vip-users', 'vipUserIndex')->name('vip.user');
+        Route::delete('/vip-users/delete', 'deleteUserVip')->name('vip.user.delete');
     });
 
     Route::controller(WCLevelController::class)->group(function () {

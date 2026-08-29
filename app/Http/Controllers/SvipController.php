@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppUser;
 use App\Models\Svip;
 use App\Models\SvipPrivilege;
 use App\Models\SvipLevelPrivilege;
+use App\Models\SvipTransaction;
 use App\Helper\Helper;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
@@ -381,5 +383,140 @@ class SvipController extends Controller
     public function privilegeDelete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new SvipPrivilege, $request->id);
+    }
+
+
+    public function svipUserIndex(Request $request)
+    {
+        if ($request->ajax()) {
+
+            $query = SvipTransaction::with(['user', 'svip'])
+                ->where('end_at', '>', now());
+
+            if ($request->filled('uid')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    $q->where('uid', 'like', '%' . $request->uid . '%');
+                });
+            }
+
+            if ($request->filled('username')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    $q->where('name', 'like', '%' . $request->username . '%');
+                });
+            }
+
+            return DataTables::of($query)
+                ->addIndexColumn()
+
+                ->addColumn('user_info', function ($row) {
+
+                    $user = $row->user;
+
+                    if (!$user) return 'N/A';
+
+                    $avatar = !empty($user->image)
+                        ? Helper::showImage($user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                    <div class="d-flex align-items-center gap-3">
+                        <img src="' . $avatar . '" class="rounded-circle"
+                            width="45" height="45"
+                            style="object-fit:cover;">
+
+                        <div>
+                            <div class="fw-bold">' . e($user->name) . '</div>
+                            <small class="text-muted">
+                                UID : ' . e($user->uid) . '
+                            </small>
+                        </div>
+                    </div>';
+                })
+
+                ->addColumn('svip_name', function ($row) {
+                    return $row->svip->name ?? '-';
+                })
+
+                ->editColumn('coins_used', function ($row) {
+                    return number_format($row->coins_used);
+                })
+
+                ->editColumn('start_at', function ($row) {
+                    return $row->start_at
+                        ? \Carbon\Carbon::parse($row->start_at)->format('d M Y')
+                        : '-';
+                })
+
+                ->editColumn('end_at', function ($row) {
+                    return $row->end_at
+                        ? \Carbon\Carbon::parse($row->end_at)->format('d M Y')
+                        : '-';
+                })
+
+                ->addColumn('status', function ($row) {
+
+                    if ($row->end_at > now()) {
+                        return '<span class="badge bg-success">Active</span>';
+                    }
+
+                    return '<span class="badge bg-danger">Expired</span>';
+                })
+                ->addColumn('action', function ($row) {
+                    $btn = '<div class="dropdown">
+                    <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                    <div class="dropdown-menu">';
+                    if (Helper::userCan(115, 'can_delete')) {
+                        $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
+                    }
+
+                    $btn .= '</div></div>';
+
+                    return $btn;
+                })
+                ->rawColumns(['action', 'user_info', 'status'])
+                ->make(true);
+        }
+
+        return view('svip.svip_user_index');
+    }
+
+    public function deleteUserSvip(Request $request): JsonResponse
+    {
+        $request->validate([
+            'id' => 'required|exists:svip_transactions,id'
+        ]);
+
+        $transaction = SvipTransaction::findOrFail($request->id);
+
+        // User ke active SVIP items remove karo
+        AppUser::where('id', $transaction->user_id)->update([
+            'active_frame_id'            => null,
+            'active_frame_type'          => null,
+
+            'active_voice_id'            => null,
+            'active_voice_type'          => null,
+
+            'active_chat_bubble_id'      => null,
+            'active_chat_bubble_type'    => null,
+
+            'active_card_id'             => null,
+            'active_profile_card_type'   => null,
+
+            'active_car_id'              => null,
+            'active_entry_type'          => null,
+
+            'active_entry_id'            => null,
+            'active_entry_tag_type'      => null,
+        ]);
+
+        // SVIP purchase record delete
+        $transaction->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'SVIP removed successfully.'
+        ]);
     }
 }

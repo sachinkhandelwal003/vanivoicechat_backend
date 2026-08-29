@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Country;
+use App\Models\AppUser;
 use App\Helper\Helper;
 use App\Models\Frame;
 use App\Models\Vip;
 use App\Models\VipPrivilege;
+use App\Models\VipTransaction;;
+
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -404,7 +406,7 @@ class VipController extends Controller
         }
 
         try {
-             $slug = Str::slug($request->name, '_');
+            $slug = Str::slug($request->name, '_');
 
             $privilege = new VipPrivilege();
             $privilege->vip_id = $vipId;
@@ -476,5 +478,119 @@ class VipController extends Controller
     public function privilegeDelete(Request $request): JsonResponse
     {
         return Helper::deleteRecord(new VipPrivilege, $request->id);
+    }
+
+    public function vipUserIndex(Request $request): View|JsonResponse
+    {
+        if ($request->ajax()) {
+
+            $query = VipTransaction::with(['user', 'vip'])
+                ->where('end_at', '>', now());
+
+            if ($request->filled('uid')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    $q->where('uid', 'like', '%' . $request->uid . '%');
+                });
+            }
+
+            if ($request->filled('username')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    $q->where('name', 'like', '%' . $request->username . '%');
+                });
+            }
+
+            return DataTables::of($query)
+                ->addIndexColumn()
+
+                ->addColumn('user_info', function ($row) {
+
+                    $avatar = !empty($row->user->image)
+                        ? Helper::showImage($row->user->image, true)
+                        : asset('assets/img/avatar.png');
+
+                    return '
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="' . $avatar . '" width="45" height="45" class="rounded-circle">
+                        <div>
+                            <div class="fw-bold">' . $row->user->name . '</div>
+                            <small>UID : ' . $row->user->uid . '</small>
+                        </div>
+                    </div>';
+                })
+
+                ->addColumn('vip_name', fn($row) => $row->vip->name ?? '-')
+
+                ->addColumn('validity', function ($row) {
+                    return Carbon::parse($row->start_at)->format('d M Y')
+                        . ' - ' .
+                        Carbon::parse($row->end_at)->format('d M Y');
+                })
+
+                ->addColumn('action', function ($row) {
+
+                    return '
+                    <button class="btn btn-sm btn-danger delete" data-id="' . $row->id . '">
+                        Remove
+                    </button>';
+                })
+
+                ->rawColumns(['user_info', 'action'])
+                ->make(true);
+        }
+
+        return view('vip_user.vip_user_index');
+    }
+
+    public function deleteUserVip(Request $request): JsonResponse
+    {
+        $vip = VipTransaction::find($request->id);
+
+        if (!$vip) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Record not found'
+            ]);
+        }
+
+        $user = AppUser::find($vip->user_id);
+
+        if ($user) {
+
+            if (
+                $user->active_frame_type == 'vip' ||
+                $user->active_voice_type == 'vip' ||
+                $user->active_chat_bubble_type == 'vip' ||
+                $user->active_profile_card_type == 'vip' ||
+                $user->active_entry_type == 'vip' ||
+                $user->active_entry_tag_type == 'vip'
+            ) {
+                $user->update([
+                    'active_frame_id' => null,
+                    'active_frame_type' => null,
+
+                    'active_voice_id' => null,
+                    'active_voice_type' => null,
+
+                    'active_chat_bubble_id' => null,
+                    'active_chat_bubble_type' => null,
+
+                    'active_card_id' => null,
+                    'active_profile_card_type' => null,
+
+                    'active_car_id' => null,
+                    'active_entry_type' => null,
+
+                    'active_entry_id' => null,
+                    'active_entry_tag_type' => null,
+                ]);
+            }
+        }
+
+        $vip->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'VIP removed successfully'
+        ]);
     }
 }
