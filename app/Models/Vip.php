@@ -36,4 +36,9 @@ class Vip extends Model
     {
         return $this->hasMany(VipPrivilege::class, 'vip_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(AppUser::class, 'user_id');
+    }
 }
