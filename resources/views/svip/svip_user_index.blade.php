@@ -34,6 +34,7 @@
                             <th>Start</th>
                             <th>End</th>
                             <th>Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
 
@@ -88,7 +89,12 @@
                     {
                         data: 'status',
                         searchable: false
-                    }
+                    },
+                    {
+                        data: 'action',
+                        searchable: false,
+                        orderable: false
+                    },
                 ]
             });
 
