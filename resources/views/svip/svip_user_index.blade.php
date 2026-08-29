@@ -51,9 +51,10 @@
 @section('js')
     <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
     <script>
+        let table;
         $(function() {
 
-            let table = $('.table-datatable').DataTable({
+            table = $('.table-datatable').DataTable({
 
                 processing: true,
                 serverSide: true,
