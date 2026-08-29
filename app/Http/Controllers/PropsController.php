@@ -13,6 +13,10 @@ use App\Models\StoreUids;
 use App\Models\Voice;
 use App\Models\AppUser;
 use App\Models\ItemDelivery;
+use App\Models\Vip;
+use App\Models\Svip;
+use App\Models\VipTransaction;
+use App\Models\SvipTransaction;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -48,6 +52,8 @@ class PropsController extends Controller
             'entry tag' => EntryTag::class,
             'voice' => Voice::class,
             'id' => StoreUids::class,
+            'vip'  => Vip::class,
+            'svip' => Svip::class,
         ];
 
         if (!isset($map[$type])) return response()->json([]);
@@ -81,6 +87,26 @@ class PropsController extends Controller
                     'title' => $row->name,
                     'preview' => Helper::ShowImage($row->voice, true),
                     'type' => 'audio'
+                ];
+            }
+
+            // VIP
+            if ($type === 'vip') {
+                return [
+                    'id' => $row->id,
+                    'title' => $row->name,
+                    'preview' => Helper::ShowImage($row->badge, true),
+                    'type' => 'image'
+                ];
+            }
+
+            // SVIP
+            if ($type === 'svip') {
+                return [
+                    'id' => $row->id,
+                    'title' => $row->name,
+                    'preview' => Helper::ShowImage($row->medal, true),
+                    'type' => 'image'
                 ];
             }
 
@@ -122,6 +148,9 @@ class PropsController extends Controller
             'entry tag'    => EntryTag::class,
             'voice'        => Voice::class,
             'id'           => StoreUids::class,
+
+            'vip'          => Vip::class,
+            'svip'         => Svip::class,
         ];
 
         if (!isset($map[$request->type])) {
@@ -138,11 +167,12 @@ class PropsController extends Controller
 
         $index = array_search((int)$request->valid_days, $validity, true);
 
-        if ($index === false || !isset($prices[$index])) {
-            return back()->with('error', 'Invalid validity duration');
-        }
+        // if ($index === false || !isset($prices[$index])) {
+        //     return back()->with('error', 'Invalid validity duration');
+        // }
 
-        $needCoin = $prices[$index];
+        // $needCoin = $prices[$index];
+        $needCoin = 0;
 
         $success = [];
         $failed  = [];
@@ -164,10 +194,10 @@ class PropsController extends Controller
                 }
 
                 // Check points
-                if ($user->total_points < $needCoin) {
-                    $failed[] = "$uid (insufficient points)";
-                    continue;
-                }
+                // if ($user->total_points < $needCoin) {
+                //     $failed[] = "$uid (insufficient points)";
+                //     continue;
+                // }
 
                 // Prevent duplicate active item
                 $already = ItemDelivery::where('recipient', $user->id) // STORE USER ID
@@ -182,8 +212,57 @@ class PropsController extends Controller
                 }
 
                 // Deduct points
-                $user->decrement('total_points', $needCoin);
+                // $user->decrement('total_points', $needCoin);
                 $validDays = (int) $request->valid_days;
+
+                //  VIP Delivery
+                if ($request->type === 'vip') {
+
+                    $already = VipTransaction::where('user_id', $user->id)
+                        ->where('vip_id', $request->resource_id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    if ($already) {
+                        $failed[] = "$uid (VIP already active)";
+                        continue;
+                    }
+
+                    VipTransaction::create([
+                        'user_id'  => $user->id,
+                        'vip_id'   => $request->resource_id,
+                        'start_at' => now(),
+                        'end_at'   => now()->addDays($validDays),
+                    ]);
+
+                    $success[] = $uid;
+                    continue;
+                }
+
+                //   SVIP Delivery
+                if ($request->type === 'svip') {
+
+                    $already = SvipTransaction::where('user_id', $user->id)
+                        ->where('svip_id', $request->resource_id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    if ($already) {
+                        $failed[] = "$uid (SVIP already active)";
+                        continue;
+                    }
+
+                    SvipTransaction::create([
+                        'user_id'  => $user->id,
+                        'svip_id'  => $request->resource_id,
+                        'start_at' => now(),
+                        'end_at'   => now()->addDays($validDays),
+                    ]);
+
+                    $success[] = $uid;
+                    continue;
+                }
+
                 // Save delivery using USER ID
                 ItemDelivery::create([
                     'recipient'  => $user->id, // STORE INTERNAL USER ID
