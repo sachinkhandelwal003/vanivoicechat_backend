@@ -256,6 +256,7 @@ class PropsController extends Controller
                     SvipTransaction::create([
                         'user_id'  => $user->id,
                         'svip_id'  => $request->resource_id,
+                        'coins_used'  => 0,
                         'start_at' => now(),
                         'end_at'   => now()->addDays($validDays),
                     ]);
