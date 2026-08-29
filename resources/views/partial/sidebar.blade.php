@@ -223,13 +223,13 @@
                 </li>
                 @endif
                 @if(Helper::userCan(122))
-                <li class="@routeis('vip') active @endrouteis">
-                    <a href="{{ route('vip') }}">VIP User</a>
+                <li class="@routeis('vip.user') active @endrouteis">
+                    <a href="{{ route('vip.user') }}">VIP User</a>
                 </li>
                 @endif
                 @if(Helper::userCan(123))
-                <li class="@routeis('vip.user') active @endrouteis">
-                    <a href="{{ route('vip.user') }}">SVIP</a>
+                <li class="@routeis('svip') active @endrouteis">
+                    <a href="{{ route('svip') }}">SVIP</a>
                 </li>
                 @endif
                 @if(Helper::userCan(123))
