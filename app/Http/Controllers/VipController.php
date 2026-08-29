@@ -545,7 +545,7 @@ class VipController extends Controller
                 ->make(true);
         }
 
-        return view('vip_user.vip_user_index');
+        return view('vips.vip_user_index');
     }
 
     public function deleteUserVip(Request $request): JsonResponse
