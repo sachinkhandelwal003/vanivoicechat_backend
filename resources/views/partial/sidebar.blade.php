@@ -156,8 +156,8 @@
         @endif
 
         @if(Helper::userCan([113,114,115,116,117,118,119,120,121,122,123,124,125,126]))
-        <li class="menu @routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,svip,medals.index,props.item.delivery,user-role-tags') active @endrouteis">
-            <a href="#props" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,svip,medals.index,props.item.delivery,user-role-tags') }}" class="dropdown-toggle">
+        <li class="menu @routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,vip.user,svip,svip.users,medals.index,props.item.delivery,user-role-tags') active @endrouteis">
+            <a href="#props" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,vip.user,svip,svip.users,medals.index,props.item.delivery,user-role-tags') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-motorcycle"></i>
 
@@ -165,7 +165,7 @@
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,svip,medals.index,props.item.delivery,user-role-tags') show @endrouteis" id="props">
+            <ul class="collapse submenu list-unstyled @routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,vip.user,svip,svip.users,medals.index,props.item.delivery,user-role-tags') show @endrouteis" id="props">
 
                 @if(Helper::userCan(113))
                 <li class="@routeis('gift') active @endrouteis">
@@ -222,9 +222,19 @@
                     <a href="{{ route('vip') }}">VIP</a>
                 </li>
                 @endif
+                @if(Helper::userCan(122))
+                <li class="@routeis('vip') active @endrouteis">
+                    <a href="{{ route('vip') }}">VIP User</a>
+                </li>
+                @endif
                 @if(Helper::userCan(123))
-                <li class="@routeis('svip') active @endrouteis">
-                    <a href="{{ route('svip') }}">SVIP</a>
+                <li class="@routeis('vip.user') active @endrouteis">
+                    <a href="{{ route('vip.user') }}">SVIP</a>
+                </li>
+                @endif
+                @if(Helper::userCan(123))
+                <li class="@routeis('svip.users') active @endrouteis">
+                    <a href="{{ route('svip.users') }}">SVIP User</a>
                 </li>
                 @endif
                 @if(Helper::userCan(124))
