@@ -527,11 +527,18 @@ class VipController extends Controller
                 })
 
                 ->addColumn('action', function ($row) {
+                    $btn = '<div class="dropdown">
+                    <button class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                    <div class="dropdown-menu">';
+                    if (Helper::userCan(122, 'can_delete')) {
+                        $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
+                    }
 
-                    return '
-                    <button class="btn btn-sm btn-danger delete" data-id="' . $row->id . '">
-                        Remove
-                    </button>';
+                    $btn .= '</div></div>';
+
+                    return $btn;
                 })
 
                 ->rawColumns(['user_info', 'action'])

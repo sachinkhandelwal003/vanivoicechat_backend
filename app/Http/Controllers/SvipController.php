@@ -467,7 +467,7 @@ class SvipController extends Controller
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                     <div class="dropdown-menu">';
-                    if (Helper::userCan(115, 'can_delete')) {
+                    if (Helper::userCan(123, 'can_delete')) {
                         $btn .= '<button class="dropdown-item text-danger delete" data-id="' . $row->id . '">Delete</button>';
                     }
 
