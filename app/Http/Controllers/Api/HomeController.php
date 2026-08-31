@@ -1359,7 +1359,10 @@ class HomeController extends Controller
                 ->first();
 
             if ($lockedUser->total_points < $price->price) {
-                abort(422, 'Insufficient balance');
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Insufficient balance'
+                ], 422);
             }
 
             $lockedUser->decrement('total_points', $price->price);
