@@ -23,6 +23,10 @@ class TreasureBannerSent implements ShouldBroadcastNow
             'level'   => $level,
             'message'   => 'Treasure Chest Unlocked!',
             'banner'  => Helper::treasureBanner($level),
+            'treasure_txt' => 'text',
+            't_name' => 'name',
+            't_img' => 'avator',
+            't_lvl' => 'level',
         ];
     }
 
