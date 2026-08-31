@@ -23,8 +23,8 @@ class BroadcastMessageSent implements ShouldBroadcastNow
             'name'    => $user->name,
             'message' => $message,
             'image'   => $imageUrl,
-            // 'img_key'   => $img_key,
-            // 'text_key'   => $text_key,
+            'img_key'   => $img_key,
+            'text_key'   => $text_key,
         ];
     }
 
