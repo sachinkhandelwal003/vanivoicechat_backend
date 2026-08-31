@@ -56,6 +56,7 @@ use App\Events\RoomSeatMessageSent;
 use App\Events\RoomSeatCountUpdated;
 use App\Events\RoomMessagesCleared;
 use App\Events\RoomEmojiSent;
+use App\Events\GlobalGiftBannerSent;
 use App\Services\Agora\RtcTokenBuilder2;
 use App\Services\FirebaseService;
 use App\Traits\RoomPermissionTrait;
@@ -964,6 +965,9 @@ class RoomController extends Controller
                     roomId: (int) $request->room_id,
                     payload: $eventPayload
                 ));
+
+                // NEW Global Banner
+                event(new GlobalGiftBannerSent($sender, $gift));
             } catch (\Throwable $e) {
                 \Log::error('Gift Pusher broadcast failed', [
                     'room_id' => $request->room_id,
