@@ -489,9 +489,47 @@ class AgencyController extends Controller
         });
     }
 
+    // public function delete(Request $request): JsonResponse
+    // {
+    //     return Helper::deleteRecord(new Agency, $request->id);
+    // }
+
     public function delete(Request $request): JsonResponse
     {
-        return Helper::deleteRecord(new Agency, $request->id);
+        $agency = Agency::find($request->id);
+
+        if (!$agency) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Agency not found'
+            ]);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            Host::where('user_id', $agency->user_id)
+                ->where('agency_id', $agency->id)
+                ->delete();
+
+            // Agency delete
+            $agency->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Agency deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
     }
 
     public function transfer($id)

@@ -34,7 +34,11 @@ class GlobalGiftBannerSent implements ShouldBroadcastNow
 
                 // Banner SVGA
                 'banner' => asset('storage/gift_banner.svga'),
-            ]
+            ],
+            'user_name' => 'name',
+            'user_img' => 'avator',
+            'gift_txt' => 'text',
+            'gift_img' => 'image',
         ];
     }
 
