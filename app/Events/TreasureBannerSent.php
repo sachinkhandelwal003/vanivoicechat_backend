@@ -21,6 +21,7 @@ class TreasureBannerSent implements ShouldBroadcastNow
         $this->data = [
             'room_id' => $room->id,
             'level'   => $level,
+            'message'   => 'Treasure Chest Unlocked!',
             'banner'  => Helper::treasureBanner($level),
         ];
     }
