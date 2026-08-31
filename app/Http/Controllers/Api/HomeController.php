@@ -1336,7 +1336,7 @@ class HomeController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $validate->errors()
-            ]);
+            ], 422);
         }
 
         $regionCode = strtoupper($user->country);
@@ -1352,32 +1352,41 @@ class HomeController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($user, $request, $price) {
+        try {
 
-            $lockedUser = AppUser::where('id', $user->id)
-                ->lockForUpdate()
-                ->first();
+            DB::transaction(function () use ($user, $request, $price) {
 
-            if ($lockedUser->total_points < $price->price) {
-                throw new \Exception('Insufficient balance');
-            }
+                $lockedUser = AppUser::where('id', $user->id)
+                    ->lockForUpdate()
+                    ->first();
 
-            $lockedUser->decrement('total_points', $price->price);
+                if ($lockedUser->total_points < $price->price) {
+                    throw new \Exception('Insufficient balance');
+                }
 
-            $broadcast = Broadcast::create([
-                'user_id'     => $user->id,
-                'message'     => $request->message,
-                'cost'        => $price->price,
-                'region_code' => $user->country,
-            ]);
+                $lockedUser->decrement('total_points', $price->price);
+
+                Broadcast::create([
+                    'user_id'     => $user->id,
+                    'message'     => $request->message,
+                    'cost'        => $price->price,
+                    'region_code' => $user->country,
+                ]);
+            });
 
             event(new BroadcastMessageSent($user, $request->message));
-        });
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Broadcast sent successfully'
-        ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Broadcast sent successfully'
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 
     public function listBroadcasts()
