@@ -6326,35 +6326,53 @@ class RoomController extends Controller
             return;
         }
 
+        // SAME calculation as Treasure Details API
+        $totalPoints = (int) DB::table('gift_transactions')
+            ->where('room_id', $roomId)
+            ->sum('total_value');
+
         $levels = TreasureLevel::where('status', 1)
-            ->orderBy('level')
+            ->orderBy('level', 'asc')
             ->get();
+
+        if ($levels->isEmpty()) {
+            return;
+        }
+
+        $completedBeforePoints = 0;
 
         foreach ($levels as $level) {
 
+            $levelTarget = (int) $level->target_points;
+            $levelCompleteAt = $completedBeforePoints + $levelTarget;
+
             $column = 'treasure_banner_' . $level->level;
 
-            // Target complete nahi hua
-            if ($room->total_points < $level->target_points) {
+            // Level target complete nahi hua
+            if ($totalPoints < $levelCompleteAt) {
+                $completedBeforePoints += $levelTarget;
                 continue;
             }
 
-            // Already sent
-            if ($room->{$column} == 1) {
+            // Banner already fire ho chuka
+            if ((int) $room->{$column} === 1) {
+                $completedBeforePoints += $levelTarget;
                 continue;
             }
 
-            // Fire Banner Event
+            // Fire Event
             event(new TreasureBannerSent(
                 $room,
                 $sender,
                 $level->level
             ));
 
-            // Update flag
+            // Mark as sent
             $room->update([
                 $column => 1
             ]);
+
+            $completedBeforePoints += $levelTarget;
         }
     }
 }
