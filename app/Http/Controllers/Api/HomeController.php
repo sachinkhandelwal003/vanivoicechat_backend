@@ -1359,7 +1359,7 @@ class HomeController extends Controller
                 ->first();
 
             if ($lockedUser->total_points < $price->price) {
-                abort(422, 'Insufficient balance');
+                throw new \Exception('Insufficient balance');
             }
 
             $lockedUser->decrement('total_points', $price->price);
