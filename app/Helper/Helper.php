@@ -758,4 +758,17 @@ class Helper
             'svip_badge' => $svipBadge,
         ];
     }
+
+    public static function treasureBanner($level)
+    {
+        $banners = [
+            1 => asset('storage/treasure_frame/treasure_banner_1.svga'),
+            2 => asset('storage/treasure_frame/treasure_banner_2.svga'),
+            3 => asset('storage/treasure_frame/treasure_banner_2.svga'),
+            4 => asset('storage/treasure_frame/treasure_banner_2.svga'),
+            5 => asset('storage/treasure_frame/treasure_banner_2.svga'),
+        ];
+
+        return $banners[$level] ?? null;
+    }
 }

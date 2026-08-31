@@ -34,6 +34,7 @@ use App\Models\SvipTransaction;
 use App\Models\Friendship;
 use App\Models\RoomEmoji;
 use App\Models\RoomLevel;
+use App\Models\TreasureLevel;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -57,6 +58,7 @@ use App\Events\RoomSeatCountUpdated;
 use App\Events\RoomMessagesCleared;
 use App\Events\RoomEmojiSent;
 use App\Events\GlobalGiftBannerSent;
+use App\Events\TreasureBannerSent;
 use App\Services\Agora\RtcTokenBuilder2;
 use App\Services\FirebaseService;
 use App\Traits\RoomPermissionTrait;
@@ -830,6 +832,7 @@ class RoomController extends Controller
             // $this->updateWCLevel($sender->id, 'wealth');
 
             Room::where('id', $request->room_id)->increment('total_points', $totalCost);
+            $this->checkTreasureBanner($request->room_id, $sender);
             // Room XP
             Room::where('id', $request->room_id)->increment('xp', $totalCost);
             $room = Room::find($request->room_id);
@@ -6312,6 +6315,46 @@ class RoomController extends Controller
                 'message' => 'Something went wrong',
                 'error' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    private function checkTreasureBanner($roomId, $sender)
+    {
+        $room = Room::find($roomId);
+
+        if (!$room) {
+            return;
+        }
+
+        $levels = TreasureLevel::where('status', 1)
+            ->orderBy('level')
+            ->get();
+
+        foreach ($levels as $level) {
+
+            $column = 'treasure_banner_' . $level->level;
+
+            // Target complete nahi hua
+            if ($room->total_points < $level->target_points) {
+                continue;
+            }
+
+            // Already sent
+            if ($room->{$column} == 1) {
+                continue;
+            }
+
+            // Fire Banner Event
+            event(new TreasureBannerSent(
+                $room,
+                $sender,
+                $level->level
+            ));
+
+            // Update flag
+            $room->update([
+                $column => 1
+            ]);
         }
     }
 }
