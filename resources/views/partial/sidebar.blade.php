@@ -640,8 +640,8 @@
         @endif
 
         @if(Helper::userCan([166,167,168]))
-        <li class="menu @routeis('post.report,user.report,app-rules.index') active @endrouteis">
-            <a href="#report" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('post.report,user.report,app-rules.index') }}" class="dropdown-toggle">
+        <li class="menu @routeis('post.report,user.report,app-rules.index,system.setting') active @endrouteis">
+            <a href="#report" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('post.report,user.report,app-rules.index,system.setting') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-clipboard-list"></i>
 
@@ -649,7 +649,7 @@
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('post.report,user.report,app-rules.index') show @endrouteis" id="report">
+            <ul class="collapse submenu list-unstyled @routeis('post.report,user.report,app-rules.index,system.setting') show @endrouteis" id="report">
 
                 @if(Helper::userCan(166))
                 <li class="@routeis('post.report') active @endrouteis">
@@ -664,6 +664,12 @@
                 @if(Helper::userCan(168))
                 <li class="@routeis('app-rules.index') active @endrouteis">
                     <a href="{{ route('app-rules.index') }}">App Rule</a>
+                </li>
+                @endif
+
+                @if(Helper::userCan(168))
+                <li class="@routeis('system.setting') active @endrouteis">
+                    <a href="{{ route('system.setting') }}">Seller Thresold</a>
                 </li>
                 @endif
 

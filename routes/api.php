@@ -98,7 +98,6 @@ Route::get('store-uids', [StoreController::class, 'getStoreUids']);
 Route::post('filter-store-uids', [StoreController::class, 'filterStoreUids']);
 
 Route::get('svip-list', [VipController::class, 'getSvipList']);
-Route::get('vip-list', [VipController::class, 'getVipList']);
 Route::get('/app-rules', [InviteController::class, 'appRules']);
 
 
@@ -426,6 +425,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('buy-svip', [VipController::class, 'buySvip']);
     Route::get('svip-exp', [VipController::class, 'svipExp']);
+    Route::get('vip-list', [VipController::class, 'getVipList']);
     Route::post('buy-vip', [VipController::class, 'buyVip']);
     Route::post('gift-vip', [VipController::class, 'giftVip']);
 

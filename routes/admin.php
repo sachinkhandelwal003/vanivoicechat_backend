@@ -252,8 +252,8 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
         Route::get('/coin-conversion-rate', 'coinConversionRate')->name('coin-conversion-rate')->middleware('isAllow:146,can_view');
         Route::post('/coin-conversion-rate/update', 'coinConversionRateUpdate')->name('coin-conversion-rate.update')->middleware('isAllow:146,can_add');
-        Route::get('coin-seller/transactions/export','exportRechargeTransactions')->name('coin_seller.transactions.export')->middleware('isAllow:144,can_view');
-        Route::get('sellers/recharge-history/export','exportUserRechargeHistory')->name('sellers.recharge.history.export')->middleware('isAllow:145,can_view');
+        Route::get('coin-seller/transactions/export', 'exportRechargeTransactions')->name('coin_seller.transactions.export')->middleware('isAllow:144,can_view');
+        Route::get('sellers/recharge-history/export', 'exportUserRechargeHistory')->name('sellers.recharge.history.export')->middleware('isAllow:145,can_view');
     });
 
     Route::controller(SvipController::class)->group(function () {
@@ -611,7 +611,7 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
         Route::post('room-admin/update-admin-limit', 'updateAdminLimit')->name('room.update-admin-limit')->middleware('isAllow:129,can_edit');
         Route::post('room-member/update-member-limit', 'updateMemberLimit')->name('room.update-member-limit')->middleware('isAllow:129,can_edit');
-        Route::post('update-name','updateRoomName')->name('room.update.name')->middleware('isAllow:129,can_edit');
+        Route::post('update-name', 'updateRoomName')->name('room.update.name')->middleware('isAllow:129,can_edit');
     });
 
     Route::controller(RedEnvelopeController::class)->group(function () {
@@ -819,6 +819,13 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::delete('games', 'delete')->name('game')->middleware('isAllow:170,can_delete');
         Route::post('games-status', 'gameStatus')->name('game.status')->middleware('isAllow:170,can_delete');
         Route::post('games-featured', 'gameFeatured')->name('game.featured')->middleware('isAllow:170,can_delete');
+    });
+
+    Route::controller(SettingController::class)->group(function () {
+
+        Route::get('/system-setting', 'index')->name('system.setting')->middleware('isAllow:168,can_view');
+
+        Route::post('/system-setting', 'storeOrUpdate')->name('system.setting.store')->middleware('isAllow:168,can_edit');
     });
 
     // ----------------------- Feed Back Routes ----------------------------------------------------
