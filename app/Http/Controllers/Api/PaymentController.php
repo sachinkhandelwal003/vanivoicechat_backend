@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\PremiumNumber;
 use App\Models\StoreUids;
 use App\Helper\Helper;
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -261,7 +262,9 @@ class PaymentController extends Controller
                 'data' => []
             ]);
         }
-        $minimumAvailableCoins = 100000;
+        
+        $minCoin = SystemSetting::where('type', 'minimum_available_coins')->first();
+        $minimumAvailableCoins = $minCoin ? (int) $minCoin->value : 100000;
         $sellers = CoinSeller::with('user')
             ->where('status', 1)
             ->where('country_id', $country->id)
