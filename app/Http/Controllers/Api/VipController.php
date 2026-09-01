@@ -153,11 +153,14 @@ class VipController extends Controller
     {
         try {
 
+            $authUser = Auth::user();
+            $authUserCoins = (int) ($authUser->total_points ?? 0);
+
             $vips = DB::table('vips')
                 ->orderBy('needcoins')
                 ->get();
 
-            $data = $vips->map(function ($vip) {
+            $data = $vips->map(function ($vip,$authUserCoins) {
 
                 $privileges = DB::table('vip_privileges')
                     ->where('vip_id', $vip->id)
@@ -175,6 +178,7 @@ class VipController extends Controller
                 return [
                     'id' => $vip->id,
                     'name' => $vip->name,
+                    'auth_user_coins' => (int)$authUserCoins,
                     'coins' => (int)$vip->needcoins,
                     'days' => (int)$vip->days,
                     'bg_color' => $vip->color,

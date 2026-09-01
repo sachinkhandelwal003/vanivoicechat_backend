@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SystemSetting;
 use App\Helper\Helper;
 use App\Library\Database;
 use Illuminate\View\View;
@@ -217,5 +218,28 @@ class SettingController extends Controller
             // dd($th->getMessage(), Artisan::output());
             return to_route('server-control')->withError($th->getMessage());
         }
+    }
+
+    public function index()
+    {
+        $setting = SystemSetting::where('type', 'minimum_available_coins')->first();
+
+        return view('system-setting.index', compact('setting'));
+    }
+
+    public function storeOrUpdate(Request $request)
+    {
+        $request->validate([
+            'setting_value' => 'required|integer|min:0',
+        ]);
+
+        SystemSetting::updateOrCreate(
+            ['type' => 'minimum_available_coins'],
+            ['setting_value' => $request->setting_value]
+        );
+
+        return redirect()
+            ->route('system.setting')
+            ->with('success', 'Minimum Available Coins updated successfully.');
     }
 }
