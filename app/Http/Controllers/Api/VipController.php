@@ -160,7 +160,7 @@ class VipController extends Controller
                 ->orderBy('needcoins')
                 ->get();
 
-            $data = $vips->map(function ($vip,$authUserCoins) {
+            $data = $vips->map(function ($vip) {
 
                 $privileges = DB::table('vip_privileges')
                     ->where('vip_id', $vip->id)
@@ -178,7 +178,6 @@ class VipController extends Controller
                 return [
                     'id' => $vip->id,
                     'name' => $vip->name,
-                    'auth_user_coins' => (int)$authUserCoins,
                     'coins' => (int)$vip->needcoins,
                     'days' => (int)$vip->days,
                     'bg_color' => $vip->color,
@@ -203,6 +202,7 @@ class VipController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'VIP list fetched successfully',
+                'auth_user_coins' => (int)$authUserCoins,
                 'data' => $data
             ]);
         } catch (\Exception $e) {
