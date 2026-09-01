@@ -152,7 +152,7 @@ class HostCenterController extends Controller
 
         if ($agencyUser->fcm_token) {
 
-            app(FirebaseService::class)->send(
+            app(FirebaseService::class)->sendNotification(
                 $agencyUser->fcm_token,
                 'New Host Application',
                 $user->name . ' applied for host',
