@@ -16,7 +16,8 @@ class FirebaseService
     {
         $this->client = new Client();
 
-        $jsonFile = base_path(env('FIREBASE_CREDENTIALS'));
+        // $jsonFile = base_path(env('FIREBASE_CREDENTIALS'));
+        $jsonFile = base_path(config('services.firebase.credentials'));
 
         $this->credentials = new ServiceAccountCredentials(
             ['https://www.googleapis.com/auth/firebase.messaging'],

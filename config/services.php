@@ -53,4 +53,8 @@ return [
         'callback'       => env('PHONEPE_CALLBACK_URL'),
     ],
 
+    'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+    ],
+
 ];
