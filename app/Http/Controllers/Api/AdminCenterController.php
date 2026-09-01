@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use App\Services\FirebaseService;
 
 class AdminCenterController extends Controller
 {
@@ -282,11 +283,6 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Auth Admin
-    |--------------------------------------------------------------------------
-    */
 
         $admin = AdminAccount::where(
             'user_id',
@@ -304,11 +300,6 @@ class AdminCenterController extends Controller
             ], 404);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Find User
-    |--------------------------------------------------------------------------
-    */
 
         $user = AppUser::where(
             'id',
@@ -326,11 +317,6 @@ class AdminCenterController extends Controller
             ], 404);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Self Invite Block
-    |--------------------------------------------------------------------------
-    */
 
         if ($user->id == auth()->id()) {
 
@@ -343,13 +329,6 @@ class AdminCenterController extends Controller
 
             ], 422);
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | Existing Agency Check
-    |--------------------------------------------------------------------------
-    */
-
         $existingAgency = Agency::where(
             'user_id',
             $user->id
@@ -366,15 +345,8 @@ class AdminCenterController extends Controller
 
             ], 422);
         }
+        // Host RestrictionHost under another agency cannot directly become agency
 
-        /*
-    |--------------------------------------------------------------------------
-    | Host Restriction
-    |--------------------------------------------------------------------------
-    | Host under another agency
-    | cannot directly become agency
-    |--------------------------------------------------------------------------
-    */
 
         $existingHost = Host::where(
             'user_id',
@@ -397,11 +369,8 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Existing Pending Invite Check
-    |--------------------------------------------------------------------------
-    */
+        //   Existing Pending Invite Check
+
 
         $pendingInvite = Agency::where(
             'user_id',
@@ -427,11 +396,8 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Create Agency Invite
-    |--------------------------------------------------------------------------
-    */
+        //  Create Agency Invite
+
 
         $agency = Agency::create([
 
@@ -441,11 +407,8 @@ class AdminCenterController extends Controller
             'admin_id' =>
             $admin->id,
 
-            /*
-        |--------------------------------------------------------------------------
-        | Direct Admin Invite
-        |--------------------------------------------------------------------------
-        */
+            // Direct Admin Invite
+
 
             'is_bd_bound' => 0,
 
@@ -464,12 +427,7 @@ class AdminCenterController extends Controller
             'status' => 1
         ]);
 
-        /*
-    |--------------------------------------------------------------------------
-    | Notification
-    |--------------------------------------------------------------------------
-    */
-
+        //  Notification
         Notification::create([
 
             'user_id' =>
@@ -500,6 +458,16 @@ class AdminCenterController extends Controller
 
             'is_read' => 0,
         ]);
+
+        // Push Notification to invited user
+        if (!empty($user->fcm_token)) {
+
+            app(FirebaseService::class)->sendNotification(
+                $user->fcm_token,
+                'Agency Invitation',
+                auth()->user()->name . ' invited you to become an agency'
+            );
+        }
 
         return response()->json([
 
@@ -556,12 +524,6 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Auth Admin
-    |--------------------------------------------------------------------------
-    */
-
         $admin = AdminAccount::where(
             'user_id',
             auth()->id()
@@ -577,12 +539,6 @@ class AdminCenterController extends Controller
 
             ], 404);
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | Find User
-    |--------------------------------------------------------------------------
-    */
 
         $user = AppUser::where(
             'id',
@@ -600,12 +556,6 @@ class AdminCenterController extends Controller
             ], 404);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Self Invite Block
-    |--------------------------------------------------------------------------
-    */
-
         if ($user->id == auth()->id()) {
 
             return response()->json([
@@ -618,22 +568,13 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Existing BD Check
-    |--------------------------------------------------------------------------
-    */
-
         $existingBd = BdUser::where(
             'user_id',
             $user->id
         )->first();
 
-        /*
-    |--------------------------------------------------------------------------
-    | If Already BD Under Another Admin
-    |--------------------------------------------------------------------------
-    */
+        //  If Already BD Under Another Admin
+
 
         if (
             $existingBd
@@ -653,11 +594,7 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | If Already Independent Admin/BD
-    |--------------------------------------------------------------------------
-    */
+        //   If Already Independent Admin/BD
 
         if (
             $existingBd
@@ -678,12 +615,8 @@ class AdminCenterController extends Controller
 
             ], 422);
         }
+        // Check Existing Pending Invite
 
-        /*
-    |--------------------------------------------------------------------------
-    | Check Existing Pending Invite
-    |--------------------------------------------------------------------------
-    */
 
         $pendingInvite = BdUser::where(
             'user_id',
@@ -709,22 +642,16 @@ class AdminCenterController extends Controller
             ], 422);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Create BD Invite
-    |--------------------------------------------------------------------------
-    */
+        // Create BD Invite
+
 
         $bd = BdUser::create([
 
             'user_id' =>
             $user->id,
 
-            /*
-        |--------------------------------------------------------------------------
-        | This BD belongs under Admin
-        |--------------------------------------------------------------------------
-        */
+            //    This BD belongs under Admin
+
 
             'is_admin_bound' => 1,
 
@@ -744,11 +671,8 @@ class AdminCenterController extends Controller
             'status' => 1,
         ]);
 
-        /*
-    |--------------------------------------------------------------------------
-    | Notification
-    |--------------------------------------------------------------------------
-    */
+        //  Notification
+
 
         Notification::create([
 
@@ -780,6 +704,17 @@ class AdminCenterController extends Controller
 
             'is_read' => 0,
         ]);
+
+        // Push Notification to invited BD
+        if (!empty($user->fcm_token)) {
+
+            app(FirebaseService::class)->sendNotification(
+                $user->fcm_token,
+                'BD Invitation',
+                auth()->user()->name . ' invited you to become a BD',
+                null
+            );
+        }
 
         return response()->json([
 

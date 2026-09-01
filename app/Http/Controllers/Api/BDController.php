@@ -313,6 +313,17 @@ class BDController extends Controller
             'is_read' => 0,
         ]);
 
+        // Push Notification
+        if (!empty($user->fcm_token)) {
+
+            app(\App\Services\FirebaseService::class)->sendNotification(
+                $user->fcm_token,
+                'Agency Invitation',
+                $authUser->name . ' invited you to become an agency',
+                null
+            );
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Agency invitation sent successfully',
