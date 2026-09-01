@@ -261,10 +261,13 @@ class PaymentController extends Controller
                 'data' => []
             ]);
         }
-
+        $minimumAvailableCoins = 100000;
         $sellers = CoinSeller::with('user')
             ->where('status', 1)
             ->where('country_id', $country->id)
+            ->whereHas('user', function ($q) use ($minimumAvailableCoins) {
+                $q->where('total_points', '>=', $minimumAvailableCoins);
+            })
             ->get();
 
         $data = $sellers->map(function ($seller) {
