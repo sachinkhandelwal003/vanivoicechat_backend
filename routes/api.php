@@ -246,6 +246,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/buy-coins', [PaymentController::class, 'buyCoinPackage']);
     Route::get('phonepe/callback', [PaymentController::class, 'phonePeCallback']);
     Route::post('phonepe/status', [PaymentController::class, 'checkPhonePeStatus']);
+    Route::get('/recharge-agency-list', [PaymentController::class, 'rechargeAgency']);
 
     Route::post('/create-family', [FamilyController::class, 'createFamily']);
     Route::get('/top-families', [FamilyController::class, 'topFamilies']);
