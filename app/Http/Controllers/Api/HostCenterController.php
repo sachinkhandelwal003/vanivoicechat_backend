@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\HostSalarySettlement;
+use App\Services\FirebaseService;
 
 class HostCenterController extends Controller
 {
@@ -148,6 +149,20 @@ class HostCenterController extends Controller
             'country' => $user->country,
             'is_read' => 0,
         ]);
+
+        if ($agencyUser->fcm_token) {
+
+            app(FirebaseService::class)->send(
+                $agencyUser->fcm_token,
+                'New Host Application',
+                $user->name . ' applied for host',
+                [
+                    'type' => 'host_apply',
+                    'host_id' => $host->id,
+                    'user_id' => $user->id,
+                ]
+            );
+        }
 
         return response()->json([
 
