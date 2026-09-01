@@ -224,7 +224,7 @@ class SettingController extends Controller
     {
         $setting = SystemSetting::where('type', 'minimum_available_coins')->first();
 
-        return view('system-setting.index', compact('setting'));
+        return view('setting.seller_thresold', compact('setting'));
     }
 
     public function storeOrUpdate(Request $request)
