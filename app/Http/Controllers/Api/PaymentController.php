@@ -249,7 +249,7 @@ class PaymentController extends Controller
     {
         $data = CoinSeller::with('user')
             ->where('status', 1)
-            ->where('invite_status', 'accept')
+            // ->where('invite_status', 'accept')
             ->get()
             ->map(function ($seller) {
 
