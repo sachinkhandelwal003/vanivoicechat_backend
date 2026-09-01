@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CoinSeller;
+use App\Models\Country;
+use App\Models\PremiumNumber;
+use App\Models\StoreUids;
 use App\Helper\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -247,43 +250,108 @@ class PaymentController extends Controller
 
     public function rechargeAgency()
     {
-        $data = CoinSeller::with('user')
+        $authCountry = auth()->user()->country;
+
+        // Country ID nikalo auth user ke country name se
+        $country = Country::where('name', $authCountry)->first();
+
+        if (!$country) {
+            return response()->json([
+                'status' => true,
+                'data' => []
+            ]);
+        }
+
+        $sellers = CoinSeller::with('user')
             ->where('status', 1)
-            // ->where('invite_status', 'accept')
-            ->get()
-            ->map(function ($seller) {
+            ->where('country_id', $country->id)
+            ->get();
 
-                $history = DB::table('coin_recharge_histories')
-                    ->where('seller_id', $seller->user_id)
-                    ->selectRaw('
-                    COALESCE(SUM(coin),0) as coins_sold,
-                    COUNT(id) as orders,
-                    COUNT(DISTINCT user_id) as users
-                ')
-                    ->first();
+        $data = $sellers->map(function ($seller) {
 
-                return [
-                    'seller_id'       => $seller->id,
-                    'user_id'         => $seller->user->id,
-                    'name'            => $seller->user->name,
-                    'uid'             => $seller->user->uid,
-                    'image'           => !empty($seller->user->image)
-                        ? Helper::showImage($seller->user->image, true)
-                        : null,
-                    'country'         => $seller->user->country,
-                    'role'            => $seller->is_merchant ? 'Merchant' : 'Coinseller',
+            $user = $seller->user;
 
-                    // App Users table
-                    'available_coins' => (int) $seller->user->total_points,
+            // ===== UID Logic =====
+            $displayUid = $user->uid;
+            $uidBadge = null;
+            $uidBadgeColor = null;
 
-                    // Recharge History
-                    'coins_sold'      => (int) $history->coins_sold,
-                    'orders'          => (int) $history->orders,
-                    'users'           => (int) $history->users,
+            // Premium UID
+            $premiumUid = PremiumNumber::where('user_id', $user->id)
+                ->where('end_at', '>', now())
+                ->latest()
+                ->first();
 
-                    'whatsapp'        => $seller->whatsapp_number,
-                ];
-            });
+            if ($premiumUid) {
+
+                $displayUid = $premiumUid->premium_number;
+                $uidBadge = asset('storage/1000175794.png');
+                $uidBadgeColor = '#fcd01c';
+            } elseif ($user->active_uid_id) {
+
+                $storeUid = StoreUids::find($user->active_uid_id);
+
+                if ($storeUid) {
+
+                    $hasValidPurchase = DB::table('item_deliveries')
+                        ->where('recipient', $user->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    $hasValidGift = DB::table('item_gift_transactions')
+                        ->where('receiver_id', $user->id)
+                        ->where('type', 'id')
+                        ->where('item_id', $storeUid->id)
+                        ->where('end_at', '>', now())
+                        ->exists();
+
+                    if ($hasValidPurchase || $hasValidGift) {
+                        $displayUid = $storeUid->unique_id;
+                        $uidBadge = !empty($storeUid->rank_badge)
+                            ? Helper::showImage($storeUid->rank_badge, true)
+                            : null;
+                        $uidBadgeColor = $storeUid->rank_badge_color;
+                    }
+                }
+            }
+
+            // ===== Seller Stats =====
+            $stats = DB::table('coin_recharge_histories')
+                ->where('seller_id', $seller->user_id)
+                ->selectRaw("
+            COALESCE(SUM(coin),0) as coins_sold,
+            COUNT(*) as orders,
+            COUNT(DISTINCT user_id) as users
+        ")
+                ->first();
+
+            return [
+                'id' => $seller->id,
+                'user_id' => $user->id,
+                'name' => $user->name,
+
+                // Updated UID
+                'uid' => $displayUid,
+                'uid_badge' => $uidBadge,
+                'uid_badge_color' => $uidBadgeColor,
+
+                'image' => $user->image
+                    ? Helper::showImage($user->image, true)
+                    : null,
+
+                'country' => $user->country,
+                'role' => $seller->is_merchant ? 'Merchant' : 'Coinseller',
+
+                'available_coins' => (int) $user->total_points,
+                'coins_sold' => (int) $stats->coins_sold,
+                'orders' => (int) $stats->orders,
+                'users' => (int) $stats->users,
+
+                'whatsapp' => $seller->whatsapp_number,
+            ];
+        });
 
         return response()->json([
             'status' => true,
