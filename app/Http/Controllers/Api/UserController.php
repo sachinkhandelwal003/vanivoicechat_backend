@@ -273,7 +273,7 @@ class UserController extends Controller
 
             $user = AppUser::with([
                 'countryData:id,name,iso',
-                'activeCard:id,name,icon,gif',
+                // 'activeCard:id,name,icon,gif',
                 'activeFrame:id,name,icon,gif'
             ])->find($userId);
 
