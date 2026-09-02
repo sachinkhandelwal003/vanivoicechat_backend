@@ -89,15 +89,13 @@ class MessageController extends Controller
         $senderUser = Auth::user();
         $icon = asset('friend-request.png');
 
-        if ($receiverUser && $receiverUser->fcm_token) {
-            $firebase = new FirebaseService();
+        if ($receiverUser && !empty($receiverUser->fcm_token)) {
 
-            $firebase->sendNotification(
+            app(FirebaseService::class)->sendNotification(
                 $receiverUser->fcm_token,
-                "New Friend Request",
-                $senderUser->name . " sent you a friend request",
-                $icon,
-
+                'New Friend Request',
+                $senderUser->name . ' sent you a friend request',
+                $icon
             );
         }
 
@@ -393,10 +391,10 @@ class MessageController extends Controller
 
         $chats = Message::select(
             DB::raw('
-                CASE 
-                    WHEN sender_id = ' . $userId . ' 
-                    THEN receiver_id 
-                    ELSE sender_id 
+                CASE
+                    WHEN sender_id = ' . $userId . '
+                    THEN receiver_id
+                    ELSE sender_id
                 END as friend_id
             '),
             DB::raw('MAX(id) as last_message_id')
