@@ -32,6 +32,52 @@ use App\Services\FirebaseService;
 class HostCenterController extends Controller
 {
 
+
+    public function hostDetails()
+    {
+        $userId = auth()->id();
+
+        $host = Host::with([
+            'user:id,uid,name,image,country',
+            'user.countryData:id,name,iso'
+        ])
+            ->where('user_id', $userId)
+            ->where('status', 1)
+            ->where('invite_status', 'accept')
+            ->first();
+
+        if (!$host) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Host User not found'
+            ], 404);
+        }
+
+        $flag = null;
+
+        if ($host->user?->countryData?->iso) {
+            $flag = 'https://flagcdn.com/w40/' .
+                strtolower($host->user->countryData->iso) . '.png';
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Host details fetched successfully',
+            'data' => [
+                'id' => $host->id,
+                'user_id' => $host->user_id,
+                'agency_id' => $host->agency_id,
+                'uid' => $host->user?->uid,
+                'name' => $host->user?->name,
+                'image' => !empty($host->user?->image)
+                    ? Helper::showImage($host->user->image, true)
+                    : null,
+                'country' => strtolower($host->user?->country ?? ''),
+                'flag' => $flag,
+                'is_dashboard_access' => (bool) $host->is_dashboard_access,
+            ]
+        ]);
+    }
     public function applyForHost(Request $request)
     {
         $validator = Validator::make($request->all(), [
