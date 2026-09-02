@@ -756,11 +756,37 @@ class UserController extends Controller
 
                     'medals' => $equippedMedals,
 
+                    // 'profile_card' => $user->activeCard ? [
+                    //     'id' => $user->activeCard->id,
+                    //     'name' => $user->activeCard->name,
+                    //     'icon' => !empty($user->activeCard->icon) ? Helper::showImage($user->activeCard->icon, true) : null,
+                    //     'svga' => !empty($user->activeCard->gif) ? Helper::showImage($user->activeCard->gif, true) : null,
+                    // ] : null,
+
                     'profile_card' => $user->activeCard ? [
-                        'id' => $user->activeCard->id,
+                        'id'   => $user->activeCard->id,
                         'name' => $user->activeCard->name,
-                        'icon' => !empty($user->activeCard->icon) ? Helper::showImage($user->activeCard->icon, true) : null,
-                        'svga' => !empty($user->activeCard->gif) ? Helper::showImage($user->activeCard->gif, true) : null,
+
+                        'icon' => Helper::showImage(
+                            match ($user->active_profile_card_type) {
+                                'store' => $user->activeCard->icon,
+                                'vip'   => $user->activeCard->profile_frame,
+                                'svip'  => $user->activeCard->profile_card,
+                                default => null,
+                            },
+                            true
+                        ),
+
+                        'svga' => Helper::showImage(
+                            match ($user->active_profile_card_type) {
+                                'store' => $user->activeCard->gif,
+                                'vip'   => $user->activeCard->profile_frame_animation,
+                                'svip'  => $user->activeCard->profile_animation,
+                                default => null,
+                            },
+                            true
+                        ),
+
                     ] : null,
 
                     // 'frame' => $user->activeFrame ? [
