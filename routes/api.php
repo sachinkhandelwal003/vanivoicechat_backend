@@ -393,6 +393,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('run-agency-salary-settlement',[AgencyController::class, 'runAgencySalarySettlement']);
 
 
+    Route::post('host/host-details', [HostCenterController::class, 'hostDetails']);
     Route::post('host/apply-for-host', [HostCenterController::class, 'applyForHost']);
     Route::get('host/host-policies', [HostCenterController::class, 'hostPolicy']);
     Route::get('host/my-work', [HostCenterController::class, 'myWork']);
