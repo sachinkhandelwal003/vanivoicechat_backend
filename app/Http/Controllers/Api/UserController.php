@@ -697,6 +697,7 @@ class UserController extends Controller
                 'message' => 'User Details fethed Successfuly',
                 'data' =>  [
                     'is_own_profile' => $isOwnProfile,
+                    'recharge_agency_image' => asset('storage/recharge_agency.png'),
                     'id' => $user->id,
                     // 'room_id' => $roomId ? $roomId->id : null,
                     'room_id' => $currentRoom?->room_id,
