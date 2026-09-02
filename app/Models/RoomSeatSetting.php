@@ -14,6 +14,7 @@ class RoomSeatSetting extends Model
         'seat_no',
         'is_locked',
         'is_muted_by_host',
+        'is_self_muted',
         'invited_user_id'
     ];
 

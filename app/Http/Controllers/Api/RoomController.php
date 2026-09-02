@@ -59,6 +59,7 @@ use App\Events\RoomMessagesCleared;
 use App\Events\RoomEmojiSent;
 use App\Events\GlobalGiftBannerSent;
 use App\Events\TreasureBannerSent;
+use App\Events\SelfMicMuteUpdated;
 use App\Services\Agora\RtcTokenBuilder2;
 use App\Services\FirebaseService;
 use App\Traits\RoomPermissionTrait;
@@ -4078,6 +4079,91 @@ class RoomController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function toggleSelfMute(Request $request)
+    {
+        $request->validate([
+            'room_id' => 'required|integer|exists:rooms,id',
+        ]);
+
+        $user = Auth::user();
+
+        $seat = RoomSeat::where('room_id', $request->room_id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$seat) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not sitting on any seat'
+            ], 404);
+        }
+
+        $setting = DB::table('room_seat_settings')
+            ->where('room_id', $request->room_id)
+            ->where('seat_no', $seat->seat_no)
+            ->first();
+
+        if (!$setting) {
+            DB::table('room_seat_settings')->insert([
+                'room_id' => $request->room_id,
+                'seat_no' => $seat->seat_no,
+                'is_locked' => 0,
+                'is_muted_by_host' => 0,
+                'is_self_muted' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $setting = DB::table('room_seat_settings')
+                ->where('room_id', $request->room_id)
+                ->where('seat_no', $seat->seat_no)
+                ->first();
+        }
+
+        $newStatus = !$setting->is_self_muted;
+
+        DB::table('room_seat_settings')
+            ->where('room_id', $request->room_id)
+            ->where('seat_no', $seat->seat_no)
+            ->update([
+                'is_self_muted' => $newStatus,
+                'updated_at' => now()
+            ]);
+
+        $text = $newStatus
+            ? $user->name . ' muted own microphone'
+            : $user->name . ' unmuted own microphone';
+
+        $msg = RoomMessage::create([
+            'room_id' => $request->room_id,
+            'user_id' => $user->id,
+            'message' => $text,
+            'message_type' => $newStatus ? 'self_muted' : 'self_unmuted',
+        ]);
+
+        broadcast(new SelfMicMuteUpdated(
+            $request->room_id,
+            [
+                'seat_no' => $seat->seat_no,
+                'user_id' => $user->id,
+                'is_self_muted' => $newStatus,
+                'room_message' => [
+                    'id' => $msg->id,
+                    'message' => $msg->message,
+                    'message_type' => $msg->message_type,
+                    'created_at' => $msg->created_at?->toDateTimeString(),
+                ]
+            ]
+        ))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => $newStatus ? 'Self muted' : 'Self unmuted',
+            'is_self_muted' => $newStatus,
+            'seat_no' => $seat->seat_no
+        ]);
     }
 
     public function getRoomUsersList($roomId)

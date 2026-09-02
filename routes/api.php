@@ -188,6 +188,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/update-seat-mic-status', [RoomController::class, 'updateSeatMicStatus']);
     Route::post('handle-mic-invite', [RoomController::class, 'handleMicInvite']);
     Route::post('invite-to-mic', [RoomController::class, 'inviteToMic']);
+    Route::post('/room/self-mute', [RoomController::class, 'toggleSelfMute']);
 
     Route::post('/update-room-user-role', [RoomController::class, 'updateRoomUserRole']);
     Route::get('/room/room-admins', [RoomController::class, 'getRoomAdmins']);
