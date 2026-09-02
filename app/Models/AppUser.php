@@ -8,6 +8,9 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Models\DataCard;
+use App\Models\Vip;
+use App\Models\Svip;
 
 class AppUser extends Authenticatable
 {
@@ -94,9 +97,28 @@ class AppUser extends Authenticatable
         return $this->hasMany(UserMedal::class, 'user_id', 'id');
     }
 
-    public function activeCard()
+    // public function activeCard()
+    // {
+    //     return $this->belongsTo(DataCard::class, 'active_card_id');
+    // }
+
+    public function getActiveCardAttribute()
     {
-        return $this->belongsTo(DataCard::class, 'active_card_id');
+        if (!$this->active_card_id) {
+            return null;
+        }
+
+        switch ($this->active_profile_card_type) {
+            case 'vip':
+                return Vip::find($this->active_card_id);
+
+            case 'svip':
+                return Svip::find($this->active_card_id);
+
+            case 'store':
+            default:
+                return DataCard::find($this->active_card_id);
+        }
     }
     public function activeFrame()
     {
