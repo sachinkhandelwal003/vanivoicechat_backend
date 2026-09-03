@@ -125,14 +125,14 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
     Route::get('/support/messages/{id}', [SupportChatController::class, 'getMessages']);
     Route::get('/support/conversation-row/{id}', [SupportChatController::class, 'conversationRow']);
 
-    // ----------------------- Role Routes ----------------------------------------------------
+    // ----------------------- Roles Routes ----------------------------------------------------
     Route::controller(RolesController::class)->name('roles')->group(function () {
         Route::get('roles', 'index')->middleware('isAllow:102,can_view');
         Route::post('roles', 'save')->middleware('isAllow:102,can_add');
         Route::put('roles', 'update')->middleware('isAllow:102,can_edit');
         Route::delete('roles', 'delete')->middleware('isAllow:102,can_delete');
         Route::get('roles/permission/{id}', 'permission')->name('.permission.view')->middleware('isAllow:102,can_edit');
-        Route::put('roles/permission', 'permission_update')->name('.permission.update')->middleware('isAllow:102,can_edit');
+        Route::match(['put', 'post'], 'roles/permission', 'permission_update')->name('.permission.update')->middleware('isAllow:102,can_edit');
     });
 
     // ----------------------- Admin and Sub Admin Routes ----------------------------------------------------
@@ -140,11 +140,11 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::get('users', 'index')->name('users')->middleware('isAllow:103,can_view');
         Route::get('users/add', 'add')->name('users.add')->middleware('isAllow:103,can_add');
         Route::post('users/add', 'save')->name('users.add')->middleware('isAllow:103,can_add');
+        Route::get('users/permission/{id}', 'permission')->name('users.permission.view')->middleware('isAllow:103,can_edit');
+        Route::match(['put', 'post'], 'users/permission', 'permission_update')->name('users.permission.update')->middleware('isAllow:103,can_edit');
         Route::get('users/{slug}', 'edit')->name('users.edit')->middleware('isAllow:103,can_edit');
         Route::post('users/{slug}', 'update')->name('users.edit')->middleware('isAllow:103,can_edit');
         Route::delete('users', 'delete')->name('users')->middleware('isAllow:103,can_delete');
-        Route::get('users/permission/{id}', 'permission')->name('users.permission.view')->middleware('isAllow:103,can_edit');
-        Route::put('users/permission', 'permission_update')->name('users.permission.update')->middleware('isAllow:103,can_edit');
     });
 
     // ----------------------- States Routes ----------------------------------------------------
@@ -268,8 +268,8 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('svip-privilege/add/{id?}', 'privilegeAdd')->name('svip-privilege.add')->middleware('isAllow:123,can_edit');
         Route::delete('svip-privilege/delete', 'privilegeDelete')->name('svip-privilege.delete')->middleware('isAllow:123,can_delete');
 
-        Route::get('/svip-users', 'svipUserIndex')->name('svip.users');
-        Route::delete('/svip-users/delete', 'deleteUserSvip')->name('svip.users.delete');
+        Route::get('/svip-users', 'svipUserIndex')->name('svip.users')->middleware('isAllow:179,can_view');
+        Route::delete('/svip-users/delete', 'deleteUserSvip')->name('svip.users.delete')->middleware('isAllow:179,can_delete');
     });
 
     // -------------------------------- VIP Routes --------------------------------
@@ -288,8 +288,8 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('vip/privilege/update/{id}', 'privilegeUpdate')->name('privilege.update')->middleware('isAllow:104,can_edit');
         Route::delete('vip/privilege/delete', 'privilegeDelete')->name('privilege.delete')->middleware('isAllow:104,can_delete');
 
-        Route::get('/vip-users', 'vipUserIndex')->name('vip.user');
-        Route::delete('/vip-users/delete', 'deleteUserVip')->name('vip.user.delete');
+        Route::get('/vip-users', 'vipUserIndex')->name('vip.user')->middleware('isAllow:178,can_view');
+        Route::delete('/vip-users/delete', 'deleteUserVip')->name('vip.user.delete')->middleware('isAllow:178,can_delete');
     });
 
     Route::controller(WCLevelController::class)->group(function () {
@@ -312,7 +312,7 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('reward-inviting/{id}', 'update')->name('reward-inviting')->middleware('isAllow:107,can_edit');
         Route::delete('reward-inviting', 'delete')->name('reward-inviting')->middleware('isAllow:107,can_delete');
 
-        Route::get('/invite-users', 'inviteUserIndex')->name('invite-users')->middleware('isAllow:107,can_view');
+        Route::get('/invite-users', 'inviteUserIndex')->name('invite-users')->middleware('isAllow:177,can_view');
     });
 
     Route::controller(RewardInvitationRechargeController::class)->group(function () {
@@ -445,6 +445,15 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('relationship-item/update/{id}', 'save')->name('relationship.item.update')->middleware('isAllow:127,can_edit');
 
         Route::get('relationship-user-relations', 'userRelationshipList')->name('relationship.user.relation.list')->middleware('isAllow:128,can_view');
+    });
+
+    // ----------------------- Relationship Fee Configure ---------------------------------------
+    Route::controller(App\Http\Controllers\RelationshipFeeConfigController::class)->group(function () {
+        Route::get('relationship-fee-configs', 'index')->name('relationship.fee.configs')->middleware('isAllow:175,can_view');
+        Route::post('relationship-fee-configs/store', 'store')->name('relationship.fee.configs.store')->middleware('isAllow:175,can_add');
+        Route::post('relationship-fee-configs/update/{id}', 'update')->name('relationship.fee.configs.update')->middleware('isAllow:175,can_edit');
+        Route::post('relationship-fee-configs/toggle/{id}', 'toggleStatus')->name('relationship.fee.configs.toggle')->middleware('isAllow:175,can_edit');
+        Route::post('relationship-fee-configs/delete/{id}', 'destroy')->name('relationship.fee.configs.destroy')->middleware('isAllow:175,can_delete');
     });
 
     // ----------------------- Customer Support Routes ----------------------------------------------------
@@ -614,6 +623,13 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('update-name', 'updateRoomName')->name('room.update.name')->middleware('isAllow:129,can_edit');
     });
 
+    // ----------------------- Room Kick Log ----------------------------------------------------
+    Route::controller(App\Http\Controllers\RoomKickLogController::class)->group(function () {
+        Route::get('room-kick-logs', 'index')->name('room.kick.logs')->middleware('isAllow:174,can_view');
+        Route::get('room-kick-logs/{id}', 'show')->name('room.kick.logs.show')->middleware('isAllow:174,can_view');
+        Route::post('room-kick-logs-delete/{id}', 'destroy')->name('room.kick.logs.destroy')->middleware('isAllow:174,can_delete');
+    });
+
     Route::controller(RedEnvelopeController::class)->group(function () {
         Route::get('/red-envelope', 'index')->name('red.envelope')->middleware('isAllow:132,can_view');
         Route::get('/red-envelope/{id}/claims', 'claims')->name('red.envelope.claims')->middleware('isAllow:132,can_view');
@@ -735,22 +751,48 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
         Route::get('/post-reports', 'postReportList')->name('user.post.reports')->middleware('isAllow:153,can_view');
 
-        Route::post('/user/disable', 'disable')->name('user.disable')->middleware('isAllow:104,can_edit');
-        Route::post('/user/activate', 'activate')->name('user.activate')->middleware('isAllow:104,can_edit');
-        Route::post('/user/blacklist', 'blacklist')->name('user.blacklist')->middleware('isAllow:104,can_edit');
-        Route::post('/users/delete-image/{id}', 'deleteProfile')->name('user.deleteProfile')->middleware('isAllow:104,can_edit');
-        Route::get('/users/account-processing/{id}', 'accountProcessing')->name('user.accountProcessing')->middleware('isAllow:104,can_edit ');
-        Route::get('/users/wealth-level/{id}', 'getWealthLevel')->name('user.wealthLevel')->middleware('isAllow:104,can_edit');
-        Route::post('/users/wealth-level/{id}', 'updateWealthLevel')->name('user.updateWealthLevel')->middleware('isAllow:104,can_edit');
-        Route::get('/users/charm-level/{id}', 'getCharmLevel')->name('user.charmLevel')->middleware('isAllow:104,can_edit');
-        Route::post('/users/charm-level/{id}',  'updateCharmLevel')->name('user.updateCharmLevel')->middleware('isAllow:104,can_edit');
+        Route::post('/user/disable', 'disable')->name('user.disable')->middleware('isAllow:104,disable_user');
+        Route::post('/user/activate', 'activate')->name('user.activate')->middleware('isAllow:104,disable_user');
+        Route::post('/user/blacklist', 'blacklist')->name('user.blacklist')->middleware('isAllow:104,blacklist_user');
+        Route::post('/users/delete-image/{id}', 'deleteProfile')->name('user.deleteProfile')->middleware('isAllow:104,delete_profile');
+        Route::get('/users/account-processing/{id}', 'accountProcessing')->name('user.accountProcessing')->middleware('isAllow:104,can_edit');
+        Route::get('/users/wealth-level/{id}', 'getWealthLevel')->name('user.wealthLevel')->middleware('isAllow:104,edit_wealth');
+        Route::post('/users/wealth-level/{id}', 'updateWealthLevel')->name('user.updateWealthLevel')->middleware('isAllow:104,edit_wealth');
+        Route::get('/users/charm-level/{id}', 'getCharmLevel')->name('user.charmLevel')->middleware('isAllow:104,edit_charm');
+        Route::post('/users/charm-level/{id}',  'updateCharmLevel')->name('user.updateCharmLevel')->middleware('isAllow:104,edit_charm');
 
         Route::get('/users-softdelete/deleted', 'deletedUsers')->name('users.deleted')->middleware('isAllow:104,can_view');
         Route::post('/users-softdelete/restore/{id}', 'restoreUser')->name('users.restore')->middleware('isAllow:104,can_edit');
-        Route::get('/user-device-list', 'userDeviceList')->name('user.device.list')->middleware('isAllow:104,can_view');
-        Route::get('/device-user-list/{imei}', 'deviceUsers')->name('device.user.list')->middleware('isAllow:104,can_view');
-        Route::post('/user-devices/ban', 'deviceBan')->name('device.ban')->middleware('isAllow:104,can_edit');
-        Route::post('/user-devices/unban', 'deviceUnban')->name('device.unban')->middleware('isAllow:104,can_edit');
+        Route::get('/user-device-list', 'userDeviceList')->name('user.device.list')->middleware('isAllow:176,can_view');
+        Route::get('/device-user-list/{imei}', 'deviceUsers')->name('device.user.list')->middleware('isAllow:176,can_view');
+        Route::post('/user-devices/ban', 'deviceBan')->name('device.ban')->middleware('isAllow:176,can_edit');
+        Route::post('/user-devices/unban', 'deviceUnban')->name('device.unban')->middleware('isAllow:176,can_edit');
+    });
+
+    // ----------------------- Abuse Word Control  -----------------------------------------------
+    Route::controller(App\Http\Controllers\AbuseWordController::class)->group(function () {
+        Route::get('abuse-words', 'index')->name('abuse-words.index')->middleware('isAllow:173,can_view');
+        Route::post('abuse-words', 'store')->name('abuse-words.store')->middleware('isAllow:173,can_add');
+        Route::post('abuse-words/{id}', 'update')->name('abuse-words.update')->middleware('isAllow:173,can_edit');
+        Route::delete('abuse-words/{id}', 'destroy')->name('abuse-words.destroy')->middleware('isAllow:173,can_delete');
+        Route::post('abuse-words/toggle/{id}', 'toggleStatus')->name('abuse-words.toggle')->middleware('isAllow:173,can_edit');
+        Route::post('abuse-words/import', 'import')->name('abuse-words.import')->middleware('isAllow:173,can_add');
+    });
+
+    // ----------------------- Game Management ----------------------------------------------------
+    Route::controller(App\Http\Controllers\GameController::class)->group(function () {
+        Route::get('games', 'index')->name('game')->middleware('isAllow:180,can_view');
+        Route::get('games/add', 'add')->name('game.add')->middleware('isAllow:180,can_add');
+        Route::post('games/add', 'save')->name('game.add')->middleware('isAllow:180,can_add');
+        Route::get('games/{slug}', 'edit')->name('game.edit')->middleware('isAllow:180,can_edit');
+        Route::post('games/{slug}', 'update')->name('game.edit')->middleware('isAllow:180,can_edit');
+        Route::delete('games', 'delete')->name('game')->middleware('isAllow:180,can_delete');
+    });
+
+    // ----------------------- Seller Threshold Setting ------------------------------------------
+    Route::controller(App\Http\Controllers\SystemSettingController::class)->group(function () {
+        Route::get('/system-setting', 'index')->name('system.setting')->middleware('isAllow:181,can_view');
+        Route::post('/system-setting', 'storeOrUpdate')->name('system.setting.store')->middleware('isAllow:181,can_edit');
     });
 
     // ----------------------- Reports Routes ----------------------------------------------------
@@ -776,6 +818,25 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
     Route::controller(SettlementLogController::class)->group(function () {
         Route::get('settlement/settlement-log', 'index')->name('settlement-log')->middleware('isAllow:162,can_view');
         Route::post('settlement/run-host-salary', 'runHostSalary')->name('settlement.run-host-salary')->middleware('isAllow:162,can_edit');
+        Route::get('settlement/export', 'export')->name('settlement.export')->middleware('isAllow:162,can_view');
+    });
+
+    // ----------------------- Withdrawal Requests  -----------------------------------------------
+    Route::controller(App\Http\Controllers\WithdrawalController::class)->group(function () {
+        Route::get('withdrawal/requests', 'index')->name('withdrawal.requests')->middleware('isAllow:170,can_view');
+        Route::post('withdrawal/update-status/{id}', 'updateStatus')->name('withdrawal.update-status')->middleware('isAllow:170,can_edit');
+    });
+
+    // ----------------------- USD Coins Exchange Log  --------------------------------------------
+    Route::controller(App\Http\Controllers\ExchangeLogController::class)->group(function () {
+        Route::get('exchange/log', 'index')->name('exchange.log')->middleware('isAllow:171,can_view');
+    });
+
+    // ----------------------- Manual Coin Send/Deduct  -------------------------------------------
+    Route::controller(App\Http\Controllers\ManualCoinController::class)->group(function () {
+        Route::get('manual-coins', 'index')->name('manual-coins.index')->middleware('isAllow:172,can_view');
+        Route::get('manual-coins/search-user', 'searchUser')->name('manual-coins.search-user')->middleware('isAllow:172,can_view');
+        Route::post('manual-coins/process', 'process')->name('manual-coins.process')->middleware('isAllow:172,can_edit');
     });
 
     // ----------------------- Manual Money  ----------------------------------------------------

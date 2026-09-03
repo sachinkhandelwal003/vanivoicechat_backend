@@ -153,7 +153,23 @@ class Helper
                 return false;
 
             $module_permission = $permission->whereIn('module_id', $module)->filter(function ($row) use ($type) {
-                return $row['allow_all'] == 1 || $row[$type] == 1;
+                // For standard column checks
+                if (in_array($type, ['can_view', 'can_add', 'can_edit', 'can_delete', 'allow_all'])) {
+                    if ($row['allow_all'] == 1) return true;
+                    if (isset($row[$type]) && $row[$type] == 1) return true;
+                    return false;
+                }
+
+                // For specialized custom action keys (edit_wealth, edit_charm, disable_user, etc.)
+                $actions = is_array($row['actions'] ?? null)
+                    ? $row['actions']
+                    : (json_decode($row['actions'] ?? '', true) ?: []);
+
+                if (in_array($type, $actions)) {
+                    return true;
+                }
+
+                return false;
             });
 
             return $module_permission->count() > 0 ? true : false;

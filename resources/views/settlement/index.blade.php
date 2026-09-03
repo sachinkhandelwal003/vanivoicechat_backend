@@ -154,9 +154,9 @@
 
         </div>
 
-        <div class="row mb-4">
+        <div class="row g-2 mb-4 align-items-end">
 
-            <div class="col-md-2">
+            <div class="col-6 col-sm-4 col-md-2">
                 <label class="form-label">Cycle</label>
                 <select class="form-select" id="cycle">
                     <option value="">All Cycles</option>
@@ -165,7 +165,7 @@
                 </select>
             </div>
 
-            <div class="col-md-2">
+            <div class="col-6 col-sm-4 col-md-2">
                 <label class="form-label">Host UID</label>
                 <input type="text"
                     class="form-control"
@@ -173,7 +173,7 @@
                     placeholder="Host UID">
             </div>
 
-            <div class="col-md-2">
+            <div class="col-6 col-sm-4 col-md-2">
                 <label class="form-label">Agency ID</label>
                 <input type="text"
                     class="form-control"
@@ -181,35 +181,43 @@
                     placeholder="Agency ID">
             </div>
 
-            <div class="col-md-2">
+            <div class="col-6 col-sm-4 col-md-2">
+                <label class="form-label">Country</label>
+                <select class="form-select" id="country_id">
+                    <option value="">All Countries</option>
+                    @foreach($countries as $country)
+                        <option value="{{ $country->id }}">{{ $country->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="col-6 col-sm-4 col-md-2">
                 <label class="form-label">Status</label>
-
                 <select class="form-select" id="status">
-
                     <option value="">All</option>
                     <option value="settled">Settled</option>
                     <option value="failed">Failed</option>
                     <!-- <option value="skipped">Skipped</option> -->
-
                 </select>
-
             </div>
 
-            <div class="col-md-2 d-flex align-items-end">
-
-                <button class="btn btn-primary w-100" id="btnSearch">
-                    <i class="fas fa-search me-1"></i>Search
-                </button>
-
+            {{-- Action Buttons --}}
+            <div class="col-12 col-sm-12 col-md-2">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary flex-fill" id="btnSearch">
+                        <i class="fas fa-search me-1"></i>Search
+                    </button>
+                    <button class="btn btn-secondary flex-fill" id="btnReset">
+                        <i class="fas fa-sync-alt me-1"></i>Reset
+                    </button>
+                </div>
             </div>
 
-            <div class="col-md-2 d-flex align-items-end">
-
-                <button class="btn btn-primary w-100" id="btnReset">
-                    <i class="fas fa-sync-alt me-1"></i>
-                    Reset
+            {{-- Export Button --}}
+            <div class="col-12 col-sm-12 col-md-12">
+                <button class="btn btn-success" id="btnExport">
+                    <i class="fas fa-file-excel me-1"></i> Export Excel
                 </button>
-
             </div>
 
         </div>
@@ -267,6 +275,7 @@
                     d.cycle = $("#cycle").val();
                     d.host_uid = $("#host_uid").val();
                     d.agency_id = $("#agency_id").val();
+                    d.country_id = $("#country_id").val();
                     d.status = $("#status").val();
 
                 },
@@ -355,8 +364,40 @@
             $("#cycle").val("");
             $("#host_uid").val("");
             $("#agency_id").val("");
+            $("#country_id").val("");
             $("#status").val("");
             table.ajax.reload();
+
+        });
+
+        $("#btnExport").click(function() {
+
+            let params = new URLSearchParams({
+                cycle:      $("#cycle").val(),
+                host_uid:   $("#host_uid").val(),
+                agency_id:  $("#agency_id").val(),
+                country_id: $("#country_id").val(),
+                status:     $("#status").val(),
+            });
+
+            let url = "{{ route('settlement.export') }}?" + params.toString();
+
+            $(this)
+                .prop("disabled", true)
+                .html('<i class="fas fa-spinner fa-spin me-1"></i> Exporting...');
+
+            let self = this;
+
+            // Use hidden iframe trick so button re-enables after download starts
+            let iframe = $('<iframe style="display:none"></iframe>').appendTo('body');
+            iframe.attr('src', url);
+
+            setTimeout(function() {
+                $(self)
+                    .prop("disabled", false)
+                    .html('<i class="fas fa-file-excel me-1"></i> Export Excel');
+                iframe.remove();
+            }, 3000);
 
         });
 

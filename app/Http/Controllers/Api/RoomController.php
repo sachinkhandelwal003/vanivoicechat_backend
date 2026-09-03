@@ -567,6 +567,7 @@ class RoomController extends Controller
             'level'         => $defaultLevel?->level ?? 1,
             'admin_limit'   => $defaultLevel?->admins ?? 5,
             'member_limit'  => $defaultLevel?->members ?? 200,
+            'treasure_cycle_start' => now(),
         ]);
 
         $baseRoomId = 100000;
@@ -752,10 +753,25 @@ class RoomController extends Controller
 
                 $transactions[] = $transaction;
 
-                AppUser::where('id', $receiverId)->update([
-                    'total_points' => DB::raw('total_points + ' . $singleGiftCost),
-                    'total_value'  => DB::raw('total_value + ' . $singleGiftCost),
-                ]);
+                // AppUser::where('id', $receiverId)->update([
+                //     'total_points' => DB::raw('total_points + ' . $singleGiftCost),
+                //     'total_value'  => DB::raw('total_value + ' . $singleGiftCost),
+                // ]);
+
+                if ($receiverId != $sender->id) {
+
+                    // Normal gift → receiver gets coins + charm
+                    AppUser::where('id', $receiverId)->update([
+                        'total_points' => DB::raw('total_points + ' . $singleGiftCost),
+                        'total_value'  => DB::raw('total_value + ' . $singleGiftCost),
+                    ]);
+                } else {
+
+                    // Self gift → only charm, no coins
+                    AppUser::where('id', $receiverId)->update([
+                        'total_value' => DB::raw('total_value + ' . $singleGiftCost),
+                    ]);
+                }
 
 
                 $user = AppUser::select('id', 'name', 'uid', 'image', 'total_points', 'total_value', 'user_level')
@@ -6412,10 +6428,10 @@ class RoomController extends Controller
             return;
         }
 
-        // SAME calculation as Treasure Details API
-        $totalPoints = (int) DB::table('gift_transactions')
-            ->where('room_id', $roomId)
-            ->sum('total_value');
+        // // SAME calculation as Treasure Details API
+        // $totalPoints = (int) DB::table('gift_transactions')
+        //     ->where('room_id', $roomId)
+        //     ->sum('total_value');
 
         $levels = TreasureLevel::where('status', 1)
             ->orderBy('level', 'asc')
@@ -6424,6 +6440,18 @@ class RoomController extends Controller
         if ($levels->isEmpty()) {
             return;
         }
+
+        // Total target of one complete cycle
+        $cycleTarget = (int) $levels->sum('target_points');
+
+        // Lifetime gift points
+        $totalGiftPoints = (int) DB::table('gift_transactions')
+            ->where('room_id', $roomId)
+            ->sum('total_value');
+
+        $currentPoints = $cycleTarget > 0
+            ? $totalGiftPoints % $cycleTarget
+            : $totalGiftPoints;
 
         $completedBeforePoints = 0;
 
@@ -6434,8 +6462,7 @@ class RoomController extends Controller
 
             $column = 'treasure_banner_' . $level->level;
 
-            // Level target complete nahi hua
-            if ($totalPoints < $levelCompleteAt) {
+            if ($currentPoints < $levelCompleteAt) {
                 $completedBeforePoints += $levelTarget;
                 continue;
             }

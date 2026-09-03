@@ -448,9 +448,12 @@ Route::prefix('sud')->group(function () {
 
 });
 
+// Banned Words — public endpoint (mobile app fetches on startup)
+Route::get('banned-words', [App\Http\Controllers\AbuseWordController::class, 'apiList']);
+
 Route::any('{path}', function () {
     return response()->json([
-        'status' => false,
+        'status'  => false,
         'message' => 'Api not found..!!'
     ], 404);
 })->where('path', '.*');

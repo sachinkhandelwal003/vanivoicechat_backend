@@ -191,24 +191,24 @@ class AppUserController extends Controller
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                     <div class="dropdown-menu">';
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(104, 'edit_wealth')) {
                         $btn .= '<button class="dropdown-item wealthLevelBtn"
                                 data-id="' . $row->id . '"
                                 data-name="' . e($row->name) . '">
                                 <i class="fas fa-gem me-2 text-warning"></i> Wealth Level
                             </button>';
                     }
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(104, 'edit_charm')) {
                         $btn .= '<button class="dropdown-item charmLevelBtn"
                                 data-id="' . $row->id . '"
                                 data-name="' . e($row->name) . '">
                                 <i class="fas fa-heart me-2 text-danger"></i> Charm Level
                             </button>';
                     }
-                    if (Helper::userCan(104, 'can_view')) {
+                    if (Helper::userCan(104, 'view_details')) {
                         $btn .= '<a class="dropdown-item" href="' . route('user-details', $row->id) . '"><i class="fas fa-eye me-2"></i> User Details</a>';
                     }
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(104, 'disable_user')) {
                         if ($row->is_disabled) {
                             $btn .= '<button class="dropdown-item text-success activateUserBtn"
                                 data-id="' . $row->id . '"
@@ -223,7 +223,7 @@ class AppUserController extends Controller
                             </button>';
                         }
                     }
-                    if (Helper::userCan(104, 'can_edit')) {
+                    if (Helper::userCan(104, 'blacklist_user')) {
                         if ($row->is_blacklisted) {
                             $btn .= '<span class="dropdown-item text-danger disabled">
                                 <i class="fas fa-user-slash me-2"></i> Blacklisted
@@ -236,7 +236,7 @@ class AppUserController extends Controller
                             </button>';
                         }
                     }
-                    if (Helper::userCan(104, 'can_delete')) {
+                    if (Helper::userCan(104, 'delete_profile')) {
                         $btn .= '<button class="dropdown-item text-warning deleteProfileBtn"
                             data-id="' . $row->id . '"
                             data-name="' . e($row->name) . '">

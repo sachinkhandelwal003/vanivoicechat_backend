@@ -148,6 +148,8 @@ class CoinSellerController extends Controller
                                     <i class="fas fa-edit text-primary me-2"></i> Edit Info
                                 </a>';
 
+                        }
+                    if (Helper::userCan(142, 'recharge_seller')) {
                         $btn .= '
                                 <button class="dropdown-item recharge"
                                         data-id="' . $row->id . '">
@@ -159,6 +161,8 @@ class CoinSellerController extends Controller
                                         data-id="' . $row->id . '">
                                     <i class="fas fa-minus-circle text-warning me-2"></i> Deduct Coins
                                 </button>';
+                    }
+                    if (Helper::userCan(142, 'can_edit')) {
 
                         $btn .= '
                                 <button class="dropdown-item toggle-merchant"

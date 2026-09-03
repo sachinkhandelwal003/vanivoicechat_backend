@@ -7,12 +7,15 @@ use App\Models\AppUser;
 use App\Models\Host;
 use App\Models\BdUser;
 use App\Models\AdminAccount;
+use App\Models\Country;
 use App\Models\HostSalarySettlement;
 use App\Models\AgencySalarySettlement;
+use App\Exports\SalaryLogExport;
 use App\Helper\Helper;
 use Carbon\Carbon;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -57,6 +60,13 @@ class SettlementLogController extends Controller
                 $uid = $request->host_uid;
                 $query->whereHas('host.user', function ($q) use ($uid) {
                     $q->where('uid', $uid);
+                });
+            }
+
+            if ($request->filled('country_id')) {
+                $countryId = $request->country_id;
+                $query->whereHas('host', function ($q) use ($countryId) {
+                    $q->where('country_id', $countryId);
                 });
             }
 
@@ -292,7 +302,9 @@ class SettlementLogController extends Controller
             $start->addMonth();
         }
 
-        return view('settlement.index', compact('cycles'));
+        $countries = Country::orderBy('name')->get(['id', 'name']);
+
+        return view('settlement.index', compact('cycles', 'countries'));
     }
 
     public function runHostSalary(Request $request)
@@ -329,9 +341,24 @@ class SettlementLogController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function export(Request $request)
+    {
+        $export = new SalaryLogExport(
+            $request->cycle      ?: null,
+            $request->host_uid   ?: null,
+            $request->agency_id  ?: null,
+            $request->country_id ?: null,
+            $request->status     ?: null
+        );
+
+        $filename = 'salary_log_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download($export, $filename);
     }
 }
