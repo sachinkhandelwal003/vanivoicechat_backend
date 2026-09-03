@@ -22,7 +22,13 @@ class PermissionCheck
                 if (!$module_permission)                return self::errorNotFound($request);
 
                 if ($module_permission->allow_all == 1) return $next($request);
-                if ($module_permission[$type] == 1)     return $next($request);
+                if (isset($module_permission[$type]) && $module_permission[$type] == 1) return $next($request);
+
+                $actions = is_array($module_permission->actions ?? null)
+                    ? $module_permission->actions
+                    : (json_decode($module_permission->actions ?? '', true) ?: []);
+
+                if (in_array($type, $actions)) return $next($request);
 
                 return self::errorNotFound($request);
             } catch (\Throwable $th) {

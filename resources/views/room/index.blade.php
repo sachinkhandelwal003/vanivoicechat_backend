@@ -75,6 +75,44 @@
 
                 </div>
             @endif
+            {{-- Search & Filter Row --}}
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold small">Search Room / Owner</label>
+                    <input type="text" class="form-control form-control-sm" id="room_search" placeholder="Room ID, Name or Owner UID/Name...">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small">Ban Status</label>
+                    <select class="form-select form-select-sm" id="ban_status_filter">
+                        <option value="">All</option>
+                        <option value="active">Active</option>
+                        <option value="banned">Banned</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small">Pin Status</label>
+                    <select class="form-select form-select-sm" id="pin_status_filter">
+                        <option value="">All</option>
+                        <option value="1">Pinned</option>
+                        <option value="0">Not Pinned</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold small">Room Level</label>
+                    <input type="number" class="form-control form-control-sm" id="level_filter" placeholder="e.g. 1">
+                </div>
+                <div class="col-12 col-md-3">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button class="btn btn-primary btn-sm" id="btnRoomSearch">
+                            <i class="fas fa-search me-1"></i>Search
+                        </button>
+                        <button class="btn btn-secondary btn-sm" id="btnRoomReset">
+                            <i class="fas fa-sync-alt me-1"></i>Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-striped table-datatable" style="width:100%">
 
@@ -362,8 +400,15 @@
             let table = $('.table-datatable').DataTable({
                 processing: true,
                 serverSide: true,
+                searching: true,
                 ajax: {
                     url: "{{ route('room') }}",
+                    data: function(d) {
+                        d.room_search     = $('#room_search').val();
+                        d.ban_status      = $('#ban_status_filter').val();
+                        d.pin_status      = $('#pin_status_filter').val();
+                        d.level           = $('#level_filter').val();
+                    }
                 },
                 columns: [{
                         data: 'DT_RowIndex',
@@ -409,6 +454,25 @@
                         searchable: false
                     }
                 ]
+            });
+
+            // Search button
+            $('#btnRoomSearch').on('click', function() {
+                table.ajax.reload();
+            });
+
+            // Reset button
+            $('#btnRoomReset').on('click', function() {
+                $('#room_search').val('');
+                $('#ban_status_filter').val('');
+                $('#pin_status_filter').val('');
+                $('#level_filter').val('');
+                table.ajax.reload();
+            });
+
+            // Enter key triggers search
+            $('#room_search').on('keypress', function(e) {
+                if (e.which === 13) table.ajax.reload();
             });
 
             $(document).on('click', ".delete", function() {

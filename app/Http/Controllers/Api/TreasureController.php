@@ -6,6 +6,7 @@ use App\Helper\Helper;
 use App\Http\Controllers\Controller;
 use App\Models\TreasureLevel;
 use App\Models\VipTransaction;
+use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,9 +21,17 @@ class TreasureController extends Controller
         ]);
 
         $roomId = (int) $request->room_id;
+        $room = Room::findOrFail($roomId);
+
+        $cycleStart = $room->treasure_cycle_start ?? $room->created_at;
+
+        // $totalPoints = (int) DB::table('gift_transactions')
+        //     ->where('room_id', $roomId)
+        //     ->sum('total_value');
 
         $totalPoints = (int) DB::table('gift_transactions')
             ->where('room_id', $roomId)
+            ->where('created_at', '>=', $cycleStart)
             ->sum('total_value');
 
         $levels = TreasureLevel::with(['rewards' => function ($q) {
@@ -71,8 +80,16 @@ class TreasureController extends Controller
 
         // Level Wise Top 3 Contributors
 
+        // $transactions = DB::table('gift_transactions')
+        //     ->where('room_id', $roomId)
+        //     ->where('total_value', '>', 0)
+        //     ->orderBy('created_at', 'asc')
+        //     ->orderBy('id', 'asc')
+        //     ->get(['sender_id', 'total_value']);
+
         $transactions = DB::table('gift_transactions')
             ->where('room_id', $roomId)
+            ->where('created_at', '>=', $cycleStart)
             ->where('total_value', '>', 0)
             ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc')
@@ -400,8 +417,17 @@ class TreasureController extends Controller
                 ->where('level', '<=', $level->level)
                 ->sum('target_points');
 
+            // $totalPoints = (int) DB::table('gift_transactions')
+            //     ->where('room_id', $roomId)
+            //     ->sum('total_value');
+
+            $room = Room::lockForUpdate()->findOrFail($roomId);
+
+            $cycleStart = $room->treasure_cycle_start ?? $room->created_at;
+
             $totalPoints = (int) DB::table('gift_transactions')
                 ->where('room_id', $roomId)
+                ->where('created_at', '>=', $cycleStart)
                 ->sum('total_value');
 
             if ($totalPoints < $requiredPoints) {
@@ -592,6 +618,57 @@ class TreasureController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            // ===== Last level completed -> Reset Treasure =====
+            if ($level->level == 5) {
+
+                $itemRewardIds = $level->rewards
+                    ->where('reward_type', '!=', 'coins')
+                    ->pluck('id')
+                    ->toArray();
+
+                $claimedItemRewardIds = DB::table('treasure_level_claims')
+                    ->where('room_id', $roomId)
+                    ->where('treasure_level_id', $level->id)
+                    ->where('reward_type', '!=', 'coins')
+                    ->pluck('treasure_level_reward_id')
+                    ->toArray();
+
+                $allItemsClaimed = empty(array_diff($itemRewardIds, $claimedItemRewardIds));
+
+                $coinReward = $level->rewards->where('reward_type', 'coins')->first();
+
+                $coinPoolCompleted = true;
+
+                if ($coinReward) {
+                    $distributedCoins = (int) DB::table('treasure_level_claims')
+                        ->where('room_id', $roomId)
+                        ->where('treasure_level_id', $level->id)
+                        ->where('reward_type', 'coins')
+                        ->sum('coins');
+
+                    $coinPoolCompleted = $distributedCoins >= (int) $coinReward->coins;
+                }
+
+                if ($allItemsClaimed && $coinPoolCompleted) {
+
+                    // Clear previous cycle claims
+                    DB::table('treasure_level_claims')
+                        ->where('room_id', $roomId)
+                        ->delete();
+
+                    // Start new cycle
+                    $room->update([
+                        'treasure_cycle_start' => now(),
+
+                        'treasure_banner_1' => 0,
+                        'treasure_banner_2' => 0,
+                        'treasure_banner_3' => 0,
+                        'treasure_banner_4' => 0,
+                        'treasure_banner_5' => 0,
+                    ]);
+                }
+            }
 
             DB::commit();
 

@@ -132,8 +132,38 @@ class RolesController extends Controller
         return view('roles.permission', compact('role', 'permissions'));
     }
 
-    public function permission_update(Request $request): bool
+    public function permission_update(Request $request)
     {
+        $users = User::where('role_id', $request->role_id)->pluck('id');
+
+        // Bulk Section Update
+        if ($request->has('module_ids') && is_array($request->module_ids)) {
+            $val = $request->value ? 1 : 0;
+            foreach ($request->module_ids as $mId) {
+                RolePermission::updateOrCreate(
+                    ['role_id' => $request->role_id, 'module_id' => $mId],
+                    [
+                        'can_view'   => $val,
+                        'can_add'    => $val,
+                        'can_edit'   => $val,
+                        'can_delete' => $val,
+                        'allow_all'  => $val,
+                    ]
+                );
+
+                UserPermission::whereIn('user_id', $users)
+                    ->where('module_id', $mId)
+                    ->update([
+                        'allow_all'  => $val,
+                        'can_view'   => $val,
+                        'can_add'    => $val,
+                        'can_edit'   => $val,
+                        'can_delete' => $val,
+                    ]);
+            }
+            return response()->json(['status' => true, 'message' => 'Section permissions updated']);
+        }
+
         $rolePermission = RolePermission::firstWhere([
             'role_id'   => $request->role_id,
             'module_id' => $request->module_id
@@ -151,14 +181,36 @@ class RolesController extends Controller
             ]);
         }
 
-        $users = User::where('role_id', $request->role_id)->pluck('id');
+        $moduleCustomActionsMap = [
+            104 => ['view_details', 'edit_wealth', 'edit_charm', 'disable_user', 'blacklist_user', 'delete_profile'],
+            105 => ['ban_album'],
+            129 => ['ban_room', 'pin_room'],
+            134 => ['approve_theme'],
+            174 => ['remove_kick_log'],
+            138 => ['toggle_admin_status'],
+            139 => ['assign_agency'],
+            140 => ['transfer_agency', 'assign_host', 'remove_host', 'export_agency'],
+            141 => ['transfer_host', 'disable_host'],
+            142 => ['recharge_seller'],
+            143 => ['recharge_merchant'],
+            126 => ['deliver_item'],
+            175 => ['toggle_fee_config'],
+            159 => ['reply_support'],
+            170 => ['approve_withdrawal', 'reject_withdrawal'],
+            172 => ['send_coins', 'deduct_coins'],
+            163 => ['send_money', 'take_money'],
+            173 => ['import_words'],
+            102 => ['manage_permissions'],
+            103 => ['manage_user_permissions'],
+        ];
 
         // ===========================
         // Allow All
         // ===========================
         if ($request->type == 'allow_all') {
 
-            $value = $rolePermission->allow_all ? 0 : 1;
+            $value = $request->has('value') ? ($request->value ? 1 : 0) : ($rolePermission->allow_all ? 0 : 1);
+            $customActs = $value == 1 ? ($moduleCustomActionsMap[$request->module_id] ?? []) : [];
 
             $rolePermission->update([
                 'allow_all'  => $value,
@@ -166,6 +218,7 @@ class RolesController extends Controller
                 'can_add'    => $value,
                 'can_edit'   => $value,
                 'can_delete' => $value,
+                'actions'    => $customActs,
             ]);
 
             UserPermission::whereIn('user_id', $users)
@@ -176,35 +229,59 @@ class RolesController extends Controller
                     'can_add'    => $value,
                     'can_edit'   => $value,
                     'can_delete' => $value,
+                    'actions'    => json_encode($customActs),
                 ]);
 
-            return true;
+            return response()->json(['status' => true, 'allow_all' => $value]);
+        }
+
+        // Custom Action Toggle
+        if ($request->has('action_key')) {
+            $actKey = $request->action_key;
+            $currentActions = is_array($rolePermission->actions) ? $rolePermission->actions : (json_decode($rolePermission->actions ?? '', true) ?: []);
+
+            $value = $request->has('value') ? ($request->value ? 1 : 0) : (!in_array($actKey, $currentActions) ? 1 : 0);
+
+            if ($value == 1) {
+                if (!in_array($actKey, $currentActions)) {
+                    $currentActions[] = $actKey;
+                }
+            } else {
+                $currentActions = array_values(array_filter($currentActions, fn($a) => $a !== $actKey));
+            }
+
+            $rolePermission->actions = $currentActions;
+            $rolePermission->allow_all = 0;
+            $rolePermission->save();
+
+            // Sync to user_permissions
+            UserPermission::whereIn('user_id', $users)
+                ->where('module_id', $request->module_id)
+                ->update([
+                    'allow_all' => 0,
+                    'actions'   => json_encode($currentActions),
+                ]);
+
+            return response()->json(['status' => true, 'actions' => $currentActions]);
         }
 
         // ===========================
         // Single Permission
         // ===========================
-        $value = $rolePermission->{$request->type} ? 0 : 1;
+        $value = $request->has('value') ? ($request->value ? 1 : 0) : ($rolePermission->{$request->type} ? 0 : 1);
 
         $rolePermission->{$request->type} = $value;
-
-        // Recalculate Allow All
-        $rolePermission->allow_all =
-            $rolePermission->can_view &&
-            $rolePermission->can_add &&
-            $rolePermission->can_edit &&
-            $rolePermission->can_delete;
-
+        $rolePermission->allow_all = 0;
         $rolePermission->save();
 
         UserPermission::whereIn('user_id', $users)
             ->where('module_id', $request->module_id)
             ->update([
+                'allow_all'    => 0,
                 $request->type => $value,
-                'allow_all' => $rolePermission->allow_all
             ]);
 
-        return true;
+        return response()->json(['status' => true, 'allow_all' => 0]);
     }
 
     // public function permission_update(Request $request): bool

@@ -145,8 +145,26 @@ class UsersController extends Controller
     }
 
 
-    public function permission_update(Request $request): bool
+    public function permission_update(Request $request)
     {
+        // Bulk Section Update
+        if ($request->has('module_ids') && is_array($request->module_ids)) {
+            $val = $request->value ? 1 : 0;
+            foreach ($request->module_ids as $mId) {
+                UserPermission::updateOrCreate(
+                    ['user_id' => $request->user_id, 'module_id' => $mId],
+                    [
+                        'can_view'   => $val,
+                        'can_add'    => $val,
+                        'can_edit'   => $val,
+                        'can_delete' => $val,
+                        'allow_all'  => $val,
+                    ]
+                );
+            }
+            return response()->json(['status' => true, 'message' => 'Section permissions updated']);
+        }
+
         $userPermission = UserPermission::firstWhere([
             'user_id'   => $request->user_id,
             'module_id' => $request->module_id
@@ -164,12 +182,36 @@ class UsersController extends Controller
             ]);
         }
 
+        $moduleCustomActionsMap = [
+            104 => ['view_details', 'edit_wealth', 'edit_charm', 'disable_user', 'blacklist_user', 'delete_profile'],
+            105 => ['ban_album'],
+            129 => ['ban_room', 'pin_room'],
+            134 => ['approve_theme'],
+            174 => ['remove_kick_log'],
+            138 => ['toggle_admin_status'],
+            139 => ['assign_agency'],
+            140 => ['transfer_agency', 'assign_host', 'remove_host', 'export_agency'],
+            141 => ['transfer_host', 'disable_host'],
+            142 => ['recharge_seller'],
+            143 => ['recharge_merchant'],
+            126 => ['deliver_item'],
+            175 => ['toggle_fee_config'],
+            159 => ['reply_support'],
+            170 => ['approve_withdrawal', 'reject_withdrawal'],
+            172 => ['send_coins', 'deduct_coins'],
+            163 => ['send_money', 'take_money'],
+            173 => ['import_words'],
+            102 => ['manage_permissions'],
+            103 => ['manage_user_permissions'],
+        ];
+
         // ===========================
         // Allow All
         // ===========================
         if ($request->type == 'allow_all') {
 
-            $value = $userPermission->allow_all ? 0 : 1;
+            $value = $request->has('value') ? ($request->value ? 1 : 0) : ($userPermission->allow_all ? 0 : 1);
+            $customActs = $value == 1 ? ($moduleCustomActionsMap[$request->module_id] ?? []) : [];
 
             $userPermission->update([
                 'allow_all'  => $value,
@@ -177,27 +219,44 @@ class UsersController extends Controller
                 'can_add'    => $value,
                 'can_edit'   => $value,
                 'can_delete' => $value,
+                'actions'    => $customActs,
             ]);
 
-            return true;
+            return response()->json(['status' => true, 'allow_all' => $value]);
+        }
+
+        // Custom Action Toggle
+        if ($request->has('action_key')) {
+            $actKey = $request->action_key;
+            $currentActions = is_array($userPermission->actions) ? $userPermission->actions : (json_decode($userPermission->actions ?? '', true) ?: []);
+            
+            $value = $request->has('value') ? ($request->value ? 1 : 0) : (!in_array($actKey, $currentActions) ? 1 : 0);
+
+            if ($value == 1) {
+                if (!in_array($actKey, $currentActions)) {
+                    $currentActions[] = $actKey;
+                }
+            } else {
+                $currentActions = array_values(array_filter($currentActions, fn($a) => $a !== $actKey));
+            }
+
+            $userPermission->actions = $currentActions;
+            $userPermission->allow_all = 0;
+            $userPermission->save();
+
+            return response()->json(['status' => true, 'actions' => $currentActions]);
         }
 
         // ===========================
         // Single Permission
         // ===========================
-        $value = $userPermission->{$request->type} ? 0 : 1;
+        $value = $request->has('value') ? ($request->value ? 1 : 0) : ($userPermission->{$request->type} ? 0 : 1);
 
         $userPermission->{$request->type} = $value;
-
-        $userPermission->allow_all =
-            $userPermission->can_view &&
-            $userPermission->can_add &&
-            $userPermission->can_edit &&
-            $userPermission->can_delete;
-
+        $userPermission->allow_all = 0;
         $userPermission->save();
 
-        return true;
+        return response()->json(['status' => true, 'allow_all' => 0]);
     }
 
     // public function permission_update(Request $request): bool

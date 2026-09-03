@@ -21,6 +21,11 @@ class UserPermission extends Model
         'can_edit',
         'can_delete',
         'allow_all',
+        'actions',
+    ];
+
+    protected $casts = [
+        'actions' => 'array',
     ];
 
     public function toggle($type = '')

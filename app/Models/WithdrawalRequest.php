@@ -16,12 +16,24 @@ class WithdrawalRequest extends Model
         'amount',
         'status',
         'remarks',
+        'transaction_id',
         'requested_at',
         'processed_at',
+        'processed_by',
     ];
 
     public function user()
     {
         return $this->belongsTo(AppUser::class, 'user_id');
+    }
+
+    public function account()
+    {
+        return $this->belongsTo(WithdrawalAccount::class, 'account_id');
+    }
+
+    public function processedBy()
+    {
+        return $this->belongsTo(User::class, 'processed_by');
     }
 }

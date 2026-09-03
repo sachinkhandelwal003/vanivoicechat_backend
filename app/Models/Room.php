@@ -11,7 +11,7 @@ class Room extends Model
 
     protected $table = 'rooms';
     protected $fillable = ['user_id', 'room_id', 'room_name', 'room_image', 'country', 'bio', 'total_points', 'room_seat', 'active_theme_id', 'is_locked', 'password', 'status','is_banned','ban_reason','action_by','banned_at','is_pinned','pinned_at','xp','level','admin_limit','member_limit',
-   'treasure_banner_1','treasure_banner_2','treasure_banner_3','treasure_banner_4','treasure_banner_5'];
+   'treasure_cycle_start','treasure_banner_1','treasure_banner_2','treasure_banner_3','treasure_banner_4','treasure_banner_5'];
 
 
     public function user()

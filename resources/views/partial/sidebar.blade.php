@@ -30,16 +30,16 @@
         @endif -->
 
 
-        @if(Helper::userCan([104,105,106]))
-        <li class="menu @routeis('app-users,user.albums,user.items') active @endrouteis">
-            <a href="#users" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('app-users,user.albums,user.items') }}" class="dropdown-toggle">
+        @if(Helper::userCan([104,105,106,176]))
+        <li class="menu @routeis('app-users,user.albums,user.items,user.device.list') active @endrouteis">
+            <a href="#users" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('app-users,user.albums,user.items,user.device.list') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-users"></i>
                     <span>User App</span>
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('app-users,user.albums,user.items') show @endrouteis" id="users">
+            <ul class="collapse submenu list-unstyled @routeis('app-users,user.albums,user.items,user.device.list') show @endrouteis" id="users">
 
                 @if(Helper::userCan(104))
                 <li class="@routeis('app-users') active @endrouteis">
@@ -47,7 +47,7 @@
                 </li>
                 @endif
 
-                @if(Helper::userCan(104))
+                @if(Helper::userCan(176))
                 <li class="@routeis('user.device.list') active @endrouteis">
                     <a href="{{ route('user.device.list') }}">User Device List</a>
                 </li>
@@ -69,7 +69,7 @@
         </li>
         @endif
 
-        @if(Helper::userCan([107]))
+        @if(Helper::userCan([107,177]))
         <li class="menu @routeis('invite-users,reward-inviting') active @endrouteis">
             <a href="#invitationmanage" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('invite-users,reward-inviting') }}" class="dropdown-toggle">
                 <div class="">
@@ -85,7 +85,7 @@
                     </li>
                 @endif
 
-                @if(Helper::userCan(107))
+                @if(Helper::userCan(177))
                     <li class="@routeis('invite-users') active @endrouteis">
                         <a href="{{ route('invite-users') }}">Invite User List</a>
                     </li>
@@ -155,7 +155,7 @@
         </li>
         @endif
 
-        @if(Helper::userCan([113,114,115,116,117,118,119,120,121,122,123,124,125,126]))
+        @if(Helper::userCan([113,114,115,116,117,118,119,120,121,122,123,124,125,126,178,179]))
         <li class="menu @routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,vip.user,svip,svip.users,medals.index,props.item.delivery,user-role-tags') active @endrouteis">
             <a href="#props" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('gift,frame,theme,cars,chat.bubble,data.card,entry.tag,voice,store.uid,vip,vip.user,svip,svip.users,medals.index,props.item.delivery,user-role-tags') }}" class="dropdown-toggle">
                 <div class="">
@@ -222,7 +222,7 @@
                     <a href="{{ route('vip') }}">VIP</a>
                 </li>
                 @endif
-                @if(Helper::userCan(122))
+                @if(Helper::userCan(178))
                 <li class="@routeis('vip.user') active @endrouteis">
                     <a href="{{ route('vip.user') }}">VIP User</a>
                 </li>
@@ -232,7 +232,7 @@
                     <a href="{{ route('svip') }}">SVIP</a>
                 </li>
                 @endif
-                @if(Helper::userCan(123))
+                @if(Helper::userCan(179))
                 <li class="@routeis('svip.users') active @endrouteis">
                     <a href="{{ route('svip.users') }}">SVIP User</a>
                 </li>
@@ -257,9 +257,9 @@
         </li>
         @endif
 
-        @if(Helper::userCan([127,128]))
-        <li class="menu @routeis('relationship.item,relationship.user.relation.list') active @endrouteis">
-            <a href="#relationship" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('relationship.item,relationship.user.relation.list') }}" class="dropdown-toggle">
+        @if(Helper::userCan([127,128,175]))
+        <li class="menu @routeis('relationship.item,relationship.user.relation.list,relationship.fee.configs') active @endrouteis">
+            <a href="#relationship" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('relationship.item,relationship.user.relation.list,relationship.fee.configs') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-handshake"></i>
 
@@ -267,7 +267,7 @@
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('relationship.item,relationship.user.relation.list') show @endrouteis" id="relationship">
+            <ul class="collapse submenu list-unstyled @routeis('relationship.item,relationship.user.relation.list,relationship.fee.configs') show @endrouteis" id="relationship">
 
                 @if(Helper::userCan(127))
                 <li class="@routeis('relationship.item') active @endrouteis">
@@ -279,13 +279,18 @@
                     <a href="{{ route('relationship.user.relation.list') }}">User Relation List</a>
                 </li>
                 @endif
+                @if(Helper::userCan(175))
+                <li class="@routeis('relationship.fee.configs') active @endrouteis">
+                    <a href="{{ route('relationship.fee.configs') }}">Relationship Fee Configure</a>
+                </li>
+                @endif
             </ul>
         </li>
         @endif
 
-        @if(Helper::userCan([129,130,131,132,133,134,135,136,137]))
-        <li class="menu @routeis('room,room_reward_slabs,room_reward_claims,red.envelope,user_room.music,user.themes,theme.custom.requests,room-emojis,room-levels') active @endrouteis">
-            <a href="#room" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('room,room_reward_slabs,room_reward_claims,red.envelope,user_room.music,user.themes,theme.custom.requests,room-emojis,room-levels') }}" class="dropdown-toggle">
+        @if(Helper::userCan([129,130,131,132,133,134,135,136,137,174]))
+        <li class="menu @routeis('room,room_reward_slabs,room_reward_claims,red.envelope,user_room.music,user.themes,theme.custom.requests,room-emojis,room-levels,room.kick.logs') active @endrouteis">
+            <a href="#room" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('room,room_reward_slabs,room_reward_claims,red.envelope,user_room.music,user.themes,theme.custom.requests,room-emojis,room-levels,room.kick.logs') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-door-open"></i>
 
@@ -293,7 +298,7 @@
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('room,room_reward_slabs,room_reward_claims,red.envelope,user_room.music,user.themes,theme.custom.requests,room-emojis,room-levels') show @endrouteis" id="room">
+            <ul class="collapse submenu list-unstyled @routeis('room,room_reward_slabs,room_reward_claims,red.envelope,user_room.music,user.themes,theme.custom.requests,room-emojis,room-levels,room.kick.logs') show @endrouteis" id="room">
 
                 @if(Helper::userCan(129))
                 <li class="@routeis('room') active @endrouteis">
@@ -344,6 +349,11 @@
                 @if(Helper::userCan(137))
                 <li class="@routeis('room-levels') active @endrouteis">
                     <a href="{{ route('room-levels') }}">Room Level </a>
+                </li>
+                @endif
+                @if(Helper::userCan(174))
+                <li class="@routeis('room.kick.logs') active @endrouteis">
+                    <a href="{{ route('room.kick.logs') }}">Room Kick Log</a>
                 </li>
                 @endif
             </ul>
@@ -568,7 +578,7 @@
         </li>
         @endif
 
-        @if(Helper::userCan([142]))
+        @if(Helper::userCan([180]))
         <li class="menu @routeis('game') active @endrouteis">
             <a href="#game" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('game') }}" class="dropdown-toggle">
                 <div class="">
@@ -580,7 +590,7 @@
             </a>
             <ul class="collapse submenu list-unstyled @routeis('game') show @endrouteis" id="game">
 
-                @if(Helper::userCan(142))
+                @if(Helper::userCan(180))
                 <li class="@routeis('game') active @endrouteis">
                     <a href="{{ route('game') }}">Game List</a>
                 </li>
@@ -590,17 +600,16 @@
         </li>
         @endif
 
-        @if(Helper::userCan([160,161,162,163,164,165]))
-        <li class="menu @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work') active @endrouteis">
-            <a href="#financial" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work') }}" class="dropdown-toggle">
+        @if(Helper::userCan([160,161,162,163,164,165,170,171,172]))
+        <li class="menu @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index') active @endrouteis">
+            <a href="#financial" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-wallet"></i>
-
                     <span>Financial Management</span>
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work') show @endrouteis" id="financial">
+            <ul class="collapse submenu list-unstyled @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index') show @endrouteis" id="financial">
 
                 @if(Helper::userCan(160))
                 <li class="@routeis('coin.package') active @endrouteis">
@@ -635,21 +644,35 @@
                     <a href="{{ route('agency-team-work') }}">Team salary</a>
                 </li>
                 @endif
+                @if(Helper::userCan(170))
+                <li class="@routeis('withdrawal.requests') active @endrouteis">
+                    <a href="{{ route('withdrawal.requests') }}">Withdrawal Requests</a>
+                </li>
+                @endif
+                @if(Helper::userCan(171))
+                <li class="@routeis('exchange.log') active @endrouteis">
+                    <a href="{{ route('exchange.log') }}">USD Coins Exchange Log</a>
+                </li>
+                @endif
+                @if(Helper::userCan(172))
+                <li class="@routeis('manual-coins.index') active @endrouteis">
+                    <a href="{{ route('manual-coins.index') }}">Manual Coins Send/Deduct</a>
+                </li>
+                @endif
             </ul>
         </li>
         @endif
 
-        @if(Helper::userCan([166,167,168]))
-        <li class="menu @routeis('post.report,user.report,app-rules.index,system.setting') active @endrouteis">
-            <a href="#report" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('post.report,user.report,app-rules.index,system.setting') }}" class="dropdown-toggle">
+        @if(Helper::userCan([166,167,168,173,181]))
+        <li class="menu @routeis('post.report,user.report,app-rules.index,system.setting,abuse-words.index') active @endrouteis">
+            <a href="#report" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('post.report,user.report,app-rules.index,system.setting,abuse-words.index') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-clipboard-list"></i>
-
                     <span>Report Management</span>
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('post.report,user.report,app-rules.index,system.setting') show @endrouteis" id="report">
+            <ul class="collapse submenu list-unstyled @routeis('post.report,user.report,app-rules.index,system.setting,abuse-words.index') show @endrouteis" id="report">
 
                 @if(Helper::userCan(166))
                 <li class="@routeis('post.report') active @endrouteis">
@@ -667,9 +690,15 @@
                 </li>
                 @endif
 
-                @if(Helper::userCan(168))
+                @if(Helper::userCan(181))
                 <li class="@routeis('system.setting') active @endrouteis">
                     <a href="{{ route('system.setting') }}">Seller Thresold</a>
+                </li>
+                @endif
+
+                @if(Helper::userCan(173))
+                <li class="@routeis('abuse-words.index') active @endrouteis">
+                    <a href="{{ route('abuse-words.index') }}">Abuse Word Control</a>
                 </li>
                 @endif
 

@@ -39,6 +39,38 @@ class RoomController extends Controller
                 }
             ])->latest();
 
+            // Search: Room ID, Room Name, Owner name/uid
+            if ($request->filled('room_search')) {
+                $kw = $request->room_search;
+                $query->where(function ($q) use ($kw) {
+                    $q->where('room_id', $kw)
+                      ->orWhere('room_name', 'like', "%{$kw}%")
+                      ->orWhereHas('user', function ($uq) use ($kw) {
+                          $uq->where('name', 'like', "%{$kw}%")
+                             ->orWhere('uid', $kw);
+                      });
+                });
+            }
+
+            // Ban Status filter
+            if ($request->filled('ban_status')) {
+                if ($request->ban_status === 'banned') {
+                    $query->where('is_banned', 1);
+                } elseif ($request->ban_status === 'active') {
+                    $query->where('is_banned', 0);
+                }
+            }
+
+            // Pin Status filter
+            if ($request->filled('pin_status') && $request->pin_status !== '') {
+                $query->where('is_pinned', $request->pin_status);
+            }
+
+            // Room Level filter
+            if ($request->filled('level')) {
+                $query->where('level', $request->level);
+            }
+
             return DataTables::of($query)
                 ->addIndexColumn()
 
@@ -208,7 +240,7 @@ class RoomController extends Controller
                             Update Member Limit
                         </button>';
                     }
-                    if (Helper::userCan(129, 'can_edit')) {
+                    if (Helper::userCan(129, 'pin_room')) {
                         if ($row->is_pinned) {
 
                             $btn .= '
@@ -227,7 +259,7 @@ class RoomController extends Controller
                         </button>';
                         }
                     }
-                    if (Helper::userCan(129, 'can_edit')) {
+                    if (Helper::userCan(129, 'ban_room')) {
                         if ($row->is_banned) {
 
                             $btn .= '
