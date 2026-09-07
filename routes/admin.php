@@ -776,7 +776,7 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('abuse-words/{id}', 'update')->name('abuse-words.update')->middleware('isAllow:173,can_edit');
         Route::delete('abuse-words/{id}', 'destroy')->name('abuse-words.destroy')->middleware('isAllow:173,can_delete');
         Route::post('abuse-words/toggle/{id}', 'toggleStatus')->name('abuse-words.toggle')->middleware('isAllow:173,can_edit');
-        Route::post('abuse-words/import', 'import')->name('abuse-words.import')->middleware('isAllow:173,can_add');
+        Route::post('abuse-words/import', 'import')->name('abuse-words.bulk-import')->middleware('isAllow:173,can_add');
     });
 
     // ----------------------- Game Management ----------------------------------------------------
