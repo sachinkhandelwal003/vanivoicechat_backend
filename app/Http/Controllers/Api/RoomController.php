@@ -5855,7 +5855,7 @@ class RoomController extends Controller
 
         try {
             $roomId = (int) $request->room_id;
-
+            $authUserId = Auth::id();
             $room = DB::table('rooms')->where('id', $roomId)->first();
 
             if (!$room) {
@@ -5884,11 +5884,38 @@ class RoomController extends Controller
             $totalMembers = $memberUserIds->count();
             $totalAdmins = count($adminUserIds);
 
+            // Roles
+            $roles = RoomUserRole::where('room_id', $roomId)
+                ->pluck('role', 'user_id');
+
+            $usersForItems = AppUser::whereIn('id', $memberUserIds)
+                ->get();
+
+            $itemsByUserId = $this->getFrameAndUidForUsers($usersForItems);
+
+            $cpRelations = RelationshipInvitation::with([
+                'sender:id,uid,name,image,active_frame_id,active_frame_type',
+                'sender.activeFrame:id,name,icon,gif',
+
+                'receiver:id,uid,name,image,active_frame_id,active_frame_type',
+                'receiver.activeFrame:id,name,icon,gif',
+
+                'relationshipItem:id,name,type,icon,gif,ring,avatar,frame,badge',
+            ])
+                ->where('status', 'accept')
+                ->whereRaw('LOWER(type)=?', ['cp'])
+                ->where(function ($q) use ($memberUserIds) {
+
+                    $q->whereIn('sender_id', $memberUserIds)
+                        ->orWhereIn('receiver_id', $memberUserIds);
+                })
+                ->get();
+
             $members = DB::table('app_users')
                 ->whereIn('id', $memberUserIds)
                 ->get()
-                ->map(function ($user) use ($room, $adminUserIds) {
-
+                ->map(function ($user) use ($room, $adminUserIds, $roles, $itemsByUserId, $cpRelations) {
+                    $userId = (int) $user->id;
                     $nicknameMeta = Helper::getNicknameMeta($user->id);
                     $membershipBadges = Helper::getUserMembershipBadges($user->id);
 
@@ -5951,6 +5978,118 @@ class RoomController extends Controller
                         }
                     }
 
+                    $itemData = $itemsByUserId[$userId] ?? [
+                        'frame' => null,
+                        'uid' => null,
+                        'voice' => null,
+                        'profile' => null,
+                    ];
+
+                    // Wealth Level
+                    $wealthLevel = WCLevel::with([
+                        'levelData' => function ($q) {
+                            $q->where('type', 'wealth');
+                        }
+                    ])
+                        ->where('user_id', $userId)
+                        ->where('type', 'wealth')
+                        ->first();
+
+                    // Charm Level
+                    $charmLevel = WCLevel::with([
+                        'levelData' => function ($q) {
+                            $q->where('type', 'charm');
+                        }
+                    ])
+                        ->where('user_id', $userId)
+                        ->where('type', 'charm')
+                        ->first();
+
+                    // Medals
+                    $medals = UserMedal::with('medal')
+                        ->where('user_id', $userId)
+                        ->where('is_equipped', 1)
+                        ->orderBy('slot_no')
+                        ->take(3)
+                        ->get()
+                        ->map(function ($item) {
+
+                            return [
+                                'id' => $item->medal?->id,
+                                'name' => $item->medal?->title,
+                                'icon' => $item->medal?->icon
+                                    ? Helper::showImage($item->medal->icon, true)
+                                    : null,
+                            ];
+                        })
+                        ->values();
+
+                    $cpRelation = $cpRelations
+                        ->filter(function ($relation) use ($userId) {
+
+                            return
+                                (int) $relation->sender_id === $userId
+                                ||
+                                (int) $relation->receiver_id === $userId;
+                        })
+                        ->map(function ($relation) use ($userId) {
+
+                            $cpUser =
+                                (int) $relation->sender_id === $userId
+                                ? $relation->receiver
+                                : $relation->sender;
+
+
+                            return [
+
+                                'id' => $cpUser->id,
+
+                                'uid' => $cpUser->uid,
+
+                                'name' => $cpUser->name,
+
+                                'image' => !empty($cpUser->image)
+                                    ? Helper::showImage($cpUser->image, true)
+                                    : null,
+
+                                'frame' => [
+
+                                    'id' => $cpUser?->activeFrame?->id,
+
+                                    'name' => $cpUser?->activeFrame?->name,
+
+                                    'icon' => $cpUser?->activeFrame?->icon
+                                        ? Helper::showImage(
+                                            $cpUser->activeFrame->icon,
+                                            true
+                                        )
+                                        : null,
+
+                                    'svga' => $cpUser?->activeFrame?->gif
+                                        ? Helper::showImage(
+                                            $cpUser->activeFrame->gif,
+                                            true
+                                        )
+                                        : null,
+                                ],
+
+                                'cp_data' => [
+
+                                    'id' => $relation?->relationshipItem?->id,
+
+                                    'name' => $relation?->relationshipItem?->name,
+
+                                    'icon' => $relation?->relationshipItem?->icon
+                                        ? Helper::showImage(
+                                            $relation->relationshipItem->icon,
+                                            true
+                                        )
+                                        : null,
+                                ],
+                            ];
+                        })
+                        ->values();
+
                     return [
                         'id' => $user->id,
                         // 'uid' => $user->uid ?? null,
@@ -5964,6 +6103,26 @@ class RoomController extends Controller
                         'gender' => $user->gender ?? null,
                         'country' => $user->country ?? null,
                         'role' => $role,
+                        'frame' => $itemData['frame'] ?? null,
+                        'uid_data' => $itemData['uid'] ?? null,
+                        'profile' => $itemData['profile'] ?? null,
+                        'wealth_level' => [
+                            'level' => $wealthLevel?->level ?? 1,
+                            'icon' => $wealthLevel?->levelData?->icon
+                                ? Helper::showImage(
+                                    $wealthLevel->levelData->icon,
+                                    true
+                                )
+                                : null,
+                        ],
+                        'charm_level' => [
+                            'level' => $charmLevel?->level ?? 1,
+                            'icon' => $charmLevel?->levelData?->icon
+                                ? Helper::showImage(
+                                    $charmLevel->levelData->icon,true): null,
+                        ],
+                        'medals' => $medals,
+                        'cp_relation' => $cpRelation,
                     ];
                 })
                 ->sortBy(function ($user) {
