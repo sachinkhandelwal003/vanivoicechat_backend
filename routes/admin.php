@@ -3,7 +3,7 @@
 use App\Http\Controllers\AccountBanController;
 use App\Http\Controllers\AdminAccountController;
 use App\Http\Controllers\AgencyController;
-use App\Http\Controllers\AssetsController;
+// use App\Http\Controllers\AssetsController;
 use App\Http\Controllers\FeedBackController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\AppUserController;
@@ -773,10 +773,10 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
     Route::controller(App\Http\Controllers\AbuseWordController::class)->group(function () {
         Route::get('abuse-words', 'index')->name('abuse-words.index')->middleware('isAllow:173,can_view');
         Route::post('abuse-words', 'store')->name('abuse-words.store')->middleware('isAllow:173,can_add');
+        Route::post('abuse-words/import', 'bulkImport')->name('abuse-words.bulk-import')->middleware('isAllow:173,can_add');
+        Route::post('abuse-words/toggle/{id}', 'toggleStatus')->name('abuse-words.toggle')->middleware('isAllow:173,can_edit');
         Route::post('abuse-words/{id}', 'update')->name('abuse-words.update')->middleware('isAllow:173,can_edit');
         Route::delete('abuse-words/{id}', 'destroy')->name('abuse-words.destroy')->middleware('isAllow:173,can_delete');
-        Route::post('abuse-words/toggle/{id}', 'toggleStatus')->name('abuse-words.toggle')->middleware('isAllow:173,can_edit');
-        Route::post('abuse-words/import', 'import')->name('abuse-words.bulk-import')->middleware('isAllow:173,can_add');
     });
 
     // ----------------------- Game Management ----------------------------------------------------
@@ -911,9 +911,9 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
 
 
     // ----------------------- User Album Routes ----------------------------------------------------
-    Route::controller(AssetsController::class)->group(function () {
-        Route::get('assets-user', 'index')->name('assets-user')->middleware('isAllow:104,can_view');
-    });
+    // Route::controller(AssetsController::class)->group(function () {
+    //     Route::get('assets-user', 'index')->name('assets-user')->middleware('isAllow:104,can_view');
+    // });
 
     // ----------------------- User Badge Routes ----------------------------------------------------
     Route::controller(UserBadgeController::class)->group(function () {
