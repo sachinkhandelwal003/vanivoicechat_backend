@@ -27,6 +27,7 @@
                         <option value="treasure">Treasure</option>
                         <option value="vip">Vip</option>
                         <option value="svip">Svip</option>
+                        <option value="room_reward">Room Reward Event</option>
                     </select>
                     {{-- <input type="text" name="type" class="form-control"
                         placeholder="Enter rule Type" value="{{ old('type') }}" required>
