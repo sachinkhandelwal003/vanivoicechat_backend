@@ -118,7 +118,7 @@ class AbuseWordController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'word'     => 'required|string|max:100',
+            'words'     => 'required|string|max:100',
             'category' => 'required|in:general,chat,profile,content',
         ]);
 
