@@ -213,7 +213,7 @@ $(document).ready(function () {
 
     let storeUrl       = '{{ route("abuse-words.store") }}';
     let bulkImportUrl  = '{{ route("abuse-words.bulk-import") }}';
-    let baseUrl        = '{{ url("admin/abuse-words") }}';
+    let baseUrl        = '{{ url("abuse-words") }}';
 
     // ── DataTable ─────────────────────────────────────────────────────────────
     let table = $('#bannedWordsTable').DataTable({
@@ -297,7 +297,7 @@ $(document).ready(function () {
         let btn = $(this).find('[type=submit]').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
         $.ajax({
             url: baseUrl + '/' + id,
-            method: 'PUT',
+            method: 'POST',
             data: {
                 _token:   '{{ csrf_token() }}',
                 word:     $('#edit_word').val(),

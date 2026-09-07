@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CityController;
-use App\Http\Controllers\FireController;
+// use App\Http\Controllers\FireController;
 use App\Http\Controllers\Common\CommonController;
 
 /*
@@ -19,9 +19,9 @@ use App\Http\Controllers\Common\CommonController;
 Route::view('/', 'welcome')->name('home');
 // Route::patch('fcm-token', [FireController::class, 'updateToken'])->name('fcmToken');
 
-Route::get('/push-notificaiton', [FireController::class, 'index'])->name('push-notificaiton');
-Route::post('/store-token', [FireController::class, 'storeToken'])->name('store.token');
-Route::post('/send-web-notification', [FireController::class, 'sendWebNotification'])->name('send.web-notification');
+// Route::get('/push-notificaiton', [FireController::class, 'index'])->name('push-notificaiton');
+// Route::post('/store-token', [FireController::class, 'storeToken'])->name('store.token');
+// Route::post('/send-web-notification', [FireController::class, 'sendWebNotification'])->name('send.web-notification');
 
 Route::get('test', [CommonController::class, 'test'])->name('test');
 Route::get('{guard}', fn ($guard) => redirect($guard == 'admin' ?  url('/admin/login') : url("/$guard/login")))->whereIn('guard', ['admin']);
