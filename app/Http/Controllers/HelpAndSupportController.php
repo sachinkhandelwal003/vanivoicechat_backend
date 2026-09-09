@@ -34,6 +34,7 @@ class HelpAndSupportController extends Controller
         $about->content = $request->content;
         $about->save();
 
+        Helper::logActivity('Help & Support', 'Save Contact Info', 'Updated contact info');
         return redirect()->back()->with('success', 'About Us saved successfully!');
     }
 
@@ -105,6 +106,7 @@ class HelpAndSupportController extends Controller
         $faq->status = $request->status;
         $faq->save();
 
+        Helper::logActivity('Help & Support', 'Add FAQ', 'Created new FAQ entry');
         return redirect()->route('faq.index')->with('success', 'FAQs saved successfully!');
     }
 
@@ -136,11 +138,13 @@ class HelpAndSupportController extends Controller
         $faq->status = $request->status;
         $faq->save();
 
+        Helper::logActivity('Help & Support', 'Edit FAQ', 'Updated FAQ entry');
         return redirect()->route('faq.index')->with('success', 'FAQs saved successfully!');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Help & Support', 'Delete FAQ', 'Deleted FAQ entry');
         return Helper::deleteRecord(new Faq, $request->id);
     }
 }

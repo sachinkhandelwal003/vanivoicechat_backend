@@ -462,6 +462,9 @@ class BdUserController extends Controller
                 'invite_status' => 'accept'
             ])->save();
 
+            $act = $id ? 'Edit BD' : 'Add BD';
+            Helper::logActivity('BD', $act, ($id ? 'Updated' : 'Created') . ' BD for user UID ' . $request->user_uid);
+
             return redirect()
                 ->route('bd-user')
                 ->with(
@@ -475,6 +478,10 @@ class BdUserController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        $bd = BdUser::find($request->id);
+        if ($bd) {
+            Helper::logActivity('BD', 'Delete BD', 'Deleted BD ID ' . $bd->id);
+        }
         return Helper::deleteRecord(new BdUser, $request->id);
     }
 

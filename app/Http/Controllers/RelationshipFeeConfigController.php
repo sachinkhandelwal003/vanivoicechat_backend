@@ -172,6 +172,8 @@ class RelationshipFeeConfigController extends Controller
             'created_by'        => Auth::id(),
         ]);
 
+        Helper::logActivity('Relationship Fee Config', 'Add Config', 'Created relationship fee config for type "' . $type . '"');
+
         return response()->json([
             'status'  => true,
             'message' => 'Relationship Fee configured successfully for ' . $type . '.'
@@ -208,6 +210,8 @@ class RelationshipFeeConfigController extends Controller
             'status'            => $request->status ?? $config->status,
         ]);
 
+        Helper::logActivity('Relationship Fee Config', 'Edit Config', 'Updated relationship fee config ID #' . $id);
+
         return response()->json([
             'status'  => true,
             'message' => 'Relationship Fee configuration updated successfully.'
@@ -220,6 +224,8 @@ class RelationshipFeeConfigController extends Controller
         $config->status = $config->status == 1 ? 0 : 1;
         $config->save();
 
+        Helper::logActivity('Relationship Fee Config', 'Toggle Status', ($config->status == 1 ? 'Enabled' : 'Disabled') . ' relationship fee config ID #' . $id);
+
         $msg = $config->status == 1 ? 'Fee configuration enabled.' : 'Fee configuration disabled.';
         return response()->json(['status' => true, 'message' => $msg, 'new_status' => $config->status]);
     }
@@ -229,6 +235,8 @@ class RelationshipFeeConfigController extends Controller
         $config = RelationshipFeeConfig::findOrFail($id);
         $type   = $config->relationship_type;
         $config->delete();
+
+        Helper::logActivity('Relationship Fee Config', 'Delete Config', 'Deleted relationship fee config ID #' . $id . ' (' . $type . ')');
 
         return response()->json(['status' => true, 'message' => 'Fee configuration for ' . $type . ' deleted successfully.']);
     }

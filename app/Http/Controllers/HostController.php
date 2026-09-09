@@ -329,6 +329,9 @@ class HostController extends Controller
                 'invite_status' => 'accept',
             ])->save();
 
+            $act = $id ? 'Edit Host' : 'Add Host';
+            Helper::logActivity('Hosts', $act, ($id ? 'Updated' : 'Created') . ' Host for user UID ' . $request->user_uid);
+
             return redirect()->route('host')
                 ->with(
                     'success',
@@ -341,6 +344,10 @@ class HostController extends Controller
 
     public function delete(Request $request)
     {
+        $host = Host::find($request->id);
+        if ($host) {
+            Helper::logActivity('Hosts', 'Delete Host', 'Deleted Host ID ' . $host->id);
+        }
         return Helper::deleteRecord(new Host, $request->id);
     }
 

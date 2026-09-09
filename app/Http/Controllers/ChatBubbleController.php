@@ -123,7 +123,8 @@ class ChatBubbleController extends Controller
                     : null,
             ]);
 
-            return redirect()
+            Helper::logActivity('Chat Bubble Store', 'Add Chat Bubble', 'Created new chat bubble');
+        return redirect()
                 ->route('chat.bubble')
                 ->with('success', 'Chat Bubble added successfully');
         });
@@ -192,13 +193,15 @@ class ChatBubbleController extends Controller
 
             $chatBubble->update($data);
 
-            return redirect()->route('chat.bubble')->with('success', 'Chat Bubble updated successfully');
+            Helper::logActivity('Chat Bubble Store', 'Edit Chat Bubble', 'Updated chat bubble');
+        return redirect()->route('chat.bubble')->with('success', 'Chat Bubble updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Chat Bubble Store', 'Delete Chat Bubble', 'Deleted chat bubble');
         return Helper::deleteRecord(new ChatBubble, $request->id);
     }
 }

@@ -242,6 +242,7 @@ class RoomKickLogController extends Controller
 
         $log->delete();
 
+        Helper::logActivity('Room Kick Logs', 'Delete Kick Log', 'Deleted room kick log');
         return response()->json([
             'status'  => true,
             'message' => 'Kick log entry removed successfully.'

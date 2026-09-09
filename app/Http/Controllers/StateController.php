@@ -53,7 +53,8 @@ class StateController extends Controller
             'status'    => ['required', 'integer'],
         ], function ($validator) {
             State::create($validator->validated());
-            return response()->json([
+            Helper::logActivity('State Management', 'Add State', 'Created state');
+        return response()->json([
                 'status'    => true,
                 'message'   => 'State Added Successfully',
                 'data'      => ''
@@ -77,7 +78,8 @@ class StateController extends Controller
             'status'    => ['required', 'integer'],
         ], function ($validator) use ($state) {
             $state->update($validator->validated());
-            return response()->json([
+            Helper::logActivity('State Management', 'Edit State', 'Updated state');
+        return response()->json([
                 'status'    => true,
                 'message'   => 'State Added Successfully',
             ]);
@@ -86,6 +88,7 @@ class StateController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('State Management', 'Delete State', 'Deleted state');
         return Helper::deleteRecord(new State, $request->id);
     }
 }

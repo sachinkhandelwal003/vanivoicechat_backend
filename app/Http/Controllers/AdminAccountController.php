@@ -345,6 +345,9 @@ class AdminAccountController extends Controller
                 ]
             );
 
+            $act = $id ? 'Edit Admin Center' : 'Add Admin Center';
+            Helper::logActivity('Admin Center', $act, ($id ? 'Updated' : 'Created') . ' Admin Center account for user UID ' . $request->user_uid);
+
             return redirect()
                 ->route('admin.account')
                 ->with(
@@ -358,6 +361,10 @@ class AdminAccountController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        $a = AdminAccount::find($request->id);
+        if ($a) {
+            Helper::logActivity('Admin Center', 'Delete Admin Center', 'Deleted Admin Center account ID ' . $a->id);
+        }
         return Helper::deleteRecord(new AdminAccount, $request->id);
     }
 }

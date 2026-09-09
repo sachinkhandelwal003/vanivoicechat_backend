@@ -113,7 +113,8 @@ class CoinController extends Controller
                 'icon'          => $icon,
             ]);
 
-            return redirect()
+            Helper::logActivity('Coin Package', 'Add Coin Package', 'Created coin package');
+        return redirect()
                 ->route('coin.package')
                 ->with('success', 'Coin Packages added successfully');
         });
@@ -171,13 +172,15 @@ class CoinController extends Controller
 
             $coin->update($data);
 
-            return redirect()->route('coin.package')->with('success', 'coin package updated successfully');
+            Helper::logActivity('Coin Package', 'Edit Coin Package', 'Updated coin package');
+        return redirect()->route('coin.package')->with('success', 'coin package updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Coin Package', 'Delete Coin Package', 'Deleted coin package');
         return Helper::deleteRecord(new CoinPackages, $request->id);
     }
 

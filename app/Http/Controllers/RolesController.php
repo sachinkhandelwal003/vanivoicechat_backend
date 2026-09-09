@@ -77,6 +77,8 @@ class RolesController extends Controller
                 RolePermission::insert($data->toArray());
             });
 
+            Helper::logActivity('Roles', 'Add Role', 'Created new role "' . $validator->validated()['name'] . '"');
+
             return response()->json([
                 'status'    => true,
                 'message'   => 'Role Added Successfully',
@@ -101,6 +103,7 @@ class RolesController extends Controller
             'status'    => ['required', 'integer'],
         ], function ($validator) use ($role) {
             $role->update($validator->validated());
+            Helper::logActivity('Roles', 'Edit Role', 'Updated role "' . $role->name . '"');
             return response()->json([
                 'status'    => true,
                 'message'   => 'Role Updated Successfully',
@@ -110,6 +113,10 @@ class RolesController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        $role = Role::find($request->id);
+        if ($role) {
+            Helper::logActivity('Roles', 'Delete Role', 'Deleted role "' . $role->name . '"');
+        }
         return Helper::deleteRecord(new Role, $request->id);
     }
 

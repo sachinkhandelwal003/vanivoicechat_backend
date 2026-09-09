@@ -178,7 +178,8 @@ class RoomEmojiController extends Controller
 
             $emoji->fill($data)->save();
 
-            return redirect()
+            Helper::logActivity('Room Emoji Store', 'Add Room Emoji', 'Created room emoji');
+        return redirect()
                 ->route('room-emojis')
                 ->with(
                     'success',
@@ -191,6 +192,7 @@ class RoomEmojiController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Room Emoji Store', 'Delete Room Emoji', 'Deleted room emoji');
         return Helper::deleteRecord(new RoomEmoji, $request->id);
     }
 }

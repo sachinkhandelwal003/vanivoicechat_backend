@@ -244,13 +244,15 @@ class SvipController extends Controller
                 }
             }
 
-            return redirect()
+            Helper::logActivity('SVIP Package', 'Add SVIP', 'Created SVIP package');
+        return redirect()
                 ->route('svip')
                 ->with('success', $id ? 'Updated successfully' : 'Created successfully');
         });
     }
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('SVIP Package', 'Delete SVIP', 'Deleted SVIP package');
         return Helper::deleteRecord(new Svip, $request->id);
     }
 
@@ -374,7 +376,8 @@ class SvipController extends Controller
 
             $privilege->fill($data)->save();
 
-            return redirect()
+            Helper::logActivity('SVIP Package', 'Add SVIP Privilege', 'Created SVIP privilege');
+        return redirect()
                 ->route('svip-privilege.list')
                 ->with('success', $id ? 'Privilege updated successfully' : 'Privilege added successfully');
         });
@@ -382,6 +385,7 @@ class SvipController extends Controller
 
     public function privilegeDelete(Request $request): JsonResponse
     {
+        Helper::logActivity('SVIP Package', 'Delete SVIP Privilege', 'Deleted SVIP privilege');
         return Helper::deleteRecord(new SvipPrivilege, $request->id);
     }
 
@@ -514,6 +518,7 @@ class SvipController extends Controller
         // SVIP purchase record delete
         $transaction->delete();
 
+        Helper::logActivity('SVIP Package', 'Remove User SVIP', 'Removed user SVIP subscription');
         return response()->json([
             'status' => true,
             'message' => 'SVIP removed successfully.'

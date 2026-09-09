@@ -125,7 +125,8 @@ class DataCardController extends Controller
                     : null,
             ]);
 
-            return redirect()
+            Helper::logActivity('Data Card Store', 'Add Data Card', 'Created data card');
+        return redirect()
                 ->route('data.card')
                 ->with('success', 'Data Card added successfully');
         });
@@ -245,13 +246,15 @@ class DataCardController extends Controller
 
             $dataCard->update($data);
 
-            return redirect()->route('data.card')->with('success', 'Data Card updated successfully');
+            Helper::logActivity('Data Card Store', 'Edit Data Card', 'Updated data card');
+        return redirect()->route('data.card')->with('success', 'Data Card updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Data Card Store', 'Delete Data Card', 'Deleted data card');
         return Helper::deleteRecord(new DataCard, $request->id);
     }
 }

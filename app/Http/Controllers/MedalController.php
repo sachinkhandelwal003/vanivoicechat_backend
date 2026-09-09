@@ -162,7 +162,8 @@ class MedalController extends Controller
 
             $medal->fill($data)->save();
 
-            return redirect()
+            Helper::logActivity('Medal Store', 'Add Medal', 'Created new medal');
+        return redirect()
                 ->route('medals.index')
                 ->with('success', $id ? 'Medal updated successfully' : 'Medal added successfully');
         });
@@ -170,6 +171,7 @@ class MedalController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Medal Store', 'Delete Medal', 'Deleted medal');
         return Helper::deleteRecord(new Medal, $request->id);
     }
 

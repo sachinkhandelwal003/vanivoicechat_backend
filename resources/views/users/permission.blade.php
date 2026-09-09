@@ -95,12 +95,16 @@
         'System Settings' => [
             'icon' => 'fas fa-cogs',
             'color' => 'dark',
-            'modules' => [101, 102, 159, 158, 147, 105, 106, 148, 149]
+            'modules' => [101, 102, 159, 158, 147, 105, 106, 148, 149, 182]
         ],
     ];
 
     // Specific custom sub-actions for modules with extra functions
     $moduleCustomActions = [
+        // Audit Log (module_id 182)
+        182 => [
+            ['key' => 'clear_logs', 'label' => 'Clear Audit Logs', 'icon' => 'fas fa-eraser text-danger'],
+        ],
         // App Users / User List (module_id 104)
         104 => [
             ['key' => 'view_details',   'label' => 'User Details',       'icon' => 'fas fa-eye text-info'],

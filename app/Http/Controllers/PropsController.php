@@ -293,6 +293,7 @@ class PropsController extends Controller
             $msg .= " Failed: " . implode(', ', $failed);
         }
 
+        Helper::logActivity('Props Store', 'Add Props', 'Created props item');
         return back()->with('success', $msg);
     }
 }

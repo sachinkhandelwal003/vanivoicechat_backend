@@ -180,7 +180,7 @@ class BannerController extends Controller
                 $roomId = $room->id;
             }
 
-            Banner::create([
+            $banner = Banner::create([
                 'large_banner'     => $largeBanner,
                 'small_banner'     => $smallBanner,
                 'jump'             => $request->jump_type,
@@ -194,6 +194,8 @@ class BannerController extends Controller
                 'region'           => $request->region,
                 'description'      => $request->description,
             ]);
+
+            Helper::logActivity('Banner', 'Add Banner', 'Created new banner ID #' . $banner->id);
 
             return redirect()
                 ->route('banner')
@@ -269,12 +271,15 @@ class BannerController extends Controller
 
         $banner->save();
 
+        Helper::logActivity('Banner', 'Edit Banner', 'Updated banner ID #' . $banner->id);
+
         return redirect()->route('banner.edit', $banner->id)
             ->with('success', 'Banner updated successfully');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Banner', 'Delete Banner', 'Deleted banner ID #' . $request->id);
         return Helper::deleteRecord(new Banner, $request->id);
     }
 }

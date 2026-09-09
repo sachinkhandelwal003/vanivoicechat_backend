@@ -144,6 +144,7 @@ class BroadcastController extends Controller
 
         $broadcast->delete();
 
+        Helper::logActivity('Broadcast Notification', 'Delete Broadcast', 'Deleted broadcast notification');
         return response()->json([
             'status' => true,
             'message' => 'Broadcast deleted successfully'
@@ -207,7 +208,8 @@ class BroadcastController extends Controller
                 'price'  => $request->price,
             ]);
 
-            return redirect()
+            Helper::logActivity('Broadcast Notification', 'Add Broadcast Price', 'Created broadcast price rule');
+        return redirect()
                 ->route('broadcast-price')
                 ->with('success', 'Broadcast Price added successfully');
         });
@@ -245,7 +247,8 @@ class BroadcastController extends Controller
 
             $bPrice->update($data);
 
-            return redirect()->route('broadcast-price')->with('success', 'Broadcast Price updated successfully');
+            Helper::logActivity('Broadcast Notification', 'Edit Broadcast Price', 'Updated broadcast price rule');
+        return redirect()->route('broadcast-price')->with('success', 'Broadcast Price updated successfully');
         });
     }
 
@@ -259,6 +262,7 @@ class BroadcastController extends Controller
 
         $broadcast->delete();
 
+        Helper::logActivity('Broadcast Notification', 'Delete Broadcast Price', 'Deleted broadcast price rule');
         return response()->json([
             'status' => true,
             'message' => 'Broadcast Price deleted successfully'

@@ -166,7 +166,8 @@ class PremiumNumberController extends Controller
                 'end_at'         => now()->addDays($validDays),
             ]);
 
-            return redirect()->route('premium_number')
+            Helper::logActivity('Premium Number Store', 'Add Premium Number', 'Created premium number');
+        return redirect()->route('premium_number')
                 ->with('success', 'Premium Number added successfully');
         });
     }
@@ -238,12 +239,14 @@ class PremiumNumberController extends Controller
 
         $pNumber->save();
 
+        Helper::logActivity('Premium Number Store', 'Edit Premium Number', 'Updated premium number');
         return redirect()->route('premium_number.edit', $pNumber->id)
             ->with('success', 'Premium Number updated successfully');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Premium Number Store', 'Delete Premium Number', 'Deleted premium number');
         return Helper::deleteRecord(new PremiumNumber, $request->id);
     }
 }

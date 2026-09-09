@@ -129,7 +129,8 @@ class UserLevelController extends Controller
                 // 'background_image' => $background_image
             ]);
 
-            return redirect()
+            Helper::logActivity('User Level Config', 'Add User Level', 'Created user level config');
+        return redirect()
                 ->route('user.level')
                 ->with('success', 'User Level added successfully');
         });
@@ -195,7 +196,8 @@ class UserLevelController extends Controller
 
             $userLevel->save();
 
-            return redirect()
+            Helper::logActivity('User Level Config', 'Edit User Level', 'Updated user level config');
+        return redirect()
                 ->route('user.level')
                 ->with('success', 'User Level updated successfully');
         });
@@ -205,6 +207,7 @@ class UserLevelController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('User Level Config', 'Delete User Level', 'Deleted user level config');
         return Helper::deleteRecord(new UserLevel, $request->id);
     }
 }

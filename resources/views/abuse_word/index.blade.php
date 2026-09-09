@@ -59,7 +59,7 @@
                 <label class="form-label fw-semibold">Search Word</label>
                 <input type="text" class="form-control" id="search_keyword" placeholder="Type to search...">
             </div>
-            <div class="col-6 col-md-3">
+            {{-- <div class="col-6 col-md-3">
                 <label class="form-label fw-semibold">Category</label>
                 <select class="form-select" id="category_filter">
                     <option value="">All Categories</option>
@@ -68,7 +68,7 @@
                     <option value="profile">Profile</option>
                     <option value="content">Content</option>
                 </select>
-            </div>
+            </div> --}}
             <div class="col-6 col-md-2">
                 <label class="form-label fw-semibold">Status</label>
                 <select class="form-select" id="status_filter">
@@ -92,7 +92,7 @@
                     <tr>
                         <th>#</th>
                         <th>Banned Word</th>
-                        <th>Category</th>
+                        {{-- <th>Category</th> --}}
                         <th>Status</th>
                         <th>Added By</th>
                         <th>Date Added</th>
@@ -119,7 +119,7 @@
                         <input type="text" class="form-control" id="add_word" name="word" placeholder="e.g. badword" required>
                         <div class="form-text text-muted">Word will be saved in lowercase. It will match case-insensitively in the app.</div>
                     </div>
-                    <div class="mb-3">
+                    {{-- <div class="mb-3">
                         <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
                         <select class="form-select" id="add_category" name="category" required>
                             <option value="general">General (all fields)</option>
@@ -127,7 +127,7 @@
                             <option value="profile">Profile Fields</option>
                             <option value="content">Content / Posts</option>
                         </select>
-                    </div>
+                    </div> --}}
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-secondary w-50" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-danger w-50"><i class="fas fa-plus me-1"></i>Add Word</button>
@@ -153,7 +153,7 @@
                         <label class="form-label fw-semibold">Word / Phrase <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="edit_word" name="word" required>
                     </div>
-                    <div class="mb-3">
+                    {{-- <div class="mb-3">
                         <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
                         <select class="form-select" id="edit_category" name="category" required>
                             <option value="general">General (all fields)</option>
@@ -161,7 +161,7 @@
                             <option value="profile">Profile Fields</option>
                             <option value="content">Content / Posts</option>
                         </select>
-                    </div>
+                    </div> --}}
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-secondary w-50" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary w-50"><i class="fas fa-save me-1"></i>Save Changes</button>
@@ -187,7 +187,7 @@
                         <textarea class="form-control" id="bulk_words" name="words" rows="6" placeholder="word1, word2, word3&#10;word4&#10;word5" required></textarea>
                         <div class="form-text">Enter multiple words separated by commas or new lines. Duplicates will be skipped.</div>
                     </div>
-                    <div class="mb-3">
+                    {{-- <div class="mb-3">
                         <label class="form-label fw-semibold">Category</label>
                         <select class="form-select" id="bulk_category" name="category">
                             <option value="general">General (all fields)</option>
@@ -195,7 +195,7 @@
                             <option value="profile">Profile Fields</option>
                             <option value="content">Content / Posts</option>
                         </select>
-                    </div>
+                    </div> --}}
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-secondary w-50" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-warning w-50"><i class="fas fa-upload me-1"></i>Import All</button>
@@ -238,7 +238,7 @@ $(document).ready(function () {
         columns: [
             { data: 'DT_RowIndex',    name: 'DT_RowIndex',    searchable: false, orderable: false },
             { data: 'word',           name: 'word' },
-            { data: 'category',       name: 'category' },
+            //{ data: 'category',       name: 'category' },
             { data: 'status',         name: 'status' },
             { data: 'created_by_name',name: 'created_by_name' },
             { data: 'created_at',     name: 'created_at' },

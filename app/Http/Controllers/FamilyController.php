@@ -206,6 +206,8 @@ class FamilyController extends Controller
         $family->status = $family->status == 1 ? 0 : 1;
         $family->save();
 
+        Helper::logActivity('Family Management', 'Toggle Status', ($family->status == 1 ? 'Enabled' : 'Disabled') . ' Family "' . $family->name . '" (ID: ' . $family->id . ')');
+
         return redirect()->back()->with(
             'success',
             $family->status == 1 ? 'Family enabled successfully.' : 'Family disabled successfully.'
@@ -699,6 +701,8 @@ class FamilyController extends Controller
 
             $family->logo = null;
             $family->save();
+
+            Helper::logActivity('Family Management', 'Delete Image', 'Deleted image of Family "' . $family->name . '" (ID: ' . $family->id . ')');
         }
 
         return response()->json([
@@ -721,6 +725,8 @@ class FamilyController extends Controller
             'name' => $request->name,
         ]);
 
+        Helper::logActivity('Family Management', 'Edit Name', 'Updated name of Family ID ' . $family->id . ' to "' . $request->name . '"');
+
         return response()->json([
             'status' => true,
             'message' => 'Family name updated successfully.',
@@ -742,6 +748,8 @@ class FamilyController extends Controller
         $family->update([
             'name' => null
         ]);
+
+        Helper::logActivity('Family Management', 'Delete Name', 'Deleted name of Family ID ' . $family->id);
 
         return response()->json([
             'status' => true,

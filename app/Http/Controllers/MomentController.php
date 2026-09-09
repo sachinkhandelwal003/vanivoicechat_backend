@@ -95,6 +95,8 @@ class MomentController extends Controller
                 'status'          => $request->status,
             ]);
 
+            Helper::logActivity('Moments Category', 'Add Category', 'Created topic category "' . $request->name . '"');
+
             return redirect()
                 ->route('topic.category')
                 ->with('success', 'Topic Category added successfully');
@@ -126,11 +128,12 @@ class MomentController extends Controller
 
             $data = [
                 'name'            => $request->name,
-                '' => $request->visibility_type,
                 'status'          => $request->status,
             ];
 
             $topicCategory->update($data);
+
+            Helper::logActivity('Moments Category', 'Edit Category', 'Updated topic category "' . $request->name . '"');
 
             return redirect()->route('topic.category')->with('success', 'Topic Category updated successfully');
         });
@@ -139,6 +142,7 @@ class MomentController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Moments Category', 'Delete Category', 'Deleted topic category ID #' . $request->id);
         return Helper::deleteRecord(new TopicCategory, $request->id);
     }
 
@@ -221,6 +225,8 @@ class MomentController extends Controller
                 'icon'             => $icon,
             ]);
 
+            Helper::logActivity('Moments Topic', 'Add Topic', 'Created topic "' . $request->name . '"');
+
             return redirect()
                 ->route('topic')
                 ->with('success', 'Topic added successfully');
@@ -273,6 +279,8 @@ class MomentController extends Controller
 
             $topic->update($data);
 
+            Helper::logActivity('Moments Topic', 'Edit Topic', 'Updated topic "' . $request->name . '"');
+
             return redirect()->route('topic')->with('success', 'Topic updated successfully');
         });
     }
@@ -280,6 +288,7 @@ class MomentController extends Controller
 
     public function topicDelete(Request $request): JsonResponse
     {
+        Helper::logActivity('Moments Topic', 'Delete Topic', 'Deleted topic ID #' . $request->id);
         return Helper::deleteRecord(new Topic, $request->id);
     }
 
@@ -508,6 +517,8 @@ class MomentController extends Controller
             $post->delete();
 
             DB::commit();
+
+            Helper::logActivity('Moments Post', 'Delete Post', 'Deleted user moment/post ID #' . $request->id);
 
             return response()->json([
                 'status' => true,

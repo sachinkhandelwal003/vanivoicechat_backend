@@ -265,6 +265,7 @@ class CustomerSupportController extends Controller
             ]
         );
 
+        Helper::logActivity('Customer Support', 'Add Support Record', 'Created support entry');
         return response()->json([
             'status'  => true,
             'message' => 'Customer Support saved successfully.'
@@ -322,6 +323,7 @@ class CustomerSupportController extends Controller
     {
         CustomerSupport::findOrFail($request->id)->delete();
 
+        Helper::logActivity('Customer Support', 'Delete Support Record', 'Deleted support record');
         return response()->json([
             'status' => true,
             'message' => 'Deleted successfully'

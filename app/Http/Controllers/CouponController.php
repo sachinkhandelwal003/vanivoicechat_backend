@@ -91,6 +91,7 @@ class CouponController extends Controller
 
         Coupon::create($validated);
 
+        Helper::logActivity('Coupon Management', 'Add Coupon', 'Created coupon');
         return redirect()->route('coupon.list')->with('success', 'Coupon added successfully!');
     }
 
@@ -124,11 +125,13 @@ class CouponController extends Controller
 
         $coupon->update($data);
 
+        Helper::logActivity('Coupon Management', 'Edit Coupon', 'Updated coupon');
         return to_route('coupon.list')->withSuccess('Coupon updated successfully!');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Coupon Management', 'Delete Coupon', 'Deleted coupon');
         return Helper::deleteRecord(new Coupon, $request->id);
     }
 }

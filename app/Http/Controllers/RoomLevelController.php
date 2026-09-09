@@ -153,7 +153,8 @@ class RoomLevelController extends Controller
                 'status'  => $request->status,
             ])->save();
 
-            return redirect()
+            Helper::logActivity('Room Level Config', 'Add Room Level', 'Created room level config');
+        return redirect()
                 ->route('room-levels')
                 ->with(
                     'success',
@@ -166,6 +167,7 @@ class RoomLevelController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Room Level Config', 'Delete Room Level', 'Deleted room level config');
         return Helper::deleteRecord(new RoomLevel, $request->id);
     }
 }

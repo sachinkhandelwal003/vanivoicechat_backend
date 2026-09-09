@@ -127,7 +127,8 @@ class FrameController extends Controller
                     : null,
             ]);
 
-            return redirect()
+            Helper::logActivity('Avatar Frame Store', 'Add Frame', 'Created new avatar frame');
+        return redirect()
                 ->route('frame')
                 ->with('success', 'Frame added successfully');
         });
@@ -202,13 +203,15 @@ class FrameController extends Controller
 
             $frame->update($data);
 
-            return redirect()->route('frame')->with('success', 'Frame updated successfully');
+            Helper::logActivity('Avatar Frame Store', 'Edit Frame', 'Updated avatar frame');
+        return redirect()->route('frame')->with('success', 'Frame updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Avatar Frame Store', 'Delete Frame', 'Deleted avatar frame');
         return Helper::deleteRecord(new Frame, $request->id);
     }
 }

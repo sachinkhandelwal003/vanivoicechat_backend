@@ -85,7 +85,8 @@ class StoreUidsController extends Controller
 
             ]);
 
-            return redirect()
+            Helper::logActivity('Store UIDs', 'Add Store Category', 'Created UID store category');
+        return redirect()
                 ->route('rank')
                 ->with('success', 'Rank added successfully');
         });
@@ -119,13 +120,15 @@ class StoreUidsController extends Controller
 
             $rank->update($data);
 
-            return redirect()->route('rank')->with('success', 'Rank updated successfully');
+            Helper::logActivity('Store UIDs', 'Edit Store Category', 'Updated UID store category');
+        return redirect()->route('rank')->with('success', 'Rank updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Store UIDs', 'Delete Store Category', 'Deleted UID store category');
         return Helper::deleteRecord(new Rank, $request->id);
     }
 
@@ -192,7 +195,8 @@ class StoreUidsController extends Controller
 
             ]);
 
-            return redirect()
+            Helper::logActivity('Store UIDs', 'Add Pattern', 'Created UID pattern');
+        return redirect()
                 ->route('pattern')
                 ->with('success', 'Pattern added successfully');
         });
@@ -226,13 +230,15 @@ class StoreUidsController extends Controller
 
             $pattern->update($data);
 
-            return redirect()->route('pattern')->with('success', 'Pattern updated successfully');
+            Helper::logActivity('Store UIDs', 'Edit Pattern', 'Updated UID pattern');
+        return redirect()->route('pattern')->with('success', 'Pattern updated successfully');
         });
     }
 
 
     public function patternDelete(Request $request): JsonResponse
     {
+        Helper::logActivity('Store UIDs', 'Delete Pattern', 'Deleted UID pattern');
         return Helper::deleteRecord(new Pattern, $request->id);
     }
 
@@ -380,7 +386,8 @@ class StoreUidsController extends Controller
                     : null,
             ]);
 
-            return redirect()
+            Helper::logActivity('Store UIDs', 'Add Store UID', 'Created store UID');
+        return redirect()
                 ->route('store.uid')
                 ->with('success', 'Store UID added successfully');
         });
@@ -461,7 +468,8 @@ class StoreUidsController extends Controller
 
             $storeUid->update($data);
 
-            return redirect()
+            Helper::logActivity('Store UIDs', 'Edit Store UID', 'Updated store UID');
+        return redirect()
                 ->route('store.uid')
                 ->with('success', 'Store UID updated successfully');
         });
@@ -471,6 +479,7 @@ class StoreUidsController extends Controller
 
     public function storeUidDelete(Request $request): JsonResponse
     {
+        Helper::logActivity('Store UIDs', 'Delete Store UID', 'Deleted store UID');
         return Helper::deleteRecord(new StoreUids, $request->id);
     }
 }

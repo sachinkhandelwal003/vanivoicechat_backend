@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Services\FirebaseService;
+use Psy\Command\WhereamiCommand;
 
 class AdminCenterController extends Controller
 {
@@ -77,6 +78,8 @@ class AdminCenterController extends Controller
             'user:id,uid,name,image'
         )
             ->where('admin_id', $admin->id)
+            ->where('invite_status', 'accept')
+            ->where('status', 1)
             ->latest()
             ->get()
             ->map(function ($item) {
@@ -117,6 +120,8 @@ class AdminCenterController extends Controller
 
         $data = BdUser::with(['user:id,uid,name,image'])
             ->where('admin_id', $admin->id)
+            ->where('invite_status', 'accept')
+            ->where('status', 1)
             // ->latest()
             ->get()
             ->map(function ($item) {
@@ -238,6 +243,7 @@ class AdminCenterController extends Controller
 
         $hosts = Host::with(['user:id,uid,name,image,country',])
             ->where('agency_id', $agency->id)
+            ->where('invite_status', 'accept')
             ->where('status', 1)
             // ->latest()
             ->get()

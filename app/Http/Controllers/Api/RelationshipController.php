@@ -12,9 +12,11 @@ use App\Models\Agency;
 use App\Models\Host;
 use App\Models\CoinSeller;
 use App\Models\Notification;
+use App\Models\Country;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Helper\Helper;
+use App\Models\RelationshipFeeConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,42 +24,6 @@ use Illuminate\Support\Facades\DB;
 
 class RelationshipController extends Controller
 {
-    // public function index(Request $request)
-    // {
-    //     $query = RelationshipItem::where('status', 1);
-
-    //     if ($request->type) {
-    //         $query->where('type', $request->type);
-    //     }
-
-    //     $items = $query->get();
-
-    //     $grouped = [];
-
-    //     foreach ($items as $item) {
-
-    //         $grouped[$item->type][] = [
-    //             'id' => $item->id,
-    //             'name' => $item->name,
-    //             'required_coins' => $item->required_coins,
-
-    //             'icon' => Helper::showImage($item->icon, true),
-    //             'gif' => Helper::showImage($item->gif, true),
-    //             'avatar' => Helper::showImage($item->avatar, true),
-    //             'frame' => Helper::showImage($item->frame, true),
-    //             'badge' => Helper::showImage($item->badge, true),
-    //             'background' => Helper::showImage($item->background, true),
-    //         ];
-    //     }
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'message' => 'Relationship items fetched successfully',
-    //         'data' => $grouped
-    //     ]);
-    // }
-
-
     public function index(Request $request)
     {
         $profileUserId = $request->user_id ?? auth()->id();
@@ -484,6 +450,49 @@ class RelationshipController extends Controller
                 ], 404);
             }
 
+            $country = Country::whereRaw(
+                'LOWER(name) = ?',
+                [strtolower(trim($sender->country))]
+            )->first();
+
+            if (!$country) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Country not found'
+                ], 422);
+            }
+
+            $relationshipType = strtolower(trim($request->type));
+
+            $feeConfig = RelationshipFeeConfig::where('country_id', $country->id)
+                ->whereRaw(
+                    'LOWER(relationship_type) = ?',
+                    [$relationshipType]
+                )
+                ->where('status', 1)
+                ->first();
+
+            if (!$feeConfig) {
+                $feeConfig = RelationshipFeeConfig::whereNull('country_id')
+                    ->whereRaw(
+                        'LOWER(relationship_type) = ?',
+                        [$relationshipType]
+                    )
+                    ->where('status', 1)
+                    ->first();
+            }
+
+            if (!$feeConfig) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Relationship fee is not configured for your country'
+                ], 422);
+            }
+
             $alreadyConnected = RelationshipInvitation::where(
                 function ($q) use ($senderId, $request) {
 
@@ -648,7 +657,8 @@ class RelationshipController extends Controller
                 ], 422);
             }
 
-            $coin = (int) $request->coin;
+            // $coin = (int) $request->coin;
+            $coin = (int) $feeConfig->invite_fee;
 
             if ((int) $sender->total_points < $coin) {
 
@@ -712,85 +722,6 @@ class RelationshipController extends Controller
         }
     }
 
-    // public function respondInvite(Request $request)
-    // {
-    //     $request->validate([
-    //         'invitation_id' => 'required|exists:relationship_invitations,id',
-    //         'action' => 'required|in:accept,reject'
-    //     ]);
-
-    //     $invite = RelationshipInvitation::find($request->invitation_id);
-
-    //     // Only receiver can respond
-    //     if ($invite->receiver_id != auth()->id()) {
-    //         return response()->json(['status' => false, 'message' => 'Unauthorized']);
-    //     }
-
-    //     $invite->status = $request->action;
-    //     $invite->save();
-
-    //     if ($request->action == 'accept') {
-    //         // optional future table
-    //     }
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'message' => 'Invitation ' . $request->action
-    //     ]);
-    // }
-
-    // public function getInvitations()
-    // {
-    //     $userId = auth()->id();
-
-    //     $data = RelationshipInvitation::with(['sender:id,name,uid,image', 'relationshipItem'])
-    //         ->where('receiver_id', $userId)
-    //         ->where('status', 'pending')
-    //         ->latest()
-    //         ->get();
-
-    //     $response = [];
-
-    //     foreach ($data as $item) {
-
-    //         $response[] = [
-    //             'id' => $item->id,
-    //             'sender_id' => $item->sender_id,
-    //             'receiver_id' => $item->receiver_id,
-    //             'type' => strtolower($item->type),
-
-    //             'status' => $item->status,
-    //             'created_at' => $item->created_at,
-
-    //             'sender' => $item->sender ? [
-    //                 'id' => $item->sender->id,
-    //                 'name' => $item->sender->name,
-    //                 'uid' => $item->sender->uid,
-    //                 'image' => !empty($item->sender->image)
-    //                     ? Helper::showImage($item->sender->image, true)
-    //                     : null,
-    //             ] : null,
-
-    //             'relationship_item' => [
-    //                 'id' => $item->relationshipItem->id,
-    //                 'name' => $item->relationshipItem->name,
-    //                 'icon' => Helper::showImage($item->relationshipItem->icon, true),
-    //                 'gif' => Helper::showImage($item->relationshipItem->gif, true),
-    //                 'avatar' => Helper::showImage($item->relationshipItem->avatar, true),
-    //                 'frame' => Helper::showImage($item->relationshipItem->frame, true),
-    //                 'badge' => Helper::showImage($item->relationshipItem->badge, true),
-    //                 'background' => Helper::showImage($item->relationshipItem->background, true),
-    //                 'required_coins' => $item->relationshipItem->required_coins,
-    //             ]
-    //         ];
-    //     }
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'data' => $response
-    //     ]);
-    // }
-
     public function relationInvitePreview(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -834,15 +765,41 @@ class RelationshipController extends Controller
 
             $type = strtolower($request->type);
 
-            // Invite charge alag hoga
-            $inviteCharges = [
-                'cp' => 4999,
-                'brother' => 9999,
-                'sister' => 8999,
-                'confident' => 8999,
-            ];
+            // Find user's country by country name
+            $country = Country::whereRaw(
+                'LOWER(name) = ?',
+                [strtolower(trim($authUser->country))]
+            )->first();
 
-            $inviteCoins = $inviteCharges[$type] ?? 0;
+            if (!$country) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Country not found',
+                ], 422);
+            }
+
+            // Get country-wise relationship invite fee
+            $feeConfig = RelationshipFeeConfig::where('country_id', $country->id)
+                ->whereRaw('LOWER(relationship_type) = ?', [$type])
+                ->where('status', 1)
+                ->first();
+
+            // Fallback to All Countries configuration
+            if (!$feeConfig) {
+                $feeConfig = RelationshipFeeConfig::whereNull('country_id')
+                    ->whereRaw('LOWER(relationship_type) = ?', [$type])
+                    ->where('status', 1)
+                    ->first();
+            }
+
+            if (!$feeConfig) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Relationship invite fee is not configured for your country',
+                ], 422);
+            }
+            // Invite charge alag hoga
+            $inviteCoins = (int) $feeConfig->invite_fee;
 
             // Preview ke liye har type ka first/default item
             $relationshipItem = RelationshipItem::where('status', 1)
@@ -933,7 +890,51 @@ class RelationshipController extends Controller
             }
 
             $partner = $cpRelation->sender_id == $userId ? $cpRelation->receiver : $cpRelation->sender;
+            // Get logged-in user's country
+            $user = AppUser::select('id', 'country')->find($userId);
 
+            if (!$user || empty($user->country)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User country not found'
+                ], 422);
+            }
+
+            // Find country ID using country name
+            $country = Country::whereRaw(
+                'LOWER(name) = ?',
+                [strtolower(trim($user->country))]
+            )->first();
+
+            if (!$country) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Country not found'
+                ], 422);
+            }
+
+            // Get country-wise CP breakup fee
+            $feeConfig = RelationshipFeeConfig::where('country_id', $country->id)
+                ->whereRaw('LOWER(relationship_type) = ?', ['cp'])
+                ->where('status', 1)
+                ->first();
+
+            // Fallback to All Countries configuration
+            if (!$feeConfig) {
+                $feeConfig = RelationshipFeeConfig::whereNull('country_id')
+                    ->whereRaw('LOWER(relationship_type) = ?', ['cp'])
+                    ->where('status', 1)
+                    ->first();
+            }
+
+            if (!$feeConfig) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'CP breakup fee is not configured for your country'
+                ], 422);
+            }
+
+            $breakFee = (int) $feeConfig->break_fee;
             return response()->json([
 
                 'status' => true,
@@ -941,7 +942,7 @@ class RelationshipController extends Controller
                 'data' => [
                     'relationship_id' => $cpRelation->id,
                     'card_image' =>  asset('storage/breakup_card.png'),
-                    'coin' => 50000,
+                    'coin' => $breakFee,
                     'notes' => [
                         'To cancel the CP relationship, you need to buy a breakup card first, and use it when canceling the CP relationship.',
                         'After the cancellation is successful, the other party will receive 80% of the value of the breakup card as consolation coins.'
@@ -1084,19 +1085,51 @@ class RelationshipController extends Controller
             $type = strtolower(
                 $relation->type
             );
-
-            // Static charges
-
-            $charges = [
-                'cp' => 50000,
-                'brother' => 0,
-                'sister' => 0,
-                'confidant' => 0
-            ];
-
-            $removeCoin = $charges[$type] ?? 0;
-
             $authUser = AppUser::lockForUpdate()->find($userId);
+            // Find country by country name
+            $country = Country::whereRaw(
+                'LOWER(name) = ?',
+                [strtolower(trim($authUser->country))]
+            )->first();
+
+            if (!$country) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Country not found'
+                ], 422);
+            }
+
+            $feeConfig = RelationshipFeeConfig::where('country_id', $country->id)
+                ->whereRaw(
+                    'LOWER(relationship_type) = ?',
+                    [$type]
+                )
+                ->where('status', 1)
+                ->first();
+
+            if (!$feeConfig) {
+                $feeConfig = RelationshipFeeConfig::whereNull('country_id')
+                    ->whereRaw(
+                        'LOWER(relationship_type) = ?',
+                        [$type]
+                    )
+                    ->where('status', 1)
+                    ->first();
+            }
+
+            if (!$feeConfig) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Relationship remove fee is not configured for your country'
+                ], 422);
+            }
+
+            $removeCoin = (int) $feeConfig->remove_fee;
+
 
             if (
                 (int) $authUser->total_points < $removeCoin

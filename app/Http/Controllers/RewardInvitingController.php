@@ -70,6 +70,7 @@ class RewardInvitingController extends Controller
 
         RewardInviting::create($validated);
 
+        Helper::logActivity('Invite Reward Slabs', 'Add Invite Reward', 'Created invite reward slab');
         return to_route('reward-inviting')->withSuccess('Reward Inviting Added Successfully..!!');
     }
 
@@ -102,11 +103,13 @@ class RewardInvitingController extends Controller
         }
 
         $cms->update($data);
+        Helper::logActivity('Invite Reward Slabs', 'Edit Invite Reward', 'Updated invite reward slab');
         return to_route('cms')->withSuccess('Cms Updated Successfully..!!');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Invite Reward Slabs', 'Delete Invite Reward', 'Deleted invite reward slab');
         return Helper::deleteRecord(new Cms, $request->id);
     }
 

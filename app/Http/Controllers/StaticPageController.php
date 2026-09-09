@@ -96,6 +96,7 @@ class StaticPageController extends Controller
 
         StaticPage::create($validated);
 
+        Helper::logActivity('Static Pages', 'Add Page', 'Created static page');
         return redirect()
             ->route('static-page')
             ->with('success', 'Static Page Added Successfully..!!');
@@ -133,7 +134,8 @@ public function update(Request $request, $id): RedirectResponse
 
     $cms->update($validated);
 
-    return redirect()
+    Helper::logActivity('Static Pages', 'Edit Page', 'Updated static page');
+        return redirect()
         ->route('static-page')
         ->with('success', 'Static Page Updated Successfully..!!');
 }
@@ -151,7 +153,8 @@ public function update(Request $request, $id): RedirectResponse
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
+            Helper::logActivity('Static Pages', 'Delete Page', 'Deleted static page');
+        return response()->json([
                 'status' => false,
                 'message' => 'Something went wrong!'
             ]);

@@ -22,6 +22,7 @@ use App\Models\PremiumNumber;
 use App\Models\VipTransaction;
 use App\Models\SvipTransaction;
 use App\Models\Country;
+use App\Models\BannedWord;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -280,6 +281,10 @@ class HomeController extends Controller
                     if (!Str::startsWith($item->room->user->image, ['http://', 'https://'])) {
                         $item->room->user->image = Helper::showImage($item->room->user->image, true);
                     }
+
+                    $item->room->user->nickname_meta = Helper::getNicknameMeta(
+                        $item->room->user->id
+                    );
                 }
 
                 $item->total_points = (int) $item->total_points;
@@ -405,7 +410,8 @@ class HomeController extends Controller
                 // Default System UID
                 $displayUid = $room->user->uid;
                 $uidBadgeColor = null;
-
+                // Nickname Meta
+                $room->user->nickname_meta = Helper::getNicknameMeta($room->user->id);
                 // 1. Premium UID Check
                 $premiumUid = PremiumNumber::where('user_id', $room->user->id)
                     ->where('end_at', '>', now())
@@ -732,7 +738,7 @@ class HomeController extends Controller
                 // Default System UID
                 $displayUid = $room->user->uid;
                 $uidBadgeColor = null;
-
+                $room->user->nickname_meta = Helper::getNicknameMeta($room->user->id);
                 // 1. Premium UID
                 $premiumUid = PremiumNumber::where('user_id', $room->user->id)
                     ->where('end_at', '>', now())
@@ -1339,6 +1345,29 @@ class HomeController extends Controller
             ], 422);
         }
 
+        $messageText = trim($request->message);
+        $bannedWords = BannedWord::where('status', 1)
+            ->pluck('word')
+            ->filter()
+            ->map(fn($word) => trim($word))
+            ->values();
+
+        $lowerMessage = strtolower($messageText);
+
+        foreach ($bannedWords as $bannedWord) {
+
+            $pattern = '/(?<!\w)' . preg_quote(strtolower($bannedWord), '/') . '(?!\w)/i';
+
+            if (preg_match($pattern, $lowerMessage)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your message contains a inappropriate word.',
+                    'data' => [],
+                ], 422);
+            }
+        }
+
+
         $regionCode = strtoupper($user->country);
 
         $price = BroadcastPrice::where('region_code', $regionCode)
@@ -1588,6 +1617,7 @@ class HomeController extends Controller
                         // 'uid'     => $user->uid,
                         'uid' => $displayUid,
                         'uid_badge_color' => $uidBadgeColor,
+                        'nickname_meta' => Helper::getNicknameMeta($user->id),
                         'gender'  => $user->gender,
                         'country' => $user->country,
                         'image'   => $user->image,
@@ -1694,6 +1724,7 @@ class HomeController extends Controller
                             // 'uid'     => $room->user->uid,
                             'uid' => $displayUid,
                             'uid_badge_color' => $uidBadgeColor,
+                            'nickname_meta' => Helper::getNicknameMeta($room->user->id),
                             'gender'  => $room->user->gender,
                             'country' => $room->user->country,
                             'image'   => $room->user->image,

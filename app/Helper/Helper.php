@@ -787,4 +787,23 @@ class Helper
 
         return $banners[$level] ?? null;
     }
+
+    public static function logActivity(string $module, string $action, string $description): void
+    {
+        try {
+            $user = auth()->user();
+            \App\Models\AuditLog::create([
+                'user_id'     => $user ? $user->id : null,
+                'user_name'   => $user ? $user->name : 'System',
+                'user_email'  => $user ? $user->email : null,
+                'module'      => $module,
+                'action'      => $action,
+                'description' => $description,
+                'ip_address'  => request()->ip(),
+                'user_agent'  => request()->userAgent(),
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('AuditLog Error: ' . $e->getMessage());
+        }
+    }
 }

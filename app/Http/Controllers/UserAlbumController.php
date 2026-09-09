@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helper\Helper;
+
 use App\Models\UserAlbum;
 use App\Models\AppUser;
 use Illuminate\Http\Request;
@@ -87,6 +89,7 @@ class UserAlbumController extends Controller
 
         $album->delete();
 
+        Helper::logActivity('User Album', 'Delete Album Photo', 'Deleted user album photo');
         return response()->json(['status' => true, 'message' => 'Album image deleted successfully']);
     }
 }

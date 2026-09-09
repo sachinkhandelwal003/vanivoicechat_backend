@@ -192,6 +192,14 @@ class ManualCoinController extends Controller
 
             DB::commit();
 
+            $actLabel = $request->action === 'send' ? 'Send Coins' : 'Deduct Coins';
+            $actWord  = $request->action === 'send' ? 'sent to' : 'deducted from';
+            Helper::logActivity(
+                'Manual Coins',
+                $actLabel,
+                number_format($request->coins) . ' coins ' . $actWord . ' User ' . $user->name . ' (UID: ' . $user->uid . '). Reason: ' . $request->reason
+            );
+
             $actionWord = $request->action === 'send' ? 'sent' : 'deducted';
             return response()->json([
                 'status'       => true,

@@ -99,6 +99,7 @@ class RoomRewardSlabController extends Controller
             'status'            => $request->status,
         ]);
 
+        Helper::logActivity('Room Reward Slabs', 'Add Room Reward Slab', 'Created room reward slab');
         return redirect()
             ->route('room_reward_slabs')
             ->with('success', 'Room reward slab created successfully.');
@@ -133,6 +134,7 @@ class RoomRewardSlabController extends Controller
             'status'            => $request->status,
         ]);
 
+        Helper::logActivity('Room Reward Slabs', 'Edit Room Reward Slab', 'Updated room reward slab');
         return redirect()
             ->route('room_reward_slabs')
             ->with('success', 'Room reward slab updated successfully.');
@@ -140,6 +142,7 @@ class RoomRewardSlabController extends Controller
 
     public function delete()
     {
+        Helper::logActivity('Room Reward Slabs', 'Delete Room Reward Slab', 'Deleted room reward slab');
         return Helper::deleteRecord(new RoomRewardSlab, $request->id);
     }
 
@@ -301,6 +304,7 @@ class RoomRewardSlabController extends Controller
 
     public function deleteClaim(Request $request)
     {
+        Helper::logActivity('Room Reward Slabs', 'Delete Reward Claim', 'Deleted reward claim');
         return Helper::deleteRecord(new RoomRewardClaim, $request->id);
     }
 }

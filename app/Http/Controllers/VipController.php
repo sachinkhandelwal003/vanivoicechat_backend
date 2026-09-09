@@ -223,6 +223,8 @@ class VipController extends Controller
 
             DB::commit();
 
+            Helper::logActivity('VIP', 'Add VIP', 'Created VIP package "' . $vip->name . '"');
+
             return redirect()->route('vip')->with('success', 'VIP added successfully.');
         } catch (\Throwable $e) {
 
@@ -328,6 +330,8 @@ class VipController extends Controller
 
             DB::commit();
 
+            Helper::logActivity('VIP', 'Edit VIP', 'Updated VIP package "' . $vip->name . '"');
+
             return redirect()->route('vip')->with('success', 'VIP updated successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -341,6 +345,7 @@ class VipController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('VIP', 'Delete VIP', 'Deleted VIP package ID #' . $request->id);
         return Helper::deleteRecord(new Vip, $request->id);
     }
 
@@ -416,6 +421,8 @@ class VipController extends Controller
 
             $privilege->save();
 
+            Helper::logActivity('VIP Privilege', 'Add Privilege', 'Added privilege "' . $request->name . '" to VIP #' . $vipId);
+
             return redirect()->route('privilege.index', $vipId)
                 ->with('success', 'Privilege added successfully.');
         } catch (\Throwable $e) {
@@ -464,6 +471,8 @@ class VipController extends Controller
 
             $privilege->save();
 
+            Helper::logActivity('VIP Privilege', 'Edit Privilege', 'Updated privilege "' . $request->name . '"');
+
             return redirect()->route('privilege.index', $privilege->vip_id)
                 ->with('success', 'Privilege updated successfully.');
         } catch (\Throwable $e) {
@@ -476,6 +485,7 @@ class VipController extends Controller
 
     public function privilegeDelete(Request $request): JsonResponse
     {
+        Helper::logActivity('VIP Privilege', 'Delete Privilege', 'Deleted privilege ID #' . $request->id);
         return Helper::deleteRecord(new VipPrivilege, $request->id);
     }
 
@@ -593,6 +603,8 @@ class VipController extends Controller
         }
 
         $vip->delete();
+
+        Helper::logActivity('VIP User', 'Remove User VIP', 'Removed VIP subscription ID #' . $request->id . ($user ? ' for user ' . $user->name : ''));
 
         return response()->json([
             'status' => true,
