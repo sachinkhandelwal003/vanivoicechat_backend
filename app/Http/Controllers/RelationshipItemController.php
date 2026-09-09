@@ -159,7 +159,8 @@ class RelationshipItemController extends Controller
 
             $item->fill($data)->save();
 
-            return redirect()
+            Helper::logActivity('Relationship Item Store', 'Add Relationship Item', 'Created relationship item');
+        return redirect()
                 ->route('relationship.item')
                 ->with('success', $id ? 'Updated successfully' : 'Created successfully');
         });
@@ -167,6 +168,7 @@ class RelationshipItemController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Relationship Item Store', 'Delete Relationship Item', 'Deleted relationship item');
         return Helper::deleteRecord(new RelationshipItem, $request->id);
     }
 

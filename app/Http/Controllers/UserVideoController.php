@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helper\Helper;
+
 use App\Models\UserVideo;
 use App\Models\AppUser;
 use Illuminate\Http\Request;
@@ -88,6 +90,7 @@ class UserVideoController extends Controller
             return response()->json(['status' => true, 'message' => 'Video deleted successfully']);
         }
 
+        Helper::logActivity('User Video', 'Delete Video', 'Deleted user video file');
         return response()->json(['status' => false, 'message' => 'Record not found']);
     }
 }

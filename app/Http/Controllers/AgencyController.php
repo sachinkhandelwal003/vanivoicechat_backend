@@ -478,6 +478,9 @@ class AgencyController extends Controller
                 }
             }
 
+            $act = $id ? 'Edit Agency' : 'Add Agency';
+            Helper::logActivity('Agency Management', $act, ($id ? 'Updated' : 'Created') . ' Agency for user UID ' . $request->user_uid);
+
             return redirect()
                 ->route('agency')
                 ->with(
@@ -488,11 +491,6 @@ class AgencyController extends Controller
                 );
         });
     }
-
-    // public function delete(Request $request): JsonResponse
-    // {
-    //     return Helper::deleteRecord(new Agency, $request->id);
-    // }
 
     public function delete(Request $request): JsonResponse
     {

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helper\Helper;
+
 use App\Models\UserMusic;
 use App\Models\AppUser;
 use Illuminate\Http\Request;
@@ -88,6 +90,7 @@ class UserMusicController extends Controller
 
         $music->delete();
 
+        Helper::logActivity('User Music', 'Delete Music', 'Deleted user music file');
         return response()->json(['status' => true, 'message' => 'Music entry deleted successfully']);
     }
 }

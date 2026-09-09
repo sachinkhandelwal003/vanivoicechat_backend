@@ -68,6 +68,7 @@ class RewardInvitationRechargeController extends Controller
         ]);
 
         RewardInvitationRecharge::create($validated);
+        Helper::logActivity('Recharge Reward Slabs', 'Add Recharge Reward', 'Created recharge reward slab');
         return to_route('reward-invitation-recharge')->withSuccess('Reward Invitation Recharge Added Successfully..!!');
     }
 
@@ -100,11 +101,13 @@ class RewardInvitationRechargeController extends Controller
         }
 
         $cms->update($data);
+        Helper::logActivity('Recharge Reward Slabs', 'Edit Recharge Reward', 'Updated recharge reward slab');
         return to_route('cms')->withSuccess('Cms Updated Successfully..!!');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Recharge Reward Slabs', 'Delete Recharge Reward', 'Deleted recharge reward slab');
         return Helper::deleteRecord(new Cms, $request->id);
     }
 }

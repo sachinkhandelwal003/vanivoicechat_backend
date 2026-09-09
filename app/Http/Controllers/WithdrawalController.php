@@ -219,6 +219,16 @@ class WithdrawalController extends Controller
             $withdrawal->save();
 
             DB::commit();
+
+            $actLabel = $request->action == 'approve' ? 'Approve Withdrawal' : 'Reject Withdrawal';
+            $user     = AppUser::find($withdrawal->user_id);
+            $userName = $user ? $user->name . ' (UID: ' . $user->uid . ')' : 'User ID ' . $withdrawal->user_id;
+            Helper::logActivity(
+                'Withdrawal Requests',
+                $actLabel,
+                ucfirst($request->action) . 'd withdrawal request #' . $withdrawal->id . ' of $' . number_format($withdrawal->amount, 2) . ' for ' . $userName
+            );
+
             return response()->json(['status' => true, 'message' => 'Withdrawal request ' . $request->action . 'd successfully.']);
         } catch (\Exception $e) {
             DB::rollBack();

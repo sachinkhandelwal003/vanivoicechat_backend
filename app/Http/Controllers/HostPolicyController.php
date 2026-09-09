@@ -183,7 +183,8 @@ class HostPolicyController extends Controller
 
             ])->save();
 
-            return redirect()
+            Helper::logActivity('Host Policy', 'Save Host Policy', 'Saved host policy rule');
+        return redirect()
                 ->route('host-policy')
                 ->with(
                     'success',
@@ -196,6 +197,7 @@ class HostPolicyController extends Controller
 
     public function delete(Request $request)
     {
+        Helper::logActivity('Host Policy', 'Delete Host Policy', 'Deleted host policy');
         return Helper::deleteRecord(new HostPolicy, $request->id);
     }
 }

@@ -79,7 +79,8 @@ class CityController extends Controller
                 $data['image'] = Helper::saveFile($request->file('image'), 'categories');
             }
             City::create($data);
-            return response()->json([
+            Helper::logActivity('City Management', 'Add City', 'Created city');
+        return response()->json([
                 'status'    => true,
                 'message'   => 'City Added Successfully',
                 'data'      => ''
@@ -114,7 +115,8 @@ class CityController extends Controller
                 $data['image'] = Helper::saveFile($request->file('image'), 'categories');
             }
             $city->update($data);
-            return response()->json([
+            Helper::logActivity('City Management', 'Edit City', 'Updated city');
+        return response()->json([
                 'status'    => true,
                 'message'   => 'City Updated Successfully',
             ]);
@@ -123,6 +125,7 @@ class CityController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('City Management', 'Delete City', 'Deleted city');
         return Helper::deleteRecord(new City, $request->id);
     }
 

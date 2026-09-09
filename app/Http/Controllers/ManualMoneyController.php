@@ -397,6 +397,14 @@ class ManualMoneyController extends Controller
 
             DB::commit();
 
+            $actLabel = $request->type === 'credit' ? 'Send Money' : 'Take Money';
+            $actWord  = $request->type === 'credit' ? 'transferred to' : 'deducted from';
+            Helper::logActivity(
+                'Manual Money Transfer',
+                $actLabel,
+                '$' . number_format($request->amount, 2) . ' ' . $actWord . ' User ' . $user->name . ' (UID: ' . $user->uid . '). Reason: ' . ($request->reason ?? 'N/A')
+            );
+
             return response()->json([
 
                 'status' => true,

@@ -129,7 +129,8 @@ class ThemeController extends Controller
 
             ]);
 
-            return redirect()
+            Helper::logActivity('Room Theme Store', 'Add Theme', 'Created room theme');
+        return redirect()
                 ->route('theme')
                 ->with('success', 'Theme added successfully');
         });
@@ -193,7 +194,8 @@ class ThemeController extends Controller
 
             $theme->update($data);
 
-            return redirect()
+            Helper::logActivity('Room Theme Store', 'Edit Theme', 'Updated room theme');
+        return redirect()
                 ->route('theme')
                 ->with('success', 'Theme updated successfully');
         });
@@ -203,6 +205,7 @@ class ThemeController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Room Theme Store', 'Delete Theme', 'Deleted room theme');
         return Helper::deleteRecord(new Theme, $request->id);
     }
 
@@ -276,6 +279,7 @@ class ThemeController extends Controller
                 ->with('error', $e->getMessage());
         }
 
+        Helper::logActivity('Room Theme Store', 'Give Theme to User', 'Granted theme to user');
         return redirect()
             ->route('theme')
             ->with('success', 'Theme assigned and coins deducted successfully');

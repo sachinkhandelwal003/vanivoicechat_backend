@@ -348,6 +348,9 @@ class CoinSellerController extends Controller
 
             $roleName = $coinSeller->is_merchant ? 'Merchant' : 'Coin Seller';
 
+            $act = $id ? 'Edit Coin Seller' : 'Add Coin Seller';
+            Helper::logActivity('Anchor Center', $act, ($id ? 'Updated' : 'Created') . ' ' . $roleName . ' for user UID ' . $request->user_uid);
+
             return redirect()
                 ->route('coin_seller')
                 ->with(
@@ -361,6 +364,10 @@ class CoinSellerController extends Controller
 
     public function delete(Request $request)
     {
+        $seller = CoinSeller::find($request->id);
+        if ($seller) {
+            Helper::logActivity('Anchor Center', 'Delete Coin Seller', 'Deleted Coin Seller ID ' . $seller->id);
+        }
         return Helper::deleteRecord(new CoinSeller, $request->id);
     }
 
@@ -375,6 +382,8 @@ class CoinSellerController extends Controller
 
         $seller->is_merchant = !$seller->is_merchant;
         $seller->save();
+
+        Helper::logActivity('Anchor Center', 'Toggle Merchant', ($seller->is_merchant ? 'Made Merchant' : 'Removed from Merchant') . ' for Seller ID ' . $seller->id);
 
         return response()->json([
             'status' => true,
@@ -407,6 +416,8 @@ class CoinSellerController extends Controller
             'transaction_type' => 'recharge',
             'remark' => 'Recharge by admin'
         ]);
+
+        Helper::logActivity('Anchor Center', 'Recharge Seller', 'Recharged ' . number_format($request->amount) . ' coins for Seller/Merchant ID ' . $seller->id);
 
         return response()->json([
             'status' => true,

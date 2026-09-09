@@ -175,6 +175,7 @@ class RedEnvelopeController extends Controller
         $envelope = RedEnvelope::findOrFail($id);
         $envelope->delete();
 
+        Helper::logActivity('Red Envelope', 'Delete Red Envelope', 'Deleted red envelope');
         return response()->json([
             'status' => true,
             'message' => 'Red Envelope Deleted Successfully'

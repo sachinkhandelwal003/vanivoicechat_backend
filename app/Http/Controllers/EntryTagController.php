@@ -129,7 +129,8 @@ class EntryTagController extends Controller
                     : null,
             ]);
 
-            return redirect()
+            Helper::logActivity('Entry Tag Store', 'Add Entry Tag', 'Created entry tag');
+        return redirect()
                 ->route('entry.tag')
                 ->with('success', 'Entry Tag added successfully');
         });
@@ -207,13 +208,15 @@ class EntryTagController extends Controller
 
             $entryTag->update($data);
 
-            return redirect()->route('entry.tag')->with('success', 'Entry Tag updated successfully');
+            Helper::logActivity('Entry Tag Store', 'Edit Entry Tag', 'Updated entry tag');
+        return redirect()->route('entry.tag')->with('success', 'Entry Tag updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Entry Tag Store', 'Delete Entry Tag', 'Deleted entry tag');
         return Helper::deleteRecord(new EntryTag, $request->id);
     }
 }

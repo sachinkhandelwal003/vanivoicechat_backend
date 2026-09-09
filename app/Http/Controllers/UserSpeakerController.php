@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helper\Helper;
+
 use App\Models\UserSpeaker;
 use App\Models\AppUser;
 use Illuminate\Http\Request;
@@ -64,6 +66,7 @@ class UserSpeakerController extends Controller
 
         $speaker->delete();
 
+        Helper::logActivity('User Speaker', 'Delete Speaker Record', 'Deleted speaker record');
         return response()->json(['status' => true, 'message' => 'Deleted successfully']);
     }
 }

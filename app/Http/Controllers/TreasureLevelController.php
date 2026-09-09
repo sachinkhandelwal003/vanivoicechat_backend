@@ -164,7 +164,8 @@ class TreasureLevelController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()
+            Helper::logActivity('Treasure Level Config', 'Add Treasure Level', 'Created treasure level config');
+        return back()
                 ->withInput()
                 ->with('error', $e->getMessage());
         }
@@ -243,7 +244,8 @@ class TreasureLevelController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->withInput()->with('error', $e->getMessage());
+            Helper::logActivity('Treasure Level Config', 'Edit Treasure Level', 'Updated treasure level config');
+        return back()->withInput()->with('error', $e->getMessage());
         }
     }
 
@@ -284,7 +286,8 @@ class TreasureLevelController extends Controller
 
             DB::rollBack();
 
-            return response()->json([
+            Helper::logActivity('Treasure Level Config', 'Delete Treasure Level', 'Deleted treasure level config');
+        return response()->json([
                 'status' => false,
                 'message' => $e->getMessage()
             ]);
@@ -553,6 +556,7 @@ class TreasureLevelController extends Controller
 
     public function deleteReward(Request $request)
     {
+        Helper::logActivity('Treasure Level Config', 'Delete Treasure Reward', 'Deleted treasure reward');
         return Helper::deleteRecord(new TreasureLevelClaims, $request->id);
     }
 

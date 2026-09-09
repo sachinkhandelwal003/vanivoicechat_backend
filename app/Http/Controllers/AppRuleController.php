@@ -100,6 +100,8 @@ class AppRuleController extends Controller
             'status'     => $request->status ?? 1,
         ]);
 
+        Helper::logActivity('Report Management', 'Add App Rule', 'Created App Rule "' . $request->heading . '"');
+
         return redirect()
             ->route('app-rules.index')
             ->with('success', 'App Rule added successfully');
@@ -153,7 +155,18 @@ class AppRuleController extends Controller
             'updated_by' => Auth::id(),
         ]);
 
+        Helper::logActivity('Report Management', 'Edit App Rule', 'Updated App Rule "' . $rule->heading . '"');
+
         return redirect()->route('app-rules.index')->with('success', 'App Rule updated successfully');
+    }
+
+    public function delete(Request $request): JsonResponse
+    {
+        $r = AppRule::find($request->id);
+        if ($r) {
+            Helper::logActivity('Report Management', 'Delete App Rule', 'Deleted App Rule "' . $r->heading . '"');
+        }
+        return Helper::deleteRecord(new AppRule, $request->id);
     }
 
     public function view($id)

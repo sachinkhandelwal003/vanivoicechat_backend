@@ -147,6 +147,8 @@ class SettingController extends Controller
                 SettingModels::where('setting_name', $key)->update(['filed_value' => $input]);
             }
 
+            Helper::logActivity('Settings', 'Update Settings', 'Updated system settings (Group ID: ' . $id . ')');
+
             return to_route('setting', ['id' => $id])->withSuccess('Setting Updated Successfully..!!');
         }
 
@@ -155,6 +157,7 @@ class SettingController extends Controller
 
     public function database_backup(): BinaryFileResponse
     {
+        Helper::logActivity('Settings', 'Database Backup', 'Downloaded database backup file');
         $path = Database::backup();
         return response()->download($path)->deleteFileAfterSend(true);
     }
@@ -213,6 +216,8 @@ class SettingController extends Controller
                     break;
             }
 
+            Helper::logActivity('Settings', 'Server Cache Action', 'Executed cache/server optimization command type #' . $request->input('type'));
+
             return to_route('server-control')->withSuccess(trim(Artisan::output()));
         } catch (\Throwable $th) {
             // dd($th->getMessage(), Artisan::output());
@@ -237,6 +242,8 @@ class SettingController extends Controller
             ['type' => 'minimum_available_coins'],
             ['setting_value' => $request->setting_value]
         );
+
+        Helper::logActivity('Settings', 'Update Coin Threshold', 'Updated minimum available coins threshold to ' . $request->setting_value);
 
         return redirect()
             ->route('system.setting')

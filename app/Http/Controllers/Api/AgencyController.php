@@ -267,6 +267,7 @@ class AgencyController extends Controller
         $hosts = Host::with(['user:id,uid,name,image'])
             ->where('agency_id', $agency->id)
             ->where('invite_status', 'accept')
+            ->where('status', 1)
             ->where('user_id', '!=', $agency->user_id)
             ->latest()
             ->get()

@@ -94,6 +94,7 @@ class UsersController extends Controller
             });
 
             UserPermission::insert($data->toArray());
+            Helper::logActivity('Sub Admin', 'Add Sub-Admin', 'Created Sub-Admin user "' . $request->name . '" (' . $request->email . ')');
         });
 
         return to_route('users')->withSuccess('User Added Successfully..!!');
@@ -116,11 +117,16 @@ class UsersController extends Controller
         }
 
         $user->update($request->filter($user));
+        Helper::logActivity('Sub Admin', 'Edit Sub-Admin', 'Updated Sub-Admin user "' . $user->name . '" (' . $user->email . ')');
         return to_route('users')->withSuccess('User Updated Successfully..!!');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        $user = User::find($request->id);
+        if ($user) {
+            Helper::logActivity('Sub Admin', 'Delete Sub-Admin', 'Deleted Sub-Admin user "' . $user->name . '" (' . $user->email . ')');
+        }
         return Helper::deleteRecord(new User, $request->id);
     }
 

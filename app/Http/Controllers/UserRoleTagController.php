@@ -114,6 +114,7 @@ class UserRoleTagController extends Controller
             ]);
         });
 
+        Helper::logActivity('User Role Tags', 'Add Role Tag', 'Created user role tag');
         return redirect()
             ->route('user-role-tags')
             ->with('success', 'User Role Tag added successfully.');
@@ -197,6 +198,7 @@ class UserRoleTagController extends Controller
             $userRoleTag->update($data);
         });
 
+        Helper::logActivity('User Role Tags', 'Edit Role Tag', 'Updated user role tag');
         return redirect()
             ->route('user-role-tags')
             ->with('success', 'User Role Tag updated successfully.');
@@ -205,6 +207,7 @@ class UserRoleTagController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('User Role Tags', 'Delete Role Tag', 'Deleted user role tag');
         return Helper::deleteRecord(new UserRoleTag, $request->id);
     }
 }

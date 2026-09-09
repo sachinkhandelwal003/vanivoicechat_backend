@@ -779,6 +779,14 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::delete('abuse-words/{id}', 'destroy')->name('abuse-words.destroy')->middleware('isAllow:173,can_delete');
     });
 
+    // ----------------------- Audit Log Management ---------------------------------------------
+    Route::controller(App\Http\Controllers\AuditLogController::class)->group(function () {
+        Route::get('audit-logs', 'index')->name('audit.logs')->middleware('isAllow:182,can_view');
+        Route::get('audit-logs/{id}', 'show')->name('audit.logs.show')->middleware('isAllow:182,can_view');
+        Route::delete('audit-logs/clear-all', 'clearAll')->name('audit.logs.clear-all')->middleware('isAllow:182,can_delete');
+        Route::delete('audit-logs/{id}', 'destroy')->name('audit.logs.destroy')->middleware('isAllow:182,can_delete');
+    });
+
     // ----------------------- Game Management ----------------------------------------------------
     Route::controller(App\Http\Controllers\GameController::class)->group(function () {
         Route::get('games', 'index')->name('game')->middleware('isAllow:180,can_view');

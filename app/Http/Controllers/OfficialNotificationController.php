@@ -179,6 +179,7 @@ class OfficialNotificationController extends Controller
             }
         }
 
+        Helper::logActivity('Official Notification', 'Send Notification', 'Sent official notification');
         return redirect()
             ->route('official_notifications.index')
             ->with('success', 'Notification sent successfully.');
@@ -271,6 +272,7 @@ class OfficialNotificationController extends Controller
             ]);
         }
 
+        Helper::logActivity('Official Notification', 'Edit Notification', 'Updated official notification');
         return redirect()
             ->route('official_notifications.index')
             ->with('success', 'Notification updated successfully.');
@@ -282,6 +284,7 @@ class OfficialNotificationController extends Controller
         $notification = OfficialNotification::findOrFail($id);
         $notification->delete();
 
+        Helper::logActivity('Official Notification', 'Delete Notification', 'Deleted official notification');
         return response()->json([
             'status'  => true,
             'message' => 'Notification deleted successfully.'

@@ -152,6 +152,7 @@ class CarController extends Controller
             );
         }
 
+        Helper::logActivity('Car Store', 'Add Car', 'Created new car item');
         return redirect()
             ->route('cars')
             ->with('success', 'Car added successfully');
@@ -225,13 +226,15 @@ class CarController extends Controller
 
             $car->update($data);
 
-            return redirect()->route('cars')->with('success', 'Car updated successfully');
+            Helper::logActivity('Car Store', 'Edit Car', 'Updated car item');
+        return redirect()->route('cars')->with('success', 'Car updated successfully');
         });
     }
 
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Car Store', 'Delete Car', 'Deleted car item');
         return Helper::deleteRecord(new Cars, $request->id);
     }
 }

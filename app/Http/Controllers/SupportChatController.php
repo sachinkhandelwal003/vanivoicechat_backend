@@ -110,6 +110,7 @@ class SupportChatController extends Controller
             broadcast(new SupportMessageSent($message))->toOthers();
         }
 
+        Helper::logActivity('Support Chat', 'Send Support Message', 'Sent support chat message');
         return response()->json(['status' => true]);
     }
 }

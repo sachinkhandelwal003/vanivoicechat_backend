@@ -208,7 +208,8 @@ class GiftController extends Controller
                 'animation_duration' => $request->animation_duration ?? 0,
             ]);
 
-            return redirect()
+            Helper::logActivity('Gift Store', 'Add Gift', 'Created gift');
+        return redirect()
                 ->route('gift')
                 ->with('success', 'Gift added successfully');
         });
@@ -304,7 +305,8 @@ class GiftController extends Controller
 
             $gift->update($data);
 
-            return redirect()
+            Helper::logActivity('Gift Store', 'Edit Gift', 'Updated gift');
+        return redirect()
                 ->route('gift')
                 ->with('success', 'Gift updated successfully');
         });
@@ -314,6 +316,7 @@ class GiftController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Gift Store', 'Delete Gift', 'Deleted gift');
         return Helper::deleteRecord(new Gift, $request->id);
     }
 
@@ -387,7 +390,8 @@ class GiftController extends Controller
                 'probability'   => $request->probability,
             ]);
 
-            return redirect()
+            Helper::logActivity('Gift Store', 'Save Lucky Gift Setting', 'Created lucky gift winning setting');
+        return redirect()
                 ->route('lucky-gift-setting', $id)
                 ->with('success', 'Lucky Gift Winning Setting added successfully');
         });
@@ -426,12 +430,14 @@ class GiftController extends Controller
 
             $luckyGift->update($data);
 
-            return redirect()->route('lucky-gift-setting', $luckyGift->gift_id)->with('success', 'Lucky Gift Winning Setting updated successfully');
+            Helper::logActivity('Gift Store', 'Edit Lucky Gift Setting', 'Updated lucky gift winning setting');
+        return redirect()->route('lucky-gift-setting', $luckyGift->gift_id)->with('success', 'Lucky Gift Winning Setting updated successfully');
         });
     }
 
     public function luckyGiftSettingDelete(Request $request): JsonResponse
     {
+        Helper::logActivity('Gift Store', 'Delete Lucky Gift Setting', 'Deleted lucky gift winning setting');
         return Helper::deleteRecord(new LuckyGiftWinningSetting, $request->id);
     }
 

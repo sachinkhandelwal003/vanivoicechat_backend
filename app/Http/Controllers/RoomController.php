@@ -803,6 +803,8 @@ class RoomController extends Controller
             'pinned_at' => now(),
         ]);
 
+        Helper::logActivity('Room Management', 'Pin Room', 'Pinned Room ID ' . $id . ' (' . e($room->room_name) . ')');
+
         return response()->json([
             'status' => true,
             'message' => 'Room pinned successfully.'
@@ -817,6 +819,8 @@ class RoomController extends Controller
             'is_pinned' => 0,
             'pinned_at' => null,
         ]);
+
+        Helper::logActivity('Room Management', 'Unpin Room', 'Unpinned Room ID ' . $id . ' (' . e($room->room_name) . ')');
 
         return response()->json([
             'status' => true,

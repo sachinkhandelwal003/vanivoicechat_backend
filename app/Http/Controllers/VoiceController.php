@@ -132,7 +132,8 @@ class VoiceController extends Controller
                     : null,
             ]);
 
-            return redirect()
+            Helper::logActivity('Voice Ring Store', 'Add Voice Ring', 'Created voice ring');
+        return redirect()
                 ->route('voice')
                 ->with('success', 'Voice added successfully');
         });
@@ -197,7 +198,8 @@ class VoiceController extends Controller
 
             $voice->update($data);
 
-            return redirect()
+            Helper::logActivity('Voice Ring Store', 'Edit Voice Ring', 'Updated voice ring');
+        return redirect()
                 ->route('voice')
                 ->with('success', 'Voice updated successfully');
         });
@@ -207,6 +209,7 @@ class VoiceController extends Controller
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('Voice Ring Store', 'Delete Voice Ring', 'Deleted voice ring');
         return Helper::deleteRecord(new Voice, $request->id);
     }
 }

@@ -35,6 +35,7 @@ use App\Models\Friendship;
 use App\Models\RoomEmoji;
 use App\Models\RoomLevel;
 use App\Models\TreasureLevel;
+use App\Models\BannedWord;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -3547,6 +3548,28 @@ class RoomController extends Controller
             ], 422);
         }
 
+        // Check banned words
+        $bannedWords = BannedWord::where('status', 1)
+            ->pluck('word')
+            ->filter()
+            ->map(fn($word) => trim($word))
+            ->values();
+
+        $lowerMessage = strtolower($messageText);
+
+        foreach ($bannedWords as $bannedWord) {
+
+            $pattern = '/(?<!\w)' . preg_quote(strtolower($bannedWord), '/') . '(?!\w)/i';
+
+            if (preg_match($pattern, $lowerMessage)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your message contains a inappropriate word.',
+                    'data' => [],
+                ], 422);
+            }
+        }
+
         // $chatBubble = null;
 
         // if (!empty($user->active_chat_bubble_id)) {
@@ -6119,7 +6142,9 @@ class RoomController extends Controller
                             'level' => $charmLevel?->level ?? 1,
                             'icon' => $charmLevel?->levelData?->icon
                                 ? Helper::showImage(
-                                    $charmLevel->levelData->icon,true): null,
+                                    $charmLevel->levelData->icon,
+                                    true
+                                ) : null,
                         ],
                         'medals' => $medals,
                         'cp_relation' => $cpRelation,

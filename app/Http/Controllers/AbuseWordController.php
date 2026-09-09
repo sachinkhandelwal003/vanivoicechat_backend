@@ -119,7 +119,7 @@ class AbuseWordController extends Controller
     {
         $request->validate([
             'word'     => 'required|string|max:100',
-            'category' => 'required|in:general,chat,profile,content',
+            // 'category' => 'required|in:general,chat,profile,content',
         ]);
 
         // Check duplicates (case-insensitive)
@@ -135,6 +135,8 @@ class AbuseWordController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        Helper::logActivity('Abuse Word Control', 'Add Word', 'Added banned word "' . $word->word . '" (Category: ' . $word->category . ')');
+
         return response()->json(['status' => true, 'message' => 'Word "' . $word->word . '" added to banned list.']);
     }
 
@@ -142,7 +144,7 @@ class AbuseWordController extends Controller
     {
         $request->validate([
             'word'     => 'required|string|max:100',
-            'category' => 'required|in:general,chat,profile,content',
+            // 'category' => 'required|in:general,chat,profile,content',
         ]);
 
         $banned = BannedWord::findOrFail($id);
@@ -160,6 +162,8 @@ class AbuseWordController extends Controller
             'category' => $request->category,
         ]);
 
+        Helper::logActivity('Abuse Word Control', 'Edit Word', 'Updated banned word ID ' . $id . ' to "' . $banned->word . '" (Category: ' . $banned->category . ')');
+
         return response()->json(['status' => true, 'message' => 'Word updated successfully.']);
     }
 
@@ -170,6 +174,8 @@ class AbuseWordController extends Controller
         $banned->save();
 
         $msg = $banned->status == 1 ? 'Word enabled successfully.' : 'Word disabled successfully.';
+        Helper::logActivity('Abuse Word Control', 'Toggle Status', ($banned->status == 1 ? 'Enabled' : 'Disabled') . ' banned word "' . $banned->word . '"');
+
         return response()->json(['status' => true, 'message' => $msg, 'new_status' => $banned->status]);
     }
 
@@ -178,6 +184,8 @@ class AbuseWordController extends Controller
         $banned = BannedWord::findOrFail($id);
         $word   = $banned->word;
         $banned->delete();
+
+        Helper::logActivity('Abuse Word Control', 'Delete Word', 'Deleted banned word "' . $word . '"');
 
         return response()->json(['status' => true, 'message' => 'Word "' . $word . '" deleted from banned list.']);
     }

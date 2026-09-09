@@ -116,6 +116,7 @@ class ReportController extends Controller
 
     public function postDestroy(Request $request): JsonResponse
     {
+        Helper::logActivity('Report Management', 'Delete Reported Post', 'Deleted reported post');
         return Helper::deleteRecord(new PostReport, $request->id);
     }
     public function userIndex(Request $request): View|JsonResponse
@@ -155,6 +156,7 @@ class ReportController extends Controller
 
     public function userDestroy(Request $request): JsonResponse
     {
+        Helper::logActivity('Report Management', 'Delete Reported User Content', 'Deleted reported user content');
         return Helper::deleteRecord(new ChatReport(), $request->id);
     }
 }

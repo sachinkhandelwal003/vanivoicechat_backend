@@ -160,7 +160,8 @@ class WCLevelController extends Controller
 
             $level->fill($data)->save();
 
-            return redirect()
+            Helper::logActivity('WC Level Config', 'Add WC Level', 'Created WC level config');
+        return redirect()
                 ->route('levels')
                 ->with('success', $id ? 'Level updated successfully' : 'Level added successfully');
         });
@@ -168,6 +169,7 @@ class WCLevelController extends Controller
 
     public function delete(Request $request)
     {
+        Helper::logActivity('WC Level Config', 'Delete WC Level', 'Deleted WC level config');
         return Helper::deleteRecord(new Level, $request->id);
     }
 
@@ -199,6 +201,7 @@ class WCLevelController extends Controller
             ['description' => $request->charm_description]
         );
 
+        Helper::logActivity('WC Level Config', 'Save WC Settings', 'Updated WC level global settings');
         return redirect()->back()->with('success', 'Settings saved successfully');
     }
 }

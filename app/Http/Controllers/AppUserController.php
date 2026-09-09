@@ -1873,6 +1873,8 @@ class AppUserController extends Controller
                 'is_device_banned' => 1
             ]);
 
+        Helper::logActivity('User Device List', 'Device Ban', 'Banned device IMEI: ' . $request->imei);
+
         return response()->json([
             'status' => true,
             'message' => 'Device banned successfully.'
@@ -1885,6 +1887,8 @@ class AppUserController extends Controller
             ->update([
                 'is_device_banned' => 0
             ]);
+
+        Helper::logActivity('User Device List', 'Device Unban', 'Unbanned device IMEI: ' . $request->imei);
 
         return response()->json([
             'status' => true,

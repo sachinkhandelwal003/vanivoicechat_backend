@@ -706,9 +706,9 @@
         </li>
         @endif
 
-        @if(Helper::userCan([102,103]))
-        <li class="menu @routeis('roles,users') active @endrouteis">
-            <a href="#access-control" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('roles,users') }}" class="dropdown-toggle">
+        @if(Helper::userCan([102,103,182]))
+        <li class="menu @routeis('roles,users,audit.logs') active @endrouteis">
+            <a href="#access-control" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('roles,users,audit.logs') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-user-shield"></i>
 
@@ -716,7 +716,7 @@
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('roles,users') show @endrouteis" id="access-control">
+            <ul class="collapse submenu list-unstyled @routeis('roles,users,audit.logs') show @endrouteis" id="access-control">
 
                 @if(Helper::userCan(102))
                 <li class="@routeis('roles') active @endrouteis">
@@ -727,6 +727,12 @@
                 @if(Helper::userCan(103))
                 <li class="@routeis('users') active @endrouteis">
                     <a href="{{ route('users') }}">Sub Admin</a>
+                </li>
+                @endif
+
+                @if(Helper::userCan(182))
+                <li class="@routeis('audit.logs') active @endrouteis">
+                    <a href="{{ route('audit.logs') }}"></i> Audit Log</a>
                 </li>
                 @endif
 

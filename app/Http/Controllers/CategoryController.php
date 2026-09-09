@@ -78,6 +78,7 @@ class CategoryController extends Controller
         }
 
         Category::create($data);
+        Helper::logActivity('Category Management', 'Add Category', 'Created category');
         return to_route('categories')->withSuccess('Category Added Successfully..!!');
     }
 
@@ -120,6 +121,7 @@ class CategoryController extends Controller
 
         $category->update($data);
 
+        Helper::logActivity('Category Management', 'Edit Category', 'Updated category');
         return to_route('categories')->withSuccess('Category Updated Successfully..!!');
     }
 
@@ -159,6 +161,7 @@ class CategoryController extends Controller
         // Delete main category
         $category->delete();
 
+        Helper::logActivity('Category Management', 'Delete Category', 'Deleted category');
         return response()->json([
             'status' => true,
             'message' => 'Category and related subcategories/products deleted successfully'

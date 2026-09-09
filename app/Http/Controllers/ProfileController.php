@@ -76,6 +76,7 @@ class ProfileController extends Controller
         }
 
         $user->save();
+        Helper::logActivity('Admin Profile', 'Update Profile', 'Updated admin profile details');
         return back()->withSuccess('Profile Upated Successfully..!!');
     }
 
@@ -93,6 +94,7 @@ class ProfileController extends Controller
             return to_route('loginPage', $this->route == 'web' ? 'admin' : $this->route)->withSuccess('Password updated successfully..!! Please login again.');
         }
 
+        Helper::logActivity('Admin Profile', 'Update Password', 'Changed admin account password');
         return back()->withError('Credentials not Valid.');
     }
 

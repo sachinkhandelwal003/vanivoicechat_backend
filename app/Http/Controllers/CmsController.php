@@ -73,6 +73,7 @@ class CmsController extends Controller
         }
 
         Cms::create($data);
+        Helper::logActivity('CMS Page', 'Add CMS Page', 'Created CMS page');
         return to_route('cms')->withSuccess('Cms Added Successfully..!!');
     }
 
@@ -105,11 +106,13 @@ class CmsController extends Controller
         }
 
         $cms->update($data);
+        Helper::logActivity('CMS Page', 'Edit CMS Page', 'Updated CMS page');
         return to_route('cms')->withSuccess('Cms Updated Successfully..!!');
     }
 
     public function delete(Request $request): JsonResponse
     {
+        Helper::logActivity('CMS Page', 'Delete CMS Page', 'Deleted CMS page');
         return Helper::deleteRecord(new Cms, $request->id);
     }
 }

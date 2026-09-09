@@ -249,6 +249,8 @@ class GameController extends Controller
                 'status'        => $request->status,
             ]);
 
+            Helper::logActivity('Game Management', 'Add Game', 'Created game "' . $request->name . '"');
+
             return redirect()
                 ->route('game')
                 ->with('success', 'Game added successfully');
@@ -336,14 +338,20 @@ class GameController extends Controller
 
             $game->update($data);
 
+            Helper::logActivity('Game Management', 'Edit Game', 'Updated game "' . $game->name . '"');
+
             return redirect()
                 ->route('game')
                 ->with('success', 'Game updated successfully');
         });
     }
 
-       public function delete(Request $request): JsonResponse
+    public function delete(Request $request): JsonResponse
     {
+        $g = Game::find($request->id);
+        if ($g) {
+            Helper::logActivity('Game Management', 'Delete Game', 'Deleted game "' . $g->name . '"');
+        }
         return Helper::deleteRecord(new Game, $request->id);
     }
 }
