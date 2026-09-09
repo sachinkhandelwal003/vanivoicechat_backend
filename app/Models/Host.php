@@ -16,6 +16,7 @@ class Host extends Model
         'agency_id',
         'country_id',
         'invite_status',
+        'request_type',
         'is_dashboard_access',
         'status',
     ];

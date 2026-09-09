@@ -179,6 +179,7 @@ class HostCenterController extends Controller
             'agency_id' => $agency->id,
             'country_id' => $agency->country_id,
             'invite_status' => 'pending',
+            'request_type' => 'apply',
             'status' => 1,
         ]);
 
