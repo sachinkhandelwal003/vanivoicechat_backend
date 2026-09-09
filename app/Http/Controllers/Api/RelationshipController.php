@@ -1282,6 +1282,7 @@ class RelationshipController extends Controller
         //Host Invitations
         $hosts = Host::with('agency.user:id,name,uid,image')
             ->where('user_id', $userId)
+            ->where('request_type', 'invite')
             ->where('invite_status', 'pending')
             ->get();
 

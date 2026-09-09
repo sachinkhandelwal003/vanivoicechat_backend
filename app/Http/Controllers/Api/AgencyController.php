@@ -200,6 +200,7 @@ class AgencyController extends Controller
             'agency_id' => $agency->id,
             'country_id' => $agency->country_id,
             'invite_status' => 'pending',
+            'request_type' => 'invite',
             'status' => 1,
         ]);
 
@@ -399,12 +400,8 @@ class AgencyController extends Controller
                 'agency_id',
                 $agency->id
             )
-
-            ->where(
-                'invite_status',
-                'pending'
-            )
-
+            ->where('request_type', 'apply')
+            ->where('invite_status', 'pending')
             ->latest()
 
             ->get()
