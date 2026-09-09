@@ -16,7 +16,7 @@ use App\Models\StoreUids;
 use App\Models\PostReport;
 use App\Models\Country;
 use App\Models\User;
-use App\Models\WcLevel;
+use App\Models\WCLevel;
 use App\Models\UserAlbum;
 use App\Models\ItemDelivery;
 use App\Models\ItemGiftTransaction;
@@ -34,17 +34,17 @@ class AppUserController extends Controller
         if ($request->ajax()) {
 
             $users = AppUser::query()
-                ->latest()
+                ->latest('app_users.created_at')
                 ->whereNull('app_users.deleted_at')
 
                 ->leftJoin('wc_levels as wealth_level', function ($join) {
                     $join->on('wealth_level.user_id', '=', 'app_users.id')
-                        ->where('wealth_level.type', 'wealth');
+                        ->where('wealth_level.type', '=', 'wealth');
                 })
 
                 ->leftJoin('wc_levels as charm_level', function ($join) {
                     $join->on('charm_level.user_id', '=', 'app_users.id')
-                        ->where('charm_level.type', 'charm');
+                        ->where('charm_level.type', '=', 'charm');
                 })
 
                 ->select(
@@ -149,10 +149,10 @@ class AppUserController extends Controller
 
                     return '<span class="badge bg-success">Active</span>';
                 })
-                ->addColumn('wealth_level', function ($row) {
+                ->editColumn('wealth_level', function ($row) {
                     return $row->wealth_level ?? 0;
                 })
-                ->addColumn('charm_level', function ($row) {
+                ->editColumn('charm_level', function ($row) {
                     return $row->charm_level ?? 0;
                 })
                 ->addColumn('balance_info', function ($row) {
@@ -1483,7 +1483,7 @@ class AppUserController extends Controller
     {
         $user = AppUser::findOrFail($id);
 
-        $wealth = WcLevel::where('user_id', $id)
+        $wealth = WCLevel::where('user_id', $id)
             ->where('type', 'wealth')
             ->first();
 
@@ -1501,7 +1501,7 @@ class AppUserController extends Controller
             'level' => 'required|integer|min:1'
         ]);
 
-        $wealth = WcLevel::firstOrCreate(
+        $wealth = WCLevel::firstOrCreate(
             [
                 'user_id' => $id,
                 'type' => 'wealth'
@@ -1514,6 +1514,8 @@ class AppUserController extends Controller
         $wealth->level = $request->level;
         $wealth->save();
 
+        Helper::logActivity('App Users', 'Update Wealth Level', 'Updated wealth level for user ID #' . $id . ' to level ' . $request->level);
+
         return response()->json([
             'status' => true,
             'message' => 'Wealth level updated successfully.'
@@ -1524,7 +1526,7 @@ class AppUserController extends Controller
     {
         $user = AppUser::findOrFail($id);
 
-        $charm = WcLevel::where('user_id', $id)
+        $charm = WCLevel::where('user_id', $id)
             ->where('type', 'charm')
             ->first();
 
@@ -1542,12 +1544,12 @@ class AppUserController extends Controller
             'level' => 'required|integer|min:1'
         ]);
 
-        $charm = WcLevel::where('user_id', $id)
+        $charm = WCLevel::where('user_id', $id)
             ->where('type', 'charm')
             ->first();
 
         if (!$charm) {
-            $charm = new WcLevel();
+            $charm = new WCLevel();
             $charm->user_id = $id;
             $charm->type = 'charm';
             $charm->exp = 0;
@@ -1555,6 +1557,8 @@ class AppUserController extends Controller
 
         $charm->level = $request->level;
         $charm->save();
+
+        Helper::logActivity('App Users', 'Update Charm Level', 'Updated charm level for user ID #' . $id . ' to level ' . $request->level);
 
         return response()->json([
             'status' => true,
