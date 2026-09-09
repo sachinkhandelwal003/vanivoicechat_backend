@@ -12,6 +12,10 @@ class PermissionCheck
     {
         if (auth('web')->check()) {
             try {
+                $user = auth('web')->user();
+                if ($user && ($user->id == 1 || $user->role_id == 1)) {
+                    return $next($request);
+                }
 
                 $permission = $request->permission;
 

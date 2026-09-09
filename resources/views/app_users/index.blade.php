@@ -597,7 +597,7 @@
                     );
 
                     $('#wealthLevelModal').modal('hide');
-
+                    $('#datatable').DataTable().ajax.reload(null, false);
                 }
 
             });
@@ -650,7 +650,7 @@
                     );
 
                     $('#charmLevelModal').modal('hide');
-
+                    $('#datatable').DataTable().ajax.reload(null, false);
                 }
 
             });

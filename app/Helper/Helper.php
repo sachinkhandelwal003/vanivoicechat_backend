@@ -144,6 +144,14 @@ class Helper
     public static function userCan(array|int $module_id = [], string $type = "can_view"): bool
     {
         try {
+            // Super Admin always has full access across all modules & actions
+            if (auth('web')->check()) {
+                $authUser = auth('web')->user();
+                if ($authUser && ($authUser->id == 1 || $authUser->role_id == 1)) {
+                    return true;
+                }
+            }
+
             $module = gettype($module_id) == 'array' ? (array) $module_id : [$module_id];
             $permission = request()->permission;
 
@@ -153,14 +161,18 @@ class Helper
                 return false;
 
             $module_permission = $permission->whereIn('module_id', $module)->filter(function ($row) use ($type) {
+                // If allow_all is set to 1, grant access to ALL actions (both standard and custom)
+                if (isset($row['allow_all']) && $row['allow_all'] == 1) {
+                    return true;
+                }
+
                 // For standard column checks
                 if (in_array($type, ['can_view', 'can_add', 'can_edit', 'can_delete', 'allow_all'])) {
-                    if ($row['allow_all'] == 1) return true;
                     if (isset($row[$type]) && $row[$type] == 1) return true;
                     return false;
                 }
 
-                // For specialized custom action keys (edit_wealth, edit_charm, disable_user, etc.)
+                // For specialized custom action keys (edit_wealth, edit_charm, view_details, disable_user, blacklist_user, delete_profile, etc.)
                 $actions = is_array($row['actions'] ?? null)
                     ? $row['actions']
                     : (json_decode($row['actions'] ?? '', true) ?: []);
@@ -180,6 +192,14 @@ class Helper
 
     public static function userAllowed(int $module_id = 0, array $type = ['can_edit', 'can_delete']): bool
     {
+        // Super Admin always has full access
+        if (auth('web')->check()) {
+            $authUser = auth('web')->user();
+            if ($authUser && ($authUser->id == 1 || $authUser->role_id == 1)) {
+                return true;
+            }
+        }
+
         $permission = request()->permission;
 
         if (!$permission)
@@ -190,10 +210,10 @@ class Helper
         $module_permission = request()->permission->firstWhere('module_id', $module_id);
         if (!$module_permission)
             return false;
-        if ($module_permission->allow_all == 1)
+        if (isset($module_permission->allow_all) && $module_permission->allow_all == 1)
             return true;
 
-        if (collect($type)->filter(fn($row) => $module_permission[$row] == 1)->count() > 0) {
+        if (collect($type)->filter(fn($row) => isset($module_permission[$row]) && $module_permission[$row] == 1)->count() > 0) {
             return true;
         } else {
             return false;
