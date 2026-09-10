@@ -31,47 +31,46 @@ class BDController extends Controller
             ->where('status', 1)
             ->get();
 
-        $hostUserIds = $hosts->pluck('user_id');
-
-        $coins = (int) DB::table('gift_transactions')
-            ->whereIn('receiver_id', $hostUserIds)
-            ->sum(DB::raw('COALESCE(total_value, coin_value)'));
+        $totalCoins = 0;
+        $totalSalary = 0.0;
 
         $settled = (float) AgencySalarySettlement::where('agency_id', $agency->id)
             ->where('status', 'settled')
             ->sum('total_salary');
 
-        if ($settled > 0) {
-            return ['coins' => $coins, 'salary' => round($settled, 2)];
-        }
-
-        $totalSalary = 0.0;
         foreach ($hosts as $host) {
             $hCoins = (int) DB::table('gift_transactions')
                 ->where('receiver_id', $host->user_id)
+                ->where('created_at', '>=', $host->created_at)
                 ->sum(DB::raw('COALESCE(total_value, coin_value)'));
 
-            $country = $host->user?->countryData?->name ?? 'India';
+            $totalCoins += $hCoins;
 
-            $policy = HostPolicy::where('status', 1)
-                ->where('country', $country)
-                ->where('target_value', '<=', $hCoins)
-                ->orderByDesc('level')
-                ->first();
+            if ($settled <= 0) {
+                $country = $host->user?->countryData?->name ?? 'India';
 
-            if (!$policy) {
                 $policy = HostPolicy::where('status', 1)
+                    ->where('country', $country)
                     ->where('target_value', '<=', $hCoins)
                     ->orderByDesc('level')
                     ->first();
-            }
 
-            if ($policy) {
-                $totalSalary += (float) $policy->total_salary;
+                if (!$policy) {
+                    $policy = HostPolicy::where('status', 1)
+                        ->where('target_value', '<=', $hCoins)
+                        ->orderByDesc('level')
+                        ->first();
+                }
+
+                if ($policy) {
+                    $totalSalary += (float) $policy->total_salary;
+                }
             }
         }
 
-        return ['coins' => $coins, 'salary' => round($totalSalary, 2)];
+        $finalSalary = $settled > 0 ? $settled : $totalSalary;
+
+        return ['coins' => $totalCoins, 'salary' => round($finalSalary, 2)];
     }
 
     public function bdDetails()
