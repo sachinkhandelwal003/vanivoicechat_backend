@@ -658,7 +658,7 @@ class RoomController extends Controller
         return response()->json([
             'status'  => true,
             'message' => 'Gifts fetched successfully',
-            'total_coins' => $auth->total_points,
+            'total_coins' => $auth->buy_coins_wallet,
             'data'    => $gifts
         ]);
     }
@@ -713,7 +713,7 @@ class RoomController extends Controller
             $singleGiftCost = (int) $gift->price * $multiplier;
             $totalCost = $gift->price * $receiverCount * $multiplier;
 
-            if ($sender->total_points < $totalCost) {
+            if ($sender->buy_coins_wallet < $totalCost) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Insufficient balance'
@@ -763,7 +763,7 @@ class RoomController extends Controller
 
                     // Normal gift → receiver gets coins + charm
                     AppUser::where('id', $receiverId)->update([
-                        'total_points' => DB::raw('total_points + ' . $singleGiftCost),
+                        'buy_coins_wallet' => DB::raw('buy_coins_wallet + ' . $singleGiftCost),
                         'total_value'  => DB::raw('total_value + ' . $singleGiftCost),
                     ]);
                 } else {
@@ -775,7 +775,7 @@ class RoomController extends Controller
                 }
 
 
-                $user = AppUser::select('id', 'name', 'uid', 'image', 'total_points', 'total_value', 'user_level')
+                $user = AppUser::select('id', 'name', 'uid', 'image', 'total_points','buy_coins_wallet', 'total_value', 'user_level')
                     ->where('id', $receiverId)
                     ->first();
 
@@ -796,7 +796,7 @@ class RoomController extends Controller
                 $this->updateUserMedals($receiverId, 'charm');
             }
 
-            AppUser::where('id', $sender->id)->decrement('total_points', $totalCost);
+            AppUser::where('id', $sender->id)->decrement('buy_coins_wallet', $totalCost);
 
             //Level Acceleration Logic for Wealth Level
             $wealthExp = $totalCost;
@@ -929,7 +929,7 @@ class RoomController extends Controller
 
             DB::commit();
 
-            $sender = AppUser::select('id', 'name', 'uid', 'image', 'total_points')
+            $sender = AppUser::select('id', 'name', 'uid', 'image', 'total_points','buy_coins_wallet')
                 ->where('id', $sender->id)
                 ->first();
 
@@ -956,7 +956,7 @@ class RoomController extends Controller
                     'image'        => !empty($sender->image)
                         ? Helper::showImage($sender->image, true)
                         : null,
-                    'total_points' => (int) $sender->total_points,
+                    'total_points' => (int) $sender->buy_coins_wallet,
                 ],
 
                 'receivers' => collect($receiverUsers)->map(function ($user) {
@@ -5522,8 +5522,8 @@ class RoomController extends Controller
                 ->first();
 
             $messagesQuery = RoomMessage::with([
-                'user:id,name,uid,image,gender,total_points,user_level',
-                'targetUser:id,name,uid,image,total_points,user_level',
+                'user:id,name,uid,image,gender,total_points,buy_coins_wallet,user_level',
+                'targetUser:id,name,uid,image,total_points,buy_coins_wallet,user_level',
                 'gift:id,name,cover,price'
             ])
                 ->where('room_id', $request->room_id);

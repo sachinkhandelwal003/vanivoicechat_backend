@@ -174,7 +174,7 @@ class AppUserController extends Controller
 
                                 <div class="d-flex justify-content-between">
                                     <span>Total Points</span>
-                                    <strong><i class="fas fa-coins text-warning"></i> ' . number_format($row->total_points) . '</strong>
+                                    <strong><i class="fas fa-coins text-warning"></i> ' . number_format($row->buy_coins_wallet) . '</strong>
                                 </div>
 
                             </div>

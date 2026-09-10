@@ -51,7 +51,7 @@ class RechargeController extends Controller
 
             'data' => [
 
-                'balance' => $seller->user->total_points ?? 0,
+                'balance' => $seller->user->buy_coins_wallet ?? 0,
 
                 'seller_to_user_rate' =>
                 $rate->seller_to_user_rate ?? 10000
@@ -185,7 +185,7 @@ class RechargeController extends Controller
 
         $sellerUser = $seller->user;
 
-        if (($sellerUser->total_points ?? 0) < $request->coin) {
+        if (($sellerUser->buy_coins_wallet ?? 0) < $request->coin) {
 
             return response()->json([
                 'status' => false,
@@ -198,11 +198,11 @@ class RechargeController extends Controller
         try {
 
             $sellerUser->decrement(
-                'total_points',
+                'buy_coins_wallet',
                 $request->coin
             );
 
-            $user->increment('total_points', $request->coin);
+            // $user->increment('total_points', $request->coin);
             $user->increment('buy_coins_wallet', $request->coin);
 
             CoinRechargeHistory::create([
@@ -232,7 +232,7 @@ class RechargeController extends Controller
                 // 'data' => [
 
                 //     'seller_balance' =>
-                //     $sellerUser->fresh()->total_points
+                //     $sellerUser->fresh()->buy_coins_wallet
                 // ]
             ]);
         } catch (\Exception $e) {
@@ -364,7 +364,7 @@ class RechargeController extends Controller
 
             'data' => [
 
-                'balance' => $merchant->user->total_points ?? 0,
+                'balance' => $merchant->user->buy_coins_wallet ?? 0,
 
                 'merchant_to_user_rate' =>
                 $rate->merchant_to_user_rate,
@@ -503,7 +503,7 @@ class RechargeController extends Controller
 
         $merchantUser = $merchant->user;
 
-        if (($merchantUser->total_points ?? 0) < $request->coin) {
+        if (($merchantUser->buy_coins_wallet ?? 0) < $request->coin) {
 
             return response()->json([
                 'status' => false,
@@ -522,7 +522,7 @@ class RechargeController extends Controller
         */
 
             $merchantUser->decrement(
-                'total_points',
+                'buy_coins_wallet',
                 $request->coin
             );
 
@@ -532,10 +532,7 @@ class RechargeController extends Controller
         |--------------------------------------------------------------------------
         */
 
-            $user->increment(
-                'total_points',
-                $request->coin
-            );
+            // $user->increment('total_points', $request->coin);
             $user->increment('buy_coins_wallet', $request->coin);
 
 
@@ -572,9 +569,9 @@ class RechargeController extends Controller
 
                 // 'data' => [
 
-                //     'merchant_balance' => $merchantUser->fresh()->total_points,
+                //     'merchant_balance' => $merchantUser->fresh()->buy_coins_wallet,
 
-                //     'user_balance' => $user->fresh()->total_points
+                //     'user_balance' => $user->fresh()->buy_coins_wallet
                 // ]
             ]);
         } catch (\Exception $e) {
@@ -749,7 +746,7 @@ class RechargeController extends Controller
 
         $merchantUser = $merchant->user;
 
-        if (($merchantUser->total_points ?? 0) < $request->coin) {
+        if (($merchantUser->buy_coins_wallet ?? 0) < $request->coin) {
 
             return response()->json([
                 'status' => false,
@@ -768,7 +765,7 @@ class RechargeController extends Controller
         */
 
             $merchantUser->decrement(
-                'total_points',
+                'buy_coins_wallet',
                 $request->coin
             );
 
@@ -779,7 +776,7 @@ class RechargeController extends Controller
         */
 
             $sellerUser->increment(
-                'total_points',
+                'buy_coins_wallet',
                 $request->coin
             );
 
@@ -818,10 +815,10 @@ class RechargeController extends Controller
                 // 'data' => [
 
                 //     'merchant_balance' =>
-                //     $merchantUser->fresh()->total_points,
+                //     $merchantUser->fresh()->buy_coins_wallet,
 
                 //     'seller_balance' =>
-                //     $sellerUser->fresh()->total_points,
+                //     $sellerUser->fresh()->buy_coins_wallet,
                 // ]
             ]);
         } catch (\Exception $e) {
@@ -984,7 +981,7 @@ class RechargeController extends Controller
     {
         $user = Auth::user();
 
-        // Recharge History
+        // 1. Recharge History (Coin Seller / Merchant)
         $recharges = CoinRechargeHistory::with('seller:id,name,uid')
             ->where('user_id', $user->id)
             ->get()
@@ -1002,61 +999,203 @@ class RechargeController extends Controller
                     $description = number_format($item->coin) . ' Coins added';
                 }
 
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+
                 return [
                     'id' => (int) $item->id,
                     'title' => $title,
                     'description' => $description,
                     'type' => 'credit',
                     'amount' => (int) $item->coin,
-                    'balance' => (int) $user->total_points, // Current Balance
+                    'balance' => (int) $user->buy_coins_wallet,
                     'from_name' => $item->seller->name ?? null,
-                    'from_uid' => $item->seller->uid ?? null,
-                    'role' => $item->role,
+                    'from_uid' => !empty($item->seller?->uid) ? (int) $item->seller->uid : null,
+                    'role' => $item->role ?? 'recharge',
                     'icon_type' => 'wallet',
-                    'created_at' => $item->created_at,
-                    'created_date' => $item->created_at->format('d M Y, h:i A'),
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
                 ];
             });
 
-        // Admin History
+        // 2. Admin History
         $adminTransactions = CoinSellerTransaction::where('receiver_id', $user->id)
             ->where('receiver_type', 'user')
             ->get()
-            ->map(function ($item) {
+            ->map(function ($item) use ($user) {
 
                 $isCredit = $item->transaction_type === 'recharge';
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
 
                 return [
                     'id' => (int) $item->id,
                     'title' => $isCredit ? 'Admin Recharge' : 'Admin Deduct',
-                    'description' => $item->remark,
+                    'description' => $item->remark ?? ($isCredit ? 'Coins added by admin' : 'Coins deducted by admin'),
                     'type' => $isCredit ? 'credit' : 'deduct',
                     'amount' => (int) $item->coins,
-                    'balance' => (int) $item->balance_after,
+                    'balance' => (int) ($item->balance_after ?? $user->buy_coins_wallet),
                     'from_name' => 'Admin',
                     'from_uid' => null,
                     'role' => 'admin',
                     'icon_type' => 'wallet',
-                    'created_at' => $item->created_at,
-                    'created_date' => $item->created_at->format('d M Y, h:i A'),
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 3. Online Package Coin Transactions
+        $onlineTransactions = DB::table('coin_transactions')
+            ->where('user_id', $user->id)
+            ->where('payment_status', 'success')
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $coins = (int) ($item->total_coins ?? ($item->coins + ($item->bonus_coins ?? 0)));
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Online Recharge',
+                    'description' => number_format($coins) . ' Coins purchased online',
+                    'type' => 'credit',
+                    'amount' => $coins,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'Online Payment',
+                    'from_uid' => null,
+                    'role' => 'online_recharge',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 4. Red Envelope Claims
+        $redEnvelopes = DB::table('red_envelope_claims')
+            ->where('user_id', $user->id)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $amount = (int) $item->amount;
+                $dateRaw = $item->claimed_at ?? $item->created_at;
+                $createdAt = $dateRaw ? Carbon::parse($dateRaw) : null;
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Red Envelope Claimed',
+                    'description' => number_format($amount) . ' Coins claimed from red envelope',
+                    'type' => 'credit',
+                    'amount' => $amount,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'Red Envelope',
+                    'from_uid' => null,
+                    'role' => 'red_envelope',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 5. Room Reward Claims
+        $roomRewards = DB::table('room_reward_claims')
+            ->where('owner_id', $user->id)
+            ->where('is_claimed', 1)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $amount = (int) ($item->owner_reward_coins ?? $item->reward_coins ?? $item->slab_reward_coins ?? 0);
+                $dateRaw = $item->claimed_at ?? $item->created_at;
+                $createdAt = $dateRaw ? Carbon::parse($dateRaw) : null;
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Room Reward Claimed',
+                    'description' => number_format($amount) . ' Coins claimed as room reward',
+                    'type' => 'credit',
+                    'amount' => $amount,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'Room Reward',
+                    'from_uid' => null,
+                    'role' => 'room_reward',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 6. Treasure Level Claims
+        $treasureClaims = DB::table('treasure_level_claims')
+            ->where('user_id', $user->id)
+            ->where('reward_type', 'coins')
+            ->where('coins', '>', 0)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $coins = (int) $item->coins;
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Treasure Box Reward',
+                    'description' => number_format($coins) . ' Coins claimed from Level ' . $item->level . ' Treasure Box',
+                    'type' => 'credit',
+                    'amount' => $coins,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'Treasure Box',
+                    'from_uid' => null,
+                    'role' => 'treasure',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 7. Invite Reward Histories
+        $inviteRewards = DB::table('invite_reward_histories')
+            ->where('user_id', $user->id)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $coins = (int) $item->reward_coin;
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Invite Friends Reward',
+                    'description' => number_format($coins) . ' Coins rewarded for inviting ' . ($item->target_person ?? 0) . ' users',
+                    'type' => 'credit',
+                    'amount' => $coins,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'Invite Reward',
+                    'from_uid' => null,
+                    'role' => 'invite_reward',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
                 ];
             });
 
         $history = $recharges
             ->concat($adminTransactions)
+            ->concat($onlineTransactions)
+            ->concat($redEnvelopes)
+            ->concat($roomRewards)
+            ->concat($treasureClaims)
+            ->concat($inviteRewards)
+            ->filter(function ($item) {
+                return !empty($item['created_at']);
+            })
             ->sortByDesc('created_at')
             ->values()
             ->map(function ($item) {
 
                 return [
-                    'id' => $item['id'],
+                    'id' => (int) $item['id'],
                     'title' => $item['title'],
                     'description' => $item['description'],
                     'type' => $item['type'],
-                    'amount' => $item['amount'],
-                    'balance' => $item['balance'],
+                    'amount' => (int) $item['amount'],
+                    'balance' => (int) $item['balance'],
                     'from_name' => $item['from_name'],
-                    'from_uid' => $item['from_uid'],
+                    'from_uid' => !empty($item['from_uid']) ? (int) $item['from_uid'] : null,
                     'role' => $item['role'],
                     'icon_type' => $item['icon_type'],
                     'created_at' => $item['created_date'],

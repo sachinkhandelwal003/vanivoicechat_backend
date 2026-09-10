@@ -71,7 +71,7 @@ class VipController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'SVIP list fetched successfully',
-                'total_points' => (int) ($user->total_points ?? 0),
+                'total_points' => (int) ($user->buy_coins_wallet ?? 0),
                 'data' => $data
             ]);
         } catch (\Exception $e) {
@@ -154,7 +154,7 @@ class VipController extends Controller
         try {
 
             $authUser = Auth::user();
-            $authUserCoins = (int) ($authUser->total_points ?? 0);
+            $authUserCoins = (int) ($authUser->buy_coins_wallet ?? 0);
 
             $vips = DB::table('vips')
                 ->orderBy('needcoins')
@@ -251,7 +251,7 @@ class VipController extends Controller
             }
 
             // Check balance
-            if ($user->total_points < $vip->needcoins) {
+            if ($user->buy_coins_wallet < $vip->needcoins) {
 
                 DB::rollBack();
 
@@ -262,7 +262,7 @@ class VipController extends Controller
             }
 
             // Deduct coins
-            $user->decrement('total_points', $vip->needcoins);
+            $user->decrement('buy_coins_wallet', $vip->needcoins);
 
             $transaction = VipTransaction::create([
                 'user_id'    => $user->id,
@@ -344,7 +344,7 @@ class VipController extends Controller
             }
 
             // Check sender balance
-            if ($sender->total_points < $vip->needcoins) {
+            if ($sender->buy_coins_wallet < $vip->needcoins) {
 
                 DB::rollBack();
 
@@ -355,7 +355,7 @@ class VipController extends Controller
             }
 
             // Deduct sender coins
-            $sender->decrement('total_points', $vip->needcoins);
+            $sender->decrement('buy_coins_wallet', $vip->needcoins);
 
             $transaction = VipTransaction::create([
                 'user_id'    => $receiver->id,

@@ -44,7 +44,7 @@ class PaymentController extends Controller
             return response()->json([
                 'status'  => true,
                 'message' => 'Coin packages fetched successfully',
-                'total_points' => (int) ($user->total_points ?? 0),
+                'total_points' => (int) ($user->buy_coins_wallet ?? 0),
                 'image' => asset('storage/recharge_agency.png'),
                 'data'    => $data
             ]);
@@ -203,9 +203,9 @@ class PaymentController extends Controller
                 $transaction->payment_status !== 'success'
             ) {
 
-                DB::table('app_users')
-                    ->where('id', $transaction->user_id)
-                    ->increment('total_points', $transaction->total_coins);
+                // DB::table('app_users')
+                //     ->where('id', $transaction->user_id)
+                //     ->increment('total_points', $transaction->total_coins);
 
                 DB::table('app_users')
                     ->where('id', $transaction->user_id)
@@ -262,14 +262,14 @@ class PaymentController extends Controller
                 'data' => []
             ]);
         }
-        
+
         $minCoin = SystemSetting::where('type', 'minimum_available_coins')->first();
         $minimumAvailableCoins = $minCoin ? (int) $minCoin->value : 100000;
         $sellers = CoinSeller::with('user')
             ->where('status', 1)
             ->where('country_id', $country->id)
             ->whereHas('user', function ($q) use ($minimumAvailableCoins) {
-                $q->where('total_points', '>=', $minimumAvailableCoins);
+                $q->where('buy_coins_wallet', '>=', $minimumAvailableCoins);
             })
             ->get();
 
@@ -350,7 +350,7 @@ class PaymentController extends Controller
                 'country' => $user->country,
                 'role' => $seller->is_merchant ? 'Merchant' : 'Coinseller',
 
-                'available_coins' => (int) $user->total_points,
+                'available_coins' => (int) $user->buy_coins_wallet,
                 'coins_sold' => (int) $stats->coins_sold,
                 'orders' => (int) $stats->orders,
                 'users' => (int) $stats->users,

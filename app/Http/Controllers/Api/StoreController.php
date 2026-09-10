@@ -597,14 +597,14 @@ class StoreController extends Controller
             $price = (int)$needcoin[$index];
             $totalCoins = $price * $qty;
 
-            if ($sender->total_points < $totalCoins) {
+            if ($sender->buy_coins_wallet < $totalCoins) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Insufficient balance'
                 ], 400);
             }
 
-            $sender->decrement('total_points', $totalCoins);
+            $sender->decrement('buy_coins_wallet', $totalCoins);
 
             $startAt = now();
             $endAt = now()->addDays($days);
@@ -634,7 +634,7 @@ class StoreController extends Controller
                     'price_per_item' => $price,
                     'quantity' => $qty,
                     'deducted_coins' => $totalCoins,
-                    'remaining_coins' => (int)$sender->fresh()->total_points
+                    'remaining_coins' => (int)$sender->fresh()->buy_coins_wallet
                 ]
             ]);
         } catch (\Exception $e) {
@@ -1484,14 +1484,14 @@ class StoreController extends Controller
 
             $totalCoins = $price;
 
-            if ($user->total_points < $totalCoins) {
+            if ($user->buy_coins_wallet < $totalCoins) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Insufficient coins'
                 ]);
             }
 
-            $user->decrement('total_points', $totalCoins);
+            $user->decrement('buy_coins_wallet', $totalCoins);
 
             $start = now();
             $end = now()->addDays($days);
@@ -1519,7 +1519,7 @@ class StoreController extends Controller
                     'item_id' => $itemId,
                     'days' => $days,
                     'coins_used' => $totalCoins,
-                    'remaining_coins' => (int) $user->fresh()->total_points,
+                    'remaining_coins' => (int) $user->fresh()->buy_coins_wallet,
                     'start_at' => $start,
                     'end_at' => $end
                 ]

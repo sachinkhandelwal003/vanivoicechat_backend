@@ -19,7 +19,7 @@ class FrameController extends Controller
   public function frameList()
     {
         try {
-            $user = Auth::user(); 
+            $user = Auth::user();
 
             $frameLists = Frame::where('status', 1)->latest()->get();
 
@@ -108,7 +108,7 @@ class FrameController extends Controller
             ], 409);
         }
 
-        if ($user->total_points < $price) {
+        if ($user->buy_coins_wallet < $price) {
             return response()->json([
                 'status' => false,
                 'message' => 'Insufficient coins'
@@ -117,7 +117,7 @@ class FrameController extends Controller
 
         DB::transaction(function () use ($user, $frame, $price, $request, $days) {
 
-            $user->decrement('total_points', $price);
+            $user->decrement('buy_coins_wallet', $price);
 
             FrameBuy::create([
                 'frame_id' => $frame->id,

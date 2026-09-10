@@ -257,11 +257,11 @@ class ThemeController extends Controller
                     throw new \Exception('Theme already active');
                 }
 
-                if ($user->total_points < $needCoin) {
+                if ($user->buy_coins_wallet < $needCoin) {
                     throw new \Exception('Insufficient balance');
                 }
 
-                $user->decrement('total_points', $needCoin);
+                $user->decrement('buy_coins_wallet', $needCoin);
 
                 ThemeGiven::create([
                     'theme_id' => $theme->id,

@@ -179,7 +179,7 @@ class RedEnvelopeController extends Controller
                 ], 404);
             }
 
-            if ((int) $sender->total_points < $totalAmount) {
+            if ((int) $sender->buy_coins_wallet < $totalAmount) {
                 DB::rollBack();
 
                 return response()->json([
@@ -189,7 +189,7 @@ class RedEnvelopeController extends Controller
             }
 
             // coins deduct
-            $sender->total_points = (int) $sender->total_points - $totalAmount;
+            $sender->buy_coins_wallet = (int) $sender->buy_coins_wallet - $totalAmount;
             $sender->save();
 
             $systemCutPercent = 20;
@@ -302,7 +302,7 @@ class RedEnvelopeController extends Controller
                     // 'remaining_users'  => (int) $redEnvelope->remaining_users,
                     // 'status'           => $redEnvelope->status,
                     'expires_at'       => $redEnvelope->expires_at,
-                    // 'sender_balance'   => (int) $sender->total_points,
+                    // 'sender_balance'   => (int) $sender->buy_coins_wallet,
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -458,7 +458,7 @@ class RedEnvelopeController extends Controller
             $envelope->save();
 
             // 8. Credit user wallet
-            $user->total_points += $amount;
+            $user->buy_coins_wallet += $amount;
             $user->save();
 
             DB::commit();
