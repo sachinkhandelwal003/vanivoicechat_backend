@@ -110,7 +110,7 @@ class CoinSellerController extends Controller
                 })
 
                 ->addColumn('balance', function ($row) {
-                    return $row->user->total_points ?? 0;
+                    return $row->user->buy_coins_wallet ?? 0;
                 })
 
                 ->addColumn('sold_coins', function ($row) {
@@ -400,9 +400,9 @@ class CoinSellerController extends Controller
         $seller = CoinSeller::find($request->id);
         $user = $seller->user;
 
-        $before = $user->total_points;
+        $before = $user->buy_coins_wallet;
 
-        $user->total_points += $request->amount;
+        $user->buy_coins_wallet += $request->amount;
         $user->save();
 
         CoinSellerTransaction::create([
@@ -412,7 +412,7 @@ class CoinSellerController extends Controller
             'receiver_type' => 'user',
             'coins' => $request->amount,
             'balance_before' => $before,
-            'balance_after' => $user->total_points,
+            'balance_after' => $user->buy_coins_wallet,
             'transaction_type' => 'recharge',
             'remark' => 'Recharge by admin'
         ]);
@@ -434,16 +434,16 @@ class CoinSellerController extends Controller
         $seller = CoinSeller::find($request->id);
         $user = $seller->user;
 
-        if ($user->total_points < $request->amount) {
+        if ($user->buy_coins_wallet < $request->amount) {
             return response()->json([
                 'status' => false,
                 'message' => 'Insufficient balance'
             ]);
         }
 
-        $before = $user->total_points;
+        $before = $user->buy_coins_wallet;
 
-        $user->total_points -= $request->amount;
+        $user->buy_coins_wallet -= $request->amount;
         $user->save();
 
         CoinSellerTransaction::create([
@@ -453,7 +453,7 @@ class CoinSellerController extends Controller
             'receiver_type' => 'user',
             'coins' => $request->amount,
             'balance_before' => $before,
-            'balance_after' => $user->total_points,
+            'balance_after' => $user->buy_coins_wallet,
             'transaction_type' => 'deduct',
             'remark' => 'Deduct by admin'
         ]);
@@ -694,7 +694,7 @@ class CoinSellerController extends Controller
                         : '<span class="badge bg-secondary">Seller</span>';
                 })
 
-                ->addColumn('balance', fn($row) => $row->user->total_points ?? 0)
+                ->addColumn('balance', fn($row) => $row->user->buy_coins_wallet ?? 0)
 
                 ->addColumn('country', fn($row) => $row->country->nicename ?? '-')
 

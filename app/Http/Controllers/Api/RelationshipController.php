@@ -660,7 +660,7 @@ class RelationshipController extends Controller
             // $coin = (int) $request->coin;
             $coin = (int) $feeConfig->invite_fee;
 
-            if ((int) $sender->total_points < $coin) {
+            if ((int) $sender->buy_coins_wallet < $coin) {
 
                 DB::rollBack();
 
@@ -671,7 +671,7 @@ class RelationshipController extends Controller
             }
 
             // Coin deduct
-            $sender->total_points = (int)$sender->total_points - $coin;
+            $sender->buy_coins_wallet = (int)$sender->buy_coins_wallet - $coin;
             $sender->save();
             $receiver = AppUser::find(
                 $request->receiver_id
@@ -1132,7 +1132,7 @@ class RelationshipController extends Controller
 
 
             if (
-                (int) $authUser->total_points < $removeCoin
+                (int) $authUser->buy_coins_wallet < $removeCoin
             ) {
                 DB::rollBack();
 
@@ -1145,7 +1145,7 @@ class RelationshipController extends Controller
 
             // Deduct remove charges
 
-            $authUser->total_points = (int) $authUser->total_points - $removeCoin;
+            $authUser->buy_coins_wallet = (int) $authUser->buy_coins_wallet - $removeCoin;
             $authUser->save();
 
             // CP breakup compensation
@@ -1157,7 +1157,7 @@ class RelationshipController extends Controller
 
                 $compensation = (int) ($removeCoin * 0.80);
 
-                $partner->total_points = (int) $partner->total_points + $compensation;
+                $partner->buy_coins_wallet = (int) $partner->buy_coins_wallet + $compensation;
 
                 $partner->save();
             }

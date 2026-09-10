@@ -134,7 +134,7 @@ class ManualCoinController extends Controller
                 'id'           => $user->id,
                 'name'         => $user->name,
                 'uid'          => $user->uid,
-                'total_points' => (int) $user->total_points,
+                'total_points' => (int) $user->buy_coins_wallet,
                 'image'        => $user->image ? Helper::showImage($user->image, true) : asset('assets/img/avatar.png'),
             ]
         ]);
@@ -165,7 +165,7 @@ class ManualCoinController extends Controller
             //     return response()->json(['status' => false, 'message' => 'Only Normal Users are allowed.']);
             // }
 
-            $before = (int) $user->total_points;
+            $before = (int) $user->buy_coins_wallet;
 
             if ($request->action === 'deduct') {
                 if ($request->coins > $before) {
@@ -176,7 +176,7 @@ class ManualCoinController extends Controller
                 $after = $before + $request->coins;
             }
 
-            $user->total_points = $after;
+            $user->buy_coins_wallet = $after;
             $user->save();
 
             ManualCoinTransaction::create([

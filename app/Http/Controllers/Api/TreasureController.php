@@ -556,7 +556,7 @@ class TreasureController extends Controller
 
                 DB::table('app_users')
                     ->where('id', $user->id)
-                    ->increment('total_points', $claimCoins);
+                    ->increment('buy_coins_wallet', $claimCoins);
             }
 
 

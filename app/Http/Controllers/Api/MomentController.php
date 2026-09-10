@@ -337,7 +337,7 @@ class MomentController extends Controller
             ])
             ->whereRaw('LOWER(country) = ?', [strtolower($authUser->country)])
             ->orderByRaw("
-                CASE 
+                CASE
                     WHEN created_at >= ? THEN 0
                     ELSE 1
                 END
@@ -938,7 +938,7 @@ class MomentController extends Controller
 
             $totalCost = $gift->price * $multiplier;
 
-            if ($sender->total_points < $totalCost) {
+            if ($sender->buy_coins_wallet < $totalCost) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Insufficient balance'
@@ -959,7 +959,7 @@ class MomentController extends Controller
             //     ->increment('total_points', $gift->price * $multiplier);
 
             AppUser::where('id', $receiverId)->update([
-                'total_points' => DB::raw('total_points + ' . ($gift->price * $multiplier)),
+                'buy_coins_wallet' => DB::raw('buy_coins_wallet + ' . ($gift->price * $multiplier)),
                 'total_value'  => DB::raw('total_value + ' . ($gift->price * $multiplier)),
             ]);
 
@@ -980,7 +980,7 @@ class MomentController extends Controller
             }
 
 
-            $sender->decrement('total_points', $totalCost);
+            $sender->decrement('buy_coins_wallet', $totalCost);
 
             $familyId = FamilyMember::where('user_id', $sender->id)
                 ->whereNull('left_at')

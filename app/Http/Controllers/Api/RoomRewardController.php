@@ -247,13 +247,13 @@ class RoomRewardController extends Controller
             }
 
             // 15% system cut
-            $systemCommission = (int) floor($rewardCoins * 15 / 100);
+            $systemCommission = 0;
 
-            // 85% owner receive
-            $ownerReceiveCoins = $rewardCoins - $systemCommission;
+            // 100% owner receive
+            $ownerReceiveCoins = $rewardCoins;
 
             AppUser::where('id', $authUser->id)
-                ->increment('total_points', $ownerReceiveCoins);
+                ->increment('buy_coins_wallet', $ownerReceiveCoins);
 
             $claim->update([
                 'system_commission'  => $systemCommission,
@@ -284,8 +284,8 @@ class RoomRewardController extends Controller
                     'owner_received_coins' => $ownerReceiveCoins,
                     'owner_received_coins_text' => $this->formatCoins($ownerReceiveCoins),
 
-                    'current_total_points' => (int) $updatedUser->total_points,
-                    'current_total_points_text' => $this->formatCoins($updatedUser->total_points),
+                    'current_total_points' => (int) $updatedUser->buy_coins_wallet,
+                    'current_total_points_text' => $this->formatCoins($updatedUser->buy_coins_wallet),
                 ],
             ]);
         } catch (\Throwable $e) {

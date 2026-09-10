@@ -105,7 +105,7 @@ class ThemeController extends Controller
             ]);
         }
 
-        if ($user->total_points < $needCoin) {
+        if ($user->buy_coins_wallet < $needCoin) {
             return response()->json([
                 'status'  => false,
                 'message' => 'Insufficient coins'
@@ -114,7 +114,7 @@ class ThemeController extends Controller
 
         DB::transaction(function () use ($user, $theme, $needCoin, $daysRequested) {
 
-            $user->decrement('total_points', $needCoin);
+            $user->decrement('buy_coins_wallet', $needCoin);
 
             ThemeGiven::create([
                 'theme_id' => $theme->id,
@@ -515,7 +515,7 @@ class ThemeController extends Controller
                 })
                 ->exists();
 
-            if (!$hasFreeThemePrivilege && (int) $user->total_points < $coins) {
+            if (!$hasFreeThemePrivilege && (int) $user->buy_coins_wallet < $coins) {
                 DB::rollBack();
                 return response()->json([
                     'status' => false,
@@ -529,7 +529,7 @@ class ThemeController extends Controller
 
             //Deduct Coins Only For Normal Users
             if (!$hasFreeThemePrivilege) {
-                $user->decrement('total_points', $coins);
+                $user->decrement('buy_coins_wallet', $coins);
             }
 
             $theme = Theme::create([
@@ -551,7 +551,7 @@ class ThemeController extends Controller
                     'id'              => $theme->id,
                     'name'            => $theme->name,
                     'icon'            => $theme->icon ? Helper::showImage($theme->icon, true) : null,
-                    'remaining_coins' => (int) $user->total_points,
+                    'remaining_coins' => (int) $user->buy_coins_wallet,
                 ]
             ]);
         } catch (\Throwable $e) {

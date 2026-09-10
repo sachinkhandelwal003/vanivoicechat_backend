@@ -1389,11 +1389,11 @@ class HomeController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if ($lockedUser->total_points < $price->price) {
+                if ($lockedUser->buy_coins_wallet < $price->price) {
                     throw new \Exception('Insufficient balance');
                 }
 
-                $lockedUser->decrement('total_points', $price->price);
+                $lockedUser->decrement('buy_coins_wallet', $price->price);
 
                 Broadcast::create([
                     'user_id'     => $user->id,

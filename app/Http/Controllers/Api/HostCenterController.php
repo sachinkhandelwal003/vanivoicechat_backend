@@ -587,7 +587,7 @@ class HostCenterController extends Controller
                 $rate
             ) {
                 $user->balance -=  $request->amount;
-                $user->total_points += $coins;
+                $user->buy_coins_wallet += $coins;
                 $user->save();
 
                 ExchangeHistory::create([

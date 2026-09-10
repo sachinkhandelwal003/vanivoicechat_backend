@@ -153,7 +153,7 @@ class UserController extends Controller
 
                 $user = AppUser::find($userId);
 
-                $user->increment('total_points', $reward->reward_coin);
+                $user->increment('buy_coins_wallet', $reward->reward_coin);
 
                 InviteRewardHistory::create([
                     'user_id'            => $userId,
