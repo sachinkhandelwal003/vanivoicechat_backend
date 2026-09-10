@@ -51,7 +51,7 @@ class RedEnvelopeController extends Controller
         $userOptions = [
             [
                 'id' => 1,
-                'count' => 1,
+                'count' => 10,
                 'is_default' => true,
             ],
             [
