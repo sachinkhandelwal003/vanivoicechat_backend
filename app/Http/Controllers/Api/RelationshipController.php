@@ -1085,7 +1085,9 @@ class RelationshipController extends Controller
             $type = strtolower(
                 $relation->type
             );
+
             $authUser = AppUser::lockForUpdate()->find($userId);
+
             // Find country by country name
             $country = Country::whereRaw(
                 'LOWER(name) = ?',
@@ -1128,7 +1130,7 @@ class RelationshipController extends Controller
                 ], 422);
             }
 
-            $removeCoin = (int) $feeConfig->remove_fee;
+            $removeCoin = (int) $feeConfig->break_fee;
 
 
             if (
