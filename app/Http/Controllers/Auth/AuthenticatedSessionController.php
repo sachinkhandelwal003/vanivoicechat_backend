@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Session;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Helper\Helper;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -34,12 +35,13 @@ class AuthenticatedSessionController extends Controller
 
     public static function destroy(Request $request): RedirectResponse
     {
+        Helper::logActivity('Auth', 'Logout', 'Admin user logged out');
 
         auth('web')->logout();
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         Session::forget('locked');
-        return to_route('home');
+        return to_route('loginPage', ['guard' => 'admin']);
     }
 }

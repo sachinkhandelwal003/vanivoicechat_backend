@@ -93,7 +93,7 @@
                         <option value="1" {{ old('status', $coinSeller->status ?? 1) == 1 ? 'selected' : '' }}>
                             Active
                         </option>
-                        <option value="0" {{ old('status', $coinSeller->status ?? 0) == 0 ? 'selected' : '' }}>
+                        <option value="0" {{ old('status', $coinSeller->status ?? 1) == 0 ? 'selected' : '' }}>
                             Inactive
                         </option>
                     </select>

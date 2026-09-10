@@ -217,10 +217,13 @@ $(document).ready(function () {
         table.ajax.reload();
     });
 
+    let isConfirmed = false;
+
     // ─── Coin Action Modal ────────────────────────────────────────────────────
     window.openCoinModal = function (action) {
         resetModal();
         $('#selected_action').val(action);
+
         if (action === 'send') {
             $('#actionModalHeader').css('background', 'linear-gradient(135deg,#28a745,#85d99b)').css('color', '#fff');
             $('#actionModalTitle').text('Send Coins to Normal User');
@@ -234,26 +237,31 @@ $(document).ready(function () {
         }
     };
 
-    function resetModal () {
+    function resetModal() {
+        isConfirmed = false;
         $('#step1').removeClass('d-none');
         $('#step2').addClass('d-none');
         $('#searchUid').val('');
         $('#searchError').addClass('d-none').text('');
+        $('#selected_user_id').val('');
         $('#coins_amount').val('');
         $('#action_reason').val('');
-        $('#confirmAlert').addClass('d-none');
+        $('#confirmAlert').addClass('d-none').removeClass('alert-success alert-danger').html('');
+        $('#btnSubmitCoin').prop('disabled', false);
     }
 
     // Search user
     $('#btnSearchUser').click(function () {
         let uid = $('#searchUid').val().trim();
         if (!uid) { return; }
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+        let $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+
         $.ajax({
             url: '{{ route("manual-coins.search-user") }}',
             data: { uid: uid },
             success: function (res) {
-                $('#btnSearchUser').prop('disabled', false).html('<i class="fas fa-search"></i> Search');
+                $btn.prop('disabled', false).html('<i class="fas fa-search"></i> Search');
                 if (res.status) {
                     let u = res.user;
                     $('#selected_user_id').val(u.id);
@@ -265,12 +273,13 @@ $(document).ready(function () {
                     $('#step1').addClass('d-none');
                     $('#step2').removeClass('d-none');
                     $('#searchError').addClass('d-none');
+                    isConfirmed = false;
                 } else {
                     $('#searchError').removeClass('d-none').text(res.message);
                 }
             },
             error: function () {
-                $('#btnSearchUser').prop('disabled', false).html('<i class="fas fa-search"></i> Search');
+                $btn.prop('disabled', false).html('<i class="fas fa-search"></i> Search');
                 $('#searchError').removeClass('d-none').text('Network error. Please try again.');
             }
         });
@@ -285,16 +294,33 @@ $(document).ready(function () {
         $('#step2').addClass('d-none');
         $('#step1').removeClass('d-none');
         $('#searchUid').val('').focus();
+        isConfirmed = false;
     });
 
-    // Submit form with confirmation
-    $('#coinActionForm').submit(function (e) {
+    // Reset confirmation state when inputs change
+    $('#coins_amount, #action_reason').on('input', function () {
+        if (isConfirmed) {
+            isConfirmed = false;
+            let action = $('#selected_action').val();
+            $('#confirmAlert').addClass('d-none').removeClass('alert-success alert-danger').html('');
+            restoreSubmitBtn(action);
+        }
+    });
+
+    // Submit form cleanly
+    $('#coinActionForm').on('submit', function (e) {
         e.preventDefault();
+
         let action = $('#selected_action').val();
         let coins  = parseInt($('#coins_amount').val());
-        let avail  = parseInt($('#found_coins').text().replace(/,/g, ''));
+        let avail  = parseInt($('#found_coins').text().replace(/,/g, '')) || 0;
         let reason = $('#action_reason').val().trim();
+        let userId = $('#selected_user_id').val();
 
+        if (!userId) {
+            toastr.error('Please select a valid user.');
+            return;
+        }
         if (!coins || coins < 1) {
             toastr.error('Please enter a valid coins amount.');
             return;
@@ -308,33 +334,31 @@ $(document).ready(function () {
             return;
         }
 
-        let confirmMsg = action === 'send'
-            ? 'Are you sure you want to SEND <strong>' + coins.toLocaleString() + '</strong> coins to <strong>' + $('#found_name').text() + '</strong>?'
-            : 'Are you sure you want to DEDUCT <strong>' + coins.toLocaleString() + '</strong> coins from <strong>' + $('#found_name').text() + '</strong>?';
+        // Confirmation step
+        if (!isConfirmed) {
+            isConfirmed = true;
+            let confirmMsg = action === 'send'
+                ? 'Are you sure you want to SEND <strong>' + coins.toLocaleString() + '</strong> coins to <strong>' + $('#found_name').text() + '</strong>?'
+                : 'Are you sure you want to DEDUCT <strong>' + coins.toLocaleString() + '</strong> coins from <strong>' + $('#found_name').text() + '</strong>?';
 
-        $('#confirmAlert')
-            .removeClass('d-none alert-success alert-danger')
-            .addClass(action === 'send' ? 'alert-success' : 'alert-danger')
-            .html('<i class="fas fa-exclamation-triangle me-1"></i>' + confirmMsg + '<br><small>Click Confirm below to proceed.</small>');
+            $('#confirmAlert')
+                .removeClass('d-none alert-success alert-danger')
+                .addClass(action === 'send' ? 'alert-success' : 'alert-danger')
+                .html('<i class="fas fa-exclamation-triangle me-1"></i>' + confirmMsg + '<br><small>Click Submit button below again to confirm transaction.</small>');
 
-        // Change button to confirm
-        $('#btnSubmitCoin').off('click').on('click', function (ev) {
-            ev.preventDefault();
-            doProcess(action, coins, reason);
-        });
+            $('#btnSubmitCoin').html('<i class="fas fa-check-double me-1"></i> Confirm &amp; Submit');
+            return;
+        }
 
-        $('#coinActionForm').off('submit');
-    });
+        // Process transaction via AJAX
+        $('#btnSubmitCoin').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
 
-    function doProcess(action, coins, reason) {
-        $('#btnSubmitCoin').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Processing...');
-        let processUrl = '{{ route("manual-coins.process") }}';
         $.ajax({
-            url: processUrl,
+            url: '{{ route("manual-coins.process") }}',
             method: 'POST',
             data: {
                 _token:  '{{ csrf_token() }}',
-                user_id: $('#selected_user_id').val(),
+                user_id: userId,
                 action:  action,
                 coins:   coins,
                 reason:  reason,
@@ -345,52 +369,33 @@ $(document).ready(function () {
                     toastr.success(res.message);
                     $('#coinActionModal').modal('hide');
                     table.ajax.reload();
-                    // Update displayed balance
-                    $('#found_coins').text(res.after_coins.toLocaleString());
                 } else {
                     toastr.error(res.message);
-                    // Re-enable form submit
-                    $('#coinActionForm').submit(function (e) { e.preventDefault(); });
-                    resetSubmitButton(action);
+                    isConfirmed = false;
+                    restoreSubmitBtn(action);
                 }
             },
-            error: function () {
-                toastr.error('Network error. Please try again.');
+            error: function (xhr) {
                 $('#btnSubmitCoin').prop('disabled', false);
-                resetSubmitButton(action);
+                isConfirmed = false;
+                restoreSubmitBtn(action);
+                let err = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Network error. Please try again.';
+                toastr.error(err);
             }
         });
-    }
+    });
 
-    function resetSubmitButton(action) {
-        $('#btnSubmitCoin').off('click');
+    function restoreSubmitBtn(action) {
         if (action === 'send') {
             $('#btnSubmitCoin').html('<i class="fas fa-paper-plane me-1"></i> Send Coins');
         } else {
             $('#btnSubmitCoin').html('<i class="fas fa-minus-circle me-1"></i> Deduct Coins');
         }
-        $('#coinActionForm').on('submit', function (e) { e.preventDefault(); });
     }
 
-    // Reset modal on close
+    // Reset modal state on close
     $('#coinActionModal').on('hidden.bs.modal', function () {
         resetModal();
-        $('#coinActionForm').off('submit').on('submit', function (e) {
-            e.preventDefault();
-            let action = $('#selected_action').val();
-            let coins  = parseInt($('#coins_amount').val());
-            let avail  = parseInt($('#found_coins').text().replace(/,/g, ''));
-            let reason = $('#action_reason').val().trim();
-            if (!coins || coins < 1) { toastr.error('Please enter a valid coins amount.'); return; }
-            if (!reason) { toastr.error('Please enter a reason.'); return; }
-            if (action === 'deduct' && coins > avail) { toastr.error('Deduct amount exceeds available balance.'); return; }
-            let confirmMsg = action === 'send'
-                ? 'Are you sure you want to SEND <strong>' + coins.toLocaleString() + '</strong> coins to <strong>' + $('#found_name').text() + '</strong>?'
-                : 'Are you sure you want to DEDUCT <strong>' + coins.toLocaleString() + '</strong> coins from <strong>' + $('#found_name').text() + '</strong>?';
-            $('#confirmAlert').removeClass('d-none alert-success alert-danger').addClass(action === 'send' ? 'alert-success' : 'alert-danger').html('<i class="fas fa-exclamation-triangle me-1"></i>' + confirmMsg + '<br><small>Click Confirm below to proceed.</small>');
-            $('#btnSubmitCoin').off('click').on('click', function (ev) { ev.preventDefault(); doProcess(action, coins, reason); });
-            $('#coinActionForm').off('submit');
-        });
     });
 
 });

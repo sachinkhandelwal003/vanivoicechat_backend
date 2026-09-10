@@ -302,35 +302,35 @@ class UserController extends Controller
             $roles = [];
 
             if (BdUser::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
-                $roles = ['bd'];
-            } else {
-                if (AdminAccount::where('user_id', $user->id)->where('status', 1)->exists()) {
-                    $roles[] = 'admin';
-                }
+                $roles[] = 'bd';
+            }
 
-                if (Agency::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
-                    $roles[] = 'agency';
-                }
+            if (AdminAccount::where('user_id', $user->id)->where('status', 1)->exists()) {
+                $roles[] = 'admin';
+            }
 
-                if (Host::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
-                    $roles[] = 'host';
-                }
+            if (Agency::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->exists()) {
+                $roles[] = 'agency';
+            }
 
-                $coinSeller = CoinSeller::where('user_id', $user->id)
-                    ->where('status', 1)
-                    ->first();
+            if (Host::where('user_id', $user->id)->where('invite_status', 'accept')->where('status', 1)->where('is_dashboard_access', 1)->exists()) {
+                $roles[] = 'host';
+            }
 
-                if ($coinSeller) {
-                    if ((int) $coinSeller->is_merchant === 1) {
-                        $roles[] = 'merchant';
-                    } else {
-                        $roles[] = 'coinseller';
-                    }
-                }
+            $coinSeller = CoinSeller::where('user_id', $user->id)
+                ->where('status', 1)
+                ->first();
 
-                if (empty($roles)) {
-                    $roles[] = 'user';
+            if ($coinSeller) {
+                if ((int) $coinSeller->is_merchant === 1) {
+                    $roles[] = 'merchant';
+                } else {
+                    $roles[] = 'coinseller';
                 }
+            }
+
+            if (empty($roles)) {
+                $roles[] = 'user';
             }
 
             $isOwnProfile = (int) $authUser->id === (int) $userId;
