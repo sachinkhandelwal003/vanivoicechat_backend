@@ -10,6 +10,8 @@ use App\Models\Agency;
 use App\Models\BdUser;
 use App\Models\Host;
 use App\Models\Notification;
+use App\Models\HostPolicy;
+use App\Models\HostSalarySettlement;
 use App\Models\AgencySalarySettlement;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,56 @@ use Illuminate\Support\Facades\DB;
 
 class BDController extends Controller
 {
+    private function getAgencyTargetAndSalary($agency)
+    {
+        $hosts = Host::with(['user.countryData'])
+            ->where('agency_id', $agency->id)
+            ->where('invite_status', 'accept')
+            ->where('status', 1)
+            ->get();
+
+        $hostUserIds = $hosts->pluck('user_id');
+
+        $coins = (int) DB::table('gift_transactions')
+            ->whereIn('receiver_id', $hostUserIds)
+            ->sum(DB::raw('COALESCE(total_value, coin_value)'));
+
+        $settled = (float) AgencySalarySettlement::where('agency_id', $agency->id)
+            ->where('status', 'settled')
+            ->sum('total_salary');
+
+        if ($settled > 0) {
+            return ['coins' => $coins, 'salary' => round($settled, 2)];
+        }
+
+        $totalSalary = 0.0;
+        foreach ($hosts as $host) {
+            $hCoins = (int) DB::table('gift_transactions')
+                ->where('receiver_id', $host->user_id)
+                ->sum(DB::raw('COALESCE(total_value, coin_value)'));
+
+            $country = $host->user?->countryData?->name ?? 'India';
+
+            $policy = HostPolicy::where('status', 1)
+                ->where('country', $country)
+                ->where('target_value', '<=', $hCoins)
+                ->orderByDesc('level')
+                ->first();
+
+            if (!$policy) {
+                $policy = HostPolicy::where('status', 1)
+                    ->where('target_value', '<=', $hCoins)
+                    ->orderByDesc('level')
+                    ->first();
+            }
+
+            if ($policy) {
+                $totalSalary += (float) $policy->total_salary;
+            }
+        }
+
+        return ['coins' => $coins, 'salary' => round($totalSalary, 2)];
+    }
 
     public function bdDetails()
     {
@@ -81,13 +133,19 @@ class BDController extends Controller
             'user:id,uid,name,image,country',
             'user.countryData:id,name,iso'
         ])
-            ->withCount('hosts')
             ->where('bd_user_id', $bd->id)
             ->where('invite_status', 'accept')
             ->where('status', 1)
-            // ->latest()
             ->get()
             ->map(function ($item) {
+
+                $hostCount = Host::where('agency_id', $item->id)
+                    ->where('invite_status', 'accept')
+                    ->where('status', 1)
+                    ->count();
+
+                $stats = $this->getAgencyTargetAndSalary($item);
+
                 return [
                     'id' => $item->id,
                     'user_id' => $item->user_id,
@@ -95,9 +153,18 @@ class BDController extends Controller
                     'name' => $item->user?->name,
                     'image' => !empty($item->user?->image) ? Helper::showImage($item->user->image, true) : null,
                     'country' => strtolower($item->user?->country ?? ''),
-                    'hosts_count' => $item->hosts_count,
+                    'host_count' => $hostCount,
+                    'hosts_count' => $hostCount,
                     'status' => (bool) $item->status,
-                    'created_at' => $item->created_at,
+                    'target' => $stats['coins'],
+                    'coins' => $stats['coins'],
+                    'total_coins' => $stats['coins'],
+                    'earning' => $stats['salary'],
+                    'total_earning' => $stats['salary'],
+                    'total_salary' => $stats['salary'],
+                    'salary' => $stats['salary'],
+                    'total' => $stats['salary'],
+                    'created_at' => $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null,
                 ];
             });
 

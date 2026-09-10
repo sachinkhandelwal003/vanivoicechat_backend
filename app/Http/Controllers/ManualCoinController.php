@@ -124,9 +124,9 @@ class ManualCoinController extends Controller
         }
 
         // Only Normal Users allowed
-        if ($user->coinSeller || $user->agency) {
-            return response()->json(['status' => false, 'message' => 'Only Normal Users are allowed. Sellers, Merchants and Agencies cannot be selected.']);
-        }
+        // if ($user->coinSeller || $user->agency) {
+        //     return response()->json(['status' => false, 'message' => 'Only Normal Users are allowed. Sellers, Merchants and Agencies cannot be selected.']);
+        // }
 
         return response()->json([
             'status' => true,
@@ -161,9 +161,9 @@ class ManualCoinController extends Controller
             }
 
             // Validate normal user again server-side
-            if ($user->coinSeller || $user->agency) {
-                return response()->json(['status' => false, 'message' => 'Only Normal Users are allowed.']);
-            }
+            // if ($user->coinSeller || $user->agency) {
+            //     return response()->json(['status' => false, 'message' => 'Only Normal Users are allowed.']);
+            // }
 
             $before = (int) $user->total_points;
 

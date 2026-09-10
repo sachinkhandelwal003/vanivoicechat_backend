@@ -10,6 +10,8 @@ use App\Models\Agency;
 use App\Models\BdUser;
 use App\Models\Notification;
 use App\Models\Host;
+use App\Models\HostPolicy;
+use App\Models\HostSalarySettlement;
 use App\Models\AgencySalarySettlement;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -19,10 +21,113 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Services\FirebaseService;
-use Psy\Command\WhereamiCommand;
 
 class AdminCenterController extends Controller
 {
+    private function getHostTargetAndSalary($host)
+    {
+        $coins = (int) DB::table('gift_transactions')
+            ->where('receiver_id', $host->user_id)
+            ->sum(DB::raw('COALESCE(total_value, coin_value)'));
+
+        $settled = (float) HostSalarySettlement::where('host_id', $host->id)
+            ->where('status', 'settled')
+            ->sum('host_salary');
+
+        if ($settled > 0) {
+            return ['coins' => $coins, 'salary' => round($settled, 2)];
+        }
+
+        $country = $host->user?->countryData?->name ?? 'India';
+
+        $policy = HostPolicy::where('status', 1)
+            ->where('country', $country)
+            ->where('target_value', '<=', $coins)
+            ->orderByDesc('level')
+            ->first();
+
+        if (!$policy) {
+            $policy = HostPolicy::where('status', 1)
+                ->where('target_value', '<=', $coins)
+                ->orderByDesc('level')
+                ->first();
+        }
+
+        $salary = $policy ? (float) $policy->host_salary : 0.0;
+
+        return ['coins' => $coins, 'salary' => round($salary, 2)];
+    }
+
+    private function getAgencyTargetAndSalary($agency)
+    {
+        $hosts = Host::with(['user.countryData'])
+            ->where('agency_id', $agency->id)
+            ->where('invite_status', 'accept')
+            ->where('status', 1)
+            ->get();
+
+        $hostUserIds = $hosts->pluck('user_id');
+
+        $coins = (int) DB::table('gift_transactions')
+            ->whereIn('receiver_id', $hostUserIds)
+            ->sum(DB::raw('COALESCE(total_value, coin_value)'));
+
+        $settled = (float) AgencySalarySettlement::where('agency_id', $agency->id)
+            ->where('status', 'settled')
+            ->sum('total_salary');
+
+        if ($settled > 0) {
+            return ['coins' => $coins, 'salary' => round($settled, 2)];
+        }
+
+        $totalSalary = 0.0;
+        foreach ($hosts as $host) {
+            $hCoins = (int) DB::table('gift_transactions')
+                ->where('receiver_id', $host->user_id)
+                ->sum(DB::raw('COALESCE(total_value, coin_value)'));
+
+            $country = $host->user?->countryData?->name ?? 'India';
+
+            $policy = HostPolicy::where('status', 1)
+                ->where('country', $country)
+                ->where('target_value', '<=', $hCoins)
+                ->orderByDesc('level')
+                ->first();
+
+            if (!$policy) {
+                $policy = HostPolicy::where('status', 1)
+                    ->where('target_value', '<=', $hCoins)
+                    ->orderByDesc('level')
+                    ->first();
+            }
+
+            if ($policy) {
+                $totalSalary += (float) $policy->total_salary;
+            }
+        }
+
+        return ['coins' => $coins, 'salary' => round($totalSalary, 2)];
+    }
+
+    private function getBdTargetAndSalary($bd)
+    {
+        $agencies = Agency::where('bd_user_id', $bd->id)
+            ->where('invite_status', 'accept')
+            ->where('status', 1)
+            ->get();
+
+        $totalCoins = 0;
+        $totalSalary = 0.0;
+
+        foreach ($agencies as $ag) {
+            $res = $this->getAgencyTargetAndSalary($ag);
+            $totalCoins += $res['coins'];
+            $totalSalary += $res['salary'];
+        }
+
+        return ['coins' => $totalCoins, 'salary' => round($totalSalary, 2)];
+    }
+
     public function adminCenterDetails()
     {
         $userId = auth()->id();
@@ -67,16 +172,13 @@ class AdminCenterController extends Controller
         $admin = AdminAccount::where('user_id', auth()->id())->first();
 
         if (!$admin) {
-
             return response()->json([
                 'status' => false,
                 'message' => 'Admin not found'
             ], 404);
         }
 
-        $agencies = Agency::with(
-            'user:id,uid,name,image'
-        )
+        $agencies = Agency::with('user:id,uid,name,image')
             ->where('admin_id', $admin->id)
             ->where('invite_status', 'accept')
             ->where('status', 1)
@@ -85,7 +187,11 @@ class AdminCenterController extends Controller
             ->map(function ($item) {
 
                 $hostCount = Host::where('agency_id', $item->id)
-                    ->where('status', 1)->count();
+                    ->where('invite_status', 'accept')
+                    ->where('status', 1)
+                    ->count();
+
+                $stats = $this->getAgencyTargetAndSalary($item);
 
                 return [
                     'id' => $item->id,
@@ -95,8 +201,18 @@ class AdminCenterController extends Controller
                     'image' => !empty($item->user?->image) ? Helper::showImage($item->user->image, true) : null,
                     'role' => 'Agent',
                     'host_count' => $hostCount,
+                    'hosts_count' => $hostCount,
                     'whatsapp_number' => $item->whatsapp_number,
-                    'status' => (bool) $item->status
+                    'status' => (bool) $item->status,
+                    'target' => $stats['coins'],
+                    'coins' => $stats['coins'],
+                    'total_coins' => $stats['coins'],
+                    'earning' => $stats['salary'],
+                    'total_earning' => $stats['salary'],
+                    'total_salary' => $stats['salary'],
+                    'salary' => $stats['salary'],
+                    'total' => $stats['salary'],
+                    'created_at' => $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null,
                 ];
             });
 
@@ -122,7 +238,6 @@ class AdminCenterController extends Controller
             ->where('admin_id', $admin->id)
             ->where('invite_status', 'accept')
             ->where('status', 1)
-            // ->latest()
             ->get()
             ->map(function ($item) {
 
@@ -130,6 +245,8 @@ class AdminCenterController extends Controller
                     ->where('invite_status', 'accept')
                     ->where('status', 1)
                     ->count();
+
+                $stats = $this->getBdTargetAndSalary($item);
 
                 return [
                     'id' => $item->id,
@@ -141,9 +258,18 @@ class AdminCenterController extends Controller
                     'whatsapp_number' => $item->whatsapp_number,
                     'briefing' => $item->briefing,
                     'agent_count' => $agentCount,
+                    'agents_count' => $agentCount,
                     'is_admin_bound' => (bool) $item->is_admin_bound,
                     'status' => (bool) $item->status,
-                    'created_at' => $item->created_at
+                    'target' => $stats['coins'],
+                    'coins' => $stats['coins'],
+                    'total_coins' => $stats['coins'],
+                    'earning' => $stats['salary'],
+                    'total_earning' => $stats['salary'],
+                    'total_salary' => $stats['salary'],
+                    'salary' => $stats['salary'],
+                    'total' => $stats['salary'],
+                    'created_at' => $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null,
                 ];
             });
 
@@ -159,7 +285,6 @@ class AdminCenterController extends Controller
         $admin = AdminAccount::where('user_id', auth()->id())->first();
 
         if (!$admin) {
-
             return response()->json([
                 'status' => false,
                 'message' => 'Admin not found'
@@ -172,7 +297,6 @@ class AdminCenterController extends Controller
             ->first();
 
         if (!$bd) {
-
             return response()->json([
                 'status' => false,
                 'message' => 'BD not found'
@@ -193,14 +317,15 @@ class AdminCenterController extends Controller
                 $flag = null;
 
                 if ($item->user?->countryData?->iso) {
-
-                    $flag = 'https://flagcdn.com/w40/' .
-                        strtolower($item->user->countryData->iso) . '.png';
+                    $flag = 'https://flagcdn.com/w40/' . strtolower($item->user->countryData->iso) . '.png';
                 }
 
                 $hostCount = Host::where('agency_id', $item->id)
+                    ->where('invite_status', 'accept')
                     ->where('status', 1)
                     ->count();
+
+                $stats = $this->getAgencyTargetAndSalary($item);
 
                 return [
                     'id' => $item->id,
@@ -209,6 +334,7 @@ class AdminCenterController extends Controller
                     'name' => $item->user?->name,
                     'image' => !empty($item->user?->image) ? Helper::showImage($item->user->image, true) : null,
                     'host_count' => $hostCount,
+                    'hosts_count' => $hostCount,
                     'flag' => $flag,
                     'country' => strtolower($item->user?->country ?? ''),
                     'role_badges' => Helper::getUserRoleBadges($item->user_id),
@@ -216,7 +342,15 @@ class AdminCenterController extends Controller
                     'briefing' =>  $item->briefing,
                     'invite_status' => $item->invite_status,
                     'status' => (bool) $item->status,
-                    'created_at' => $item->created_at,
+                    'target' => $stats['coins'],
+                    'coins' => $stats['coins'],
+                    'total_coins' => $stats['coins'],
+                    'earning' => $stats['salary'],
+                    'total_earning' => $stats['salary'],
+                    'total_salary' => $stats['salary'],
+                    'salary' => $stats['salary'],
+                    'total' => $stats['salary'],
+                    'created_at' => $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null,
                 ];
             });
 
@@ -234,20 +368,20 @@ class AdminCenterController extends Controller
             ->first();
 
         if (!$agency) {
-
             return response()->json([
                 'status' => false,
                 'message' => 'Agency not found'
             ], 404);
         }
 
-        $hosts = Host::with(['user:id,uid,name,image,country',])
+        $hosts = Host::with(['user:id,uid,name,image,country', 'user.countryData:id,name,iso'])
             ->where('agency_id', $agency->id)
             ->where('invite_status', 'accept')
             ->where('status', 1)
-            // ->latest()
             ->get()
             ->map(function ($item) {
+
+                $stats = $this->getHostTargetAndSalary($item);
 
                 return [
                     'id' => $item->id,
@@ -258,7 +392,15 @@ class AdminCenterController extends Controller
                     'country' => strtolower($item->user?->country ?? ''),
                     'role_badges' => Helper::getUserRoleBadges($item->user_id),
                     'status' => (bool) $item->status,
-                    'created_at' => $item->created_at,
+                    'target' => $stats['coins'],
+                    'coins' => $stats['coins'],
+                    'total_coins' => $stats['coins'],
+                    'earning' => $stats['salary'],
+                    'total_earning' => $stats['salary'],
+                    'total_salary' => $stats['salary'],
+                    'salary' => $stats['salary'],
+                    'total' => $stats['salary'],
+                    'created_at' => $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null,
                 ];
             });
 
