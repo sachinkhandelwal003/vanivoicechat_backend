@@ -29,7 +29,8 @@
                     <tr>
                         <th>#</th>
                         <th>Coin</th>
-                        <th>price</th>
+                        <th>Price</th>
+                        <th>Country</th>
                         <th>Icon</th>
                         <th>Status</th>
                         <th>Operate</th>
@@ -65,6 +66,9 @@
                 },
                 {
                     data: 'price'
+                },
+                {
+                    data: 'country'
                 },
                 {
                     data: 'icon'

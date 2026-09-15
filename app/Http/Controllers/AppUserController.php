@@ -54,11 +54,12 @@ class AppUserController extends Controller
                 );
 
             if ($request->uid != '') {
-                $users->where('uid', $request->uid);
+                $matchedUserIds = Helper::getMatchedUserIds($request->uid, false);
+                $users->whereIn('id', $matchedUserIds);
             }
 
             if ($request->username != '') {
-                $users->where('name', 'LIKE', "%{$request->username}%");
+                $users->whereRaw('BINARY name LIKE ?', ["%{$request->username}%"]);
             }
 
             if ($request->equipment != '') {

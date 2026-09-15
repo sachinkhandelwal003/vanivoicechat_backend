@@ -250,7 +250,7 @@ class CoinSellerController extends Controller
 
             $coinSeller = $id ? CoinSeller::find($id) : new CoinSeller();
 
-            $user = AppUser::where('uid', $request->user_uid)->first();
+            $user = Helper::findUserByUid($request->user_uid);
 
             // Prevent duplicate
             $exists = CoinSeller::where('user_id', $user->id)
@@ -817,7 +817,7 @@ class CoinSellerController extends Controller
             'whatsapp_number' => 'required'
         ]);
 
-        $user = AppUser::where('uid', $request->user_uid)->first();
+        $user = Helper::findUserByUid($request->user_uid);
 
         $seller = $id ? CoinSeller::find($id) : new CoinSeller();
 

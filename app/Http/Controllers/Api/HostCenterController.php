@@ -136,7 +136,7 @@ class HostCenterController extends Controller
 
         // Find Agency By UID
 
-        $agencyUser = AppUser::where('uid', $request->agency_uid)->first();
+        $agencyUser = Helper::findUserByUid($request->agency_uid);
 
         if (!$agencyUser) {
 
@@ -718,8 +718,7 @@ class HostCenterController extends Controller
 
             $authUser = Auth::user();
 
-            $user = AppUser::where('uid', $request->uid)
-                ->first();
+            $user = Helper::findUserByUid($request->uid);
 
             if (!$user) {
 
@@ -995,25 +994,10 @@ class HostCenterController extends Controller
 
 
             if ($request->filled('uid')) {
-
-                $query->where(function ($q) use ($request) {
-
-                    $q->whereHas('sender', function ($sub) use ($request) {
-
-                        $sub->where(
-                            'uid',
-                            $request->uid
-                        );
-                    })->orWhereHas(
-                        'receiver',
-                        function ($sub) use ($request) {
-
-                            $sub->where(
-                                'uid',
-                                $request->uid
-                            );
-                        }
-                    );
+                $matchedIds = Helper::getMatchedUserIds($request->uid, false);
+                $query->where(function ($q) use ($matchedIds) {
+                    $q->whereIn('sender_id', $matchedIds)
+                      ->orWhereIn('receiver_id', $matchedIds);
                 });
             }
 

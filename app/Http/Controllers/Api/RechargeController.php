@@ -16,6 +16,7 @@ use App\Models\CoinConversionRate;
 use App\Models\CoinSellerTransaction;
 use App\Models\Country;
 use App\Models\ManualMoneyTransaction;
+use App\Models\ManualCoinTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -100,18 +101,9 @@ class RechargeController extends Controller
             ], 404);
         }
 
-        $user = AppUser::where(
-            'uid',
-            $request->user_uid
-        )
-            ->where(
-                'country',
-                $country->name
-            )
-            ->first();
+        $user = Helper::findUserByUid($request->user_uid);
 
-        if (!$user) {
-
+        if (!$user || (strtolower($user->country) !== strtolower($country->name) && strtolower($user->country) !== strtolower($country->nicename))) {
             return response()->json([
                 'status' => false,
                 'message' => 'User not found in your country'
@@ -170,10 +162,7 @@ class RechargeController extends Controller
             ], 404);
         }
 
-        $user = AppUser::where(
-            'uid',
-            $request->user_uid
-        )->first();
+        $user = Helper::findUserByUid($request->user_uid);
 
         if (!$user) {
 
@@ -416,18 +405,9 @@ class RechargeController extends Controller
             ], 404);
         }
 
-        $user = AppUser::where(
-            'uid',
-            $request->uid
-        )
-            ->where(
-                'country',
-                $country->nicename
-            )
-            ->first();
+        $user = Helper::findUserByUid($request->uid);
 
-        if (!$user) {
-
+        if (!$user || (strtolower($user->country) !== strtolower($country->name) && strtolower($user->country) !== strtolower($country->nicename))) {
             return response()->json([
                 'status' => false,
                 'message' => 'User not found in your country'
@@ -488,10 +468,7 @@ class RechargeController extends Controller
             ], 404);
         }
 
-        $user = AppUser::where(
-            'uid',
-            $request->user_uid
-        )->first();
+        $user = Helper::findUserByUid($request->user_uid);
 
         if (!$user) {
 
@@ -629,18 +606,9 @@ class RechargeController extends Controller
             ], 404);
         }
 
-        $seller = AppUser::where(
-            'uid',
-            $request->seller_uid
-        )
-            ->where(
-                'country',
-                $country->nicename
-            )
-            ->first();
+        $seller = Helper::findUserByUid($request->seller_uid);
 
-        if (!$seller) {
-
+        if (!$seller || (strtolower($seller->country) !== strtolower($country->name) && strtolower($seller->country) !== strtolower($country->nicename))) {
             return response()->json([
                 'status' => false,
                 'message' => 'Seller not found in your country'
@@ -715,10 +683,7 @@ class RechargeController extends Controller
             ], 404);
         }
 
-        $sellerUser = AppUser::where(
-            'uid',
-            $request->seller_uid
-        )->first();
+        $sellerUser = Helper::findUserByUid($request->seller_uid);
 
         if (!$sellerUser) {
 
@@ -1042,7 +1007,43 @@ class RechargeController extends Controller
                 ];
             });
 
-        // 3. Online Package Coin Transactions
+        // 3. Manual Admin Coin Transactions (Send & Deduct from Admin Panel)
+        $manualAdminTransactions = ManualCoinTransaction::with('admin:id,name')
+            ->where('user_id', $user->id)
+            ->get()
+            ->map(function ($item) {
+
+                $isSend = $item->action === 'send';
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+                $coins = (int) $item->coins;
+
+                if ($isSend) {
+                    $title = 'System Recharge';
+                    $description = number_format($coins) . ' Coins added by admin' . ($item->reason ? ' (' . $item->reason . ')' : '');
+                    $type = 'credit';
+                } else {
+                    $title = 'System Deduct';
+                    $description = number_format($coins) . ' Coins deducted by admin' . ($item->reason ? ' (' . $item->reason . ')' : '');
+                    $type = 'deduct';
+                }
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => $title,
+                    'description' => $description,
+                    'type' => $type,
+                    'amount' => $coins,
+                    'balance' => (int) $item->after_coins,
+                    'from_name' => $item->admin->name ?? 'Admin',
+                    'from_uid' => null,
+                    'role' => 'admin',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 4. Online Package Coin Transactions
         $onlineTransactions = DB::table('coin_transactions')
             ->where('user_id', $user->id)
             ->where('payment_status', 'success')
@@ -1068,7 +1069,7 @@ class RechargeController extends Controller
                 ];
             });
 
-        // 4. Red Envelope Claims
+        // 5. Red Envelope Claims
         $redEnvelopes = DB::table('red_envelope_claims')
             ->where('user_id', $user->id)
             ->get()
@@ -1094,7 +1095,7 @@ class RechargeController extends Controller
                 ];
             });
 
-        // 5. Room Reward Claims
+        // 6. Room Reward Claims
         $roomRewards = DB::table('room_reward_claims')
             ->where('owner_id', $user->id)
             ->where('is_claimed', 1)
@@ -1121,7 +1122,7 @@ class RechargeController extends Controller
                 ];
             });
 
-        // 6. Treasure Level Claims
+        // 7. Treasure Level Claims
         $treasureClaims = DB::table('treasure_level_claims')
             ->where('user_id', $user->id)
             ->where('reward_type', 'coins')
@@ -1148,7 +1149,7 @@ class RechargeController extends Controller
                 ];
             });
 
-        // 7. Invite Reward Histories
+        // 8. Invite Reward Histories
         $inviteRewards = DB::table('invite_reward_histories')
             ->where('user_id', $user->id)
             ->get()
@@ -1175,6 +1176,7 @@ class RechargeController extends Controller
 
         $history = $recharges
             ->concat($adminTransactions)
+            ->concat($manualAdminTransactions)
             ->concat($onlineTransactions)
             ->concat($redEnvelopes)
             ->concat($roomRewards)

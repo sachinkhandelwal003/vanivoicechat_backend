@@ -91,12 +91,12 @@ class AgencyController extends Controller
 
         // Search User Country Wise
 
-        $users = AppUser::whereRaw('LOWER(country) = ?', [strtolower($agency->country->name)])
-            ->where(function ($q)
-            use ($request) {
+        $matchedUserIds = Helper::getMatchedUserIds($request->search, false);
 
-                $q->where('uid', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('name', 'LIKE', '%' . $request->search . '%');
+        $users = AppUser::whereRaw('LOWER(country) = ?', [strtolower($agency->country->name)])
+            ->where(function ($q) use ($request, $matchedUserIds) {
+                $q->whereIn('id', $matchedUserIds)
+                    ->orWhereRaw('BINARY name LIKE ?', ['%' . $request->search . '%']);
             })
 
             // Remove Existing Hosts

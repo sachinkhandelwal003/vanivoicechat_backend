@@ -141,7 +141,7 @@ public function gameList(Request $request)
             $uid = (string) $decoded->uid;
 
             // 5. Vani user find karo
-            $user = AppUser::where('uid', $uid)->first();
+            $user = Helper::findUserByUid($uid);
 
             if (!$user) {
                 return response()->json([
@@ -278,7 +278,7 @@ public function gameList(Request $request)
             $uid = (string) $decoded->uid;
 
             // 5. Vani user find
-            $user = AppUser::where('uid', $uid)->first();
+            $user = Helper::findUserByUid($uid);
 
             if (!$user) {
                 return response()->json([
@@ -360,7 +360,7 @@ public function gameList(Request $request)
         try {
 
             // Find Vani user
-            $user = AppUser::where('uid', (string) $uid)->first();
+            $user = Helper::findUserByUid((string) $uid);
 
             if (!$user) {
                 return response()->json([

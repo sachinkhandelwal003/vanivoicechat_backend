@@ -85,8 +85,8 @@ class PropsController extends Controller
                 return [
                     'id' => $row->id,
                     'title' => $row->name,
-                    'preview' => Helper::ShowImage($row->voice, true),
-                    'type' => 'audio'
+                    'preview' => Helper::ShowImage($row->icon ?: $row->gif, true),
+                    'type' => 'image'
                 ];
             }
 
@@ -183,10 +183,8 @@ class PropsController extends Controller
 
             foreach ($uids as $uid) {
 
-                // Find user by UID
-                $user = AppUser::where('uid', $uid)
-                    ->lockForUpdate()
-                    ->first();
+                // Find user by UID (supports System, Premium, or Store UID)
+                $user = Helper::findUserByUid($uid);
 
                 if (!$user) {
                     $failed[] = "$uid (user not found)";

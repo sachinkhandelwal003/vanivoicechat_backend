@@ -1547,7 +1547,7 @@ class HomeController extends Controller
                 ->where(function ($query) use ($keyword, $matchedUserIds) {
 
                     $query->whereIn('id', $matchedUserIds)
-                        ->orWhere('name', 'LIKE', "%{$keyword}%");
+                        ->orWhereRaw('BINARY name LIKE ?', ["%{$keyword}%"]);
                 })
                 ->orderByRaw("CASE WHEN uid = ? THEN 0 ELSE 1 END", [$keyword])
                 ->limit(20)
@@ -1649,7 +1649,7 @@ class HomeController extends Controller
                         ->where(function ($q) use ($keyword, $matchedUserIds) {
 
                             $q->whereIn('id', $matchedUserIds)
-                                ->orWhere('name', 'LIKE', "%{$keyword}%");
+                                ->orWhereRaw('BINARY name LIKE ?', ["%{$keyword}%"]);
                         });
                 })
                 ->limit(20)

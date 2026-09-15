@@ -46,11 +46,8 @@ class ManualMoneyController extends Controller
         */
 
             if ($request->filled('uid')) {
-
-                $query->whereHas('user', function ($q) use ($request) {
-
-                    $q->where('uid', $request->uid);
-                });
+                $matchedUserIds = Helper::getMatchedUserIds($request->uid, false);
+                $query->whereIn('user_id', $matchedUserIds);
             }
 
             if ($request->filled('type')) {
@@ -289,7 +286,7 @@ class ManualMoneyController extends Controller
 
         try {
 
-            $user = AppUser::where('uid', $request->uid)->first();
+            $user = Helper::findUserByUid($request->uid);
 
             /*
         |--------------------------------------------------------------------------

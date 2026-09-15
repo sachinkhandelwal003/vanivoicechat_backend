@@ -826,4 +826,151 @@ class Helper
             \Illuminate\Support\Facades\Log::error('AuditLog Error: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Find an AppUser by System UID, Premium UID, or active Store UID.
+     */
+    public static function findUserByUid($uid)
+    {
+        if (empty($uid)) {
+            return null;
+        }
+
+        $uid = trim($uid);
+
+        // 1. Check System UID first
+        $user = AppUser::where('uid', $uid)->first();
+        if ($user) {
+            return $user;
+        }
+
+        // 2. Check Active Premium UID
+        $premium = PremiumNumber::whereRaw('BINARY premium_number = ?', [$uid])
+            ->where(function ($q) {
+                $q->whereNull('end_at')
+                    ->orWhere('end_at', '>', now());
+            })
+            ->latest()
+            ->first();
+
+        if ($premium && $premium->user_id) {
+            $user = AppUser::find($premium->user_id);
+            if ($user) {
+                return $user;
+            }
+        }
+
+        // 3. Check Active Store UID
+        $storeUid = StoreUids::whereRaw('BINARY unique_id = ?', [$uid])->first();
+        if ($storeUid) {
+            $purchaseUserId = DB::table('item_deliveries')
+                ->where('type', 'id')
+                ->where('item_id', $storeUid->id)
+                ->where('end_at', '>', now())
+                ->value('recipient');
+
+            if ($purchaseUserId) {
+                $user = AppUser::find($purchaseUserId);
+                if ($user) {
+                    return $user;
+                }
+            }
+
+            $giftUserId = DB::table('item_gift_transactions')
+                ->where('type', 'id')
+                ->where('item_id', $storeUid->id)
+                ->where('end_at', '>', now())
+                ->value('receiver_id');
+
+            if ($giftUserId) {
+                $user = AppUser::find($giftUserId);
+                if ($user) {
+                    return $user;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get array of matched AppUser IDs across System UID, Premium UID, and Store UID.
+     */
+    public static function getMatchedUserIds($keyword, $exactMatch = false)
+    {
+        if (empty($keyword)) {
+            return [];
+        }
+
+        $keyword = trim($keyword);
+        $matchedUserIds = collect();
+
+        if ($exactMatch) {
+            // System UID
+            $matchedUserIds = $matchedUserIds->merge(
+                AppUser::where('uid', $keyword)->pluck('id')
+            );
+
+            // Premium UID
+            $matchedUserIds = $matchedUserIds->merge(
+                PremiumNumber::whereRaw('BINARY premium_number = ?', [$keyword])
+                    ->where(function ($q) {
+                        $q->whereNull('end_at')->orWhere('end_at', '>', now());
+                    })
+                    ->pluck('user_id')
+            );
+
+            // Store UID
+            $storeUidIds = StoreUids::whereRaw('BINARY unique_id = ?', [$keyword])->pluck('id');
+            if ($storeUidIds->count()) {
+                $purchaseUserIds = DB::table('item_deliveries')
+                    ->where('type', 'id')
+                    ->whereIn('item_id', $storeUidIds)
+                    ->where('end_at', '>', now())
+                    ->pluck('recipient');
+
+                $giftUserIds = DB::table('item_gift_transactions')
+                    ->where('type', 'id')
+                    ->whereIn('item_id', $storeUidIds)
+                    ->where('end_at', '>', now())
+                    ->pluck('receiver_id');
+
+                $matchedUserIds = $matchedUserIds->merge($purchaseUserIds)->merge($giftUserIds);
+            }
+        } else {
+            // System UID (LIKE)
+            $matchedUserIds = $matchedUserIds->merge(
+                AppUser::where('uid', 'LIKE', "%{$keyword}%")->pluck('id')
+            );
+
+            // Premium UID (BINARY LIKE - Active)
+            $matchedUserIds = $matchedUserIds->merge(
+                PremiumNumber::whereRaw('BINARY premium_number LIKE ?', ["%{$keyword}%"])
+                    ->where(function ($q) {
+                        $q->whereNull('end_at')->orWhere('end_at', '>', now());
+                    })
+                    ->pluck('user_id')
+            );
+
+            // Store UID (BINARY LIKE - Active)
+            $storeUidIds = StoreUids::whereRaw('BINARY unique_id LIKE ?', ["%{$keyword}%"])->pluck('id');
+            if ($storeUidIds->count()) {
+                $purchaseUserIds = DB::table('item_deliveries')
+                    ->where('type', 'id')
+                    ->whereIn('item_id', $storeUidIds)
+                    ->where('end_at', '>', now())
+                    ->pluck('recipient');
+
+                $giftUserIds = DB::table('item_gift_transactions')
+                    ->where('type', 'id')
+                    ->whereIn('item_id', $storeUidIds)
+                    ->where('end_at', '>', now())
+                    ->pluck('receiver_id');
+
+                $matchedUserIds = $matchedUserIds->merge($purchaseUserIds)->merge($giftUserIds);
+            }
+        }
+
+        return $matchedUserIds->unique()->values()->toArray();
+    }
 }
