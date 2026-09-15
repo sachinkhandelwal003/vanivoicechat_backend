@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Helper\Helper;
 use App\Models\CoinPackages;
 use App\Models\CoinTransaction;
+use App\Models\Country;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -26,10 +27,21 @@ class CoinController extends Controller
     {
         if ($request->ajax()) {
 
-            $query = CoinPackages::get();
+            $query = CoinPackages::with('country')->get();
 
             return DataTables::of($query)
                 ->addIndexColumn()
+
+                ->addColumn('country', function ($row) {
+                    return $row->country
+                        ? '<span class="badge bg-info text-white">' . e($row->country->name) . '</span>'
+                        : '<span class="badge bg-secondary">All Countries</span>';
+                })
+
+                ->editColumn('price', function ($row) {
+                    $symbol = $row->currency_symbol ?? '$';
+                    return '<span class="fw-bold text-success">' . e($symbol) . ' ' . number_format($row->price, 2) . '</span>';
+                })
 
                 ->editColumn('icon', function ($row) {
 
@@ -63,7 +75,7 @@ class CoinController extends Controller
 
                     return $btn;
                 })
-                ->rawColumns(['icon', 'status', 'action'])
+                ->rawColumns(['country', 'price', 'icon', 'status', 'action'])
                 ->make(true);
         }
 
@@ -72,19 +84,22 @@ class CoinController extends Controller
 
     public function add(): View
     {
-        return view('coin_package.add');
+        $countries = Country::orderBy('name')->get(['id', 'name', 'nicename']);
+        return view('coin_package.add', compact('countries'));
     }
 
 
     public function save(Request $request)
     {
         $rules = [
-            'coin'          => 'required|integer|min:1',
-            'price'         => 'required|numeric|min:0',
-            'bonus_percent' => 'nullable|numeric|min:0|max:100',
-            'badge'         => 'nullable|string|max:50',
-            'icon'          => 'required|image|mimes:png,jpg,jpeg,webp',
-            'status'        => 'required|in:0,1',
+            'coin'            => 'required|integer|min:1',
+            'price'           => 'required|numeric|min:0',
+            'country_id'      => 'nullable|exists:countries,id',
+            'currency_symbol' => 'nullable|string|max:10',
+            'bonus_percent'   => 'nullable|numeric|min:0|max:100',
+            'badge'           => 'nullable|string|max:50',
+            'icon'            => 'required|image|mimes:png,jpg,jpeg,webp',
+            'status'          => 'required|in:0,1',
         ];
 
 
@@ -103,14 +118,16 @@ class CoinController extends Controller
             $totalCoins   = (int) $request->coin + $bonusCoins;
 
             CoinPackages::create([
-                'coins'         => $request->coin,
-                'price'         => $request->price,
-                'bonus_percent' => $bonusPercent,
-                'bonus_coins'   => $bonusCoins,
-                'total_coins'   => $totalCoins,
-                'badge'         => $request->badge,
-                'status'        => $request->status,
-                'icon'          => $icon,
+                'coins'           => $request->coin,
+                'price'           => $request->price,
+                'country_id'      => $request->country_id ?: null,
+                'currency_symbol' => $request->currency_symbol ?: '$',
+                'bonus_percent'   => $bonusPercent,
+                'bonus_coins'     => $bonusCoins,
+                'total_coins'     => $totalCoins,
+                'badge'           => $request->badge,
+                'status'          => $request->status,
+                'icon'            => $icon,
             ]);
 
             Helper::logActivity('Coin Package', 'Add Coin Package', 'Created coin package');
@@ -127,7 +144,8 @@ class CoinController extends Controller
         if (!$coin) {
             return to_route('coin.package')->withError('Coin Packages Not Found!');
         }
-        return view('coin_package.edit', compact('coin'));
+        $countries = Country::orderBy('name')->get(['id', 'name', 'nicename']);
+        return view('coin_package.edit', compact('coin', 'countries'));
     }
 
     public function update(Request $request, $id)
@@ -135,12 +153,14 @@ class CoinController extends Controller
         $coin = CoinPackages::findOrFail($id);
 
         $rules = [
-            'coin'          => 'required|integer|min:1',
-            'price'         => 'required|numeric|min:0',
-            'bonus_percent' => 'nullable|numeric|min:0|max:100',
-            'badge'         => 'nullable|string|max:50',
-            'icon'          => 'nullable|image|mimes:png,jpg,jpeg,webp',
-            'status'        => 'required|in:0,1',
+            'coin'            => 'required|integer|min:1',
+            'price'           => 'required|numeric|min:0',
+            'country_id'      => 'nullable|exists:countries,id',
+            'currency_symbol' => 'nullable|string|max:10',
+            'bonus_percent'   => 'nullable|numeric|min:0|max:100',
+            'badge'           => 'nullable|string|max:50',
+            'icon'            => 'nullable|image|mimes:png,jpg,jpeg,webp',
+            'status'          => 'required|in:0,1',
         ];
 
         $request->validate($rules);
@@ -152,13 +172,15 @@ class CoinController extends Controller
             $totalCoins   = (int) $request->coin + $bonusCoins;
 
             $data = [
-                'coins'         => $request->coin,
-                'price'         => $request->price,
-                'bonus_percent' => $bonusPercent,
-                'bonus_coins'   => $bonusCoins,
-                'total_coins'   => $totalCoins,
-                'badge'         => $request->badge,
-                'status'        => $request->status,
+                'coins'           => $request->coin,
+                'price'           => $request->price,
+                'country_id'      => $request->country_id ?: null,
+                'currency_symbol' => $request->currency_symbol ?: '$',
+                'bonus_percent'   => $bonusPercent,
+                'bonus_coins'     => $bonusCoins,
+                'total_coins'     => $totalCoins,
+                'badge'           => $request->badge,
+                'status'          => $request->status,
             ];
 
             if ($request->hasFile('icon')) {

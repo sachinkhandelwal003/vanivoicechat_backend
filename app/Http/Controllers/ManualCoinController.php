@@ -29,10 +29,12 @@ class ManualCoinController extends Controller
             // Search by user name / uid / txn id
             if ($request->filled('search_keyword')) {
                 $kw = $request->search_keyword;
-                $query->where(function ($q) use ($kw) {
-                    $q->whereHas('user', function ($uq) use ($kw) {
-                        $uq->where('uid', $kw)->orWhere('name', 'like', "%{$kw}%");
-                    })->orWhere('transaction_id', 'like', "%{$kw}%");
+                $matchedUserIds = Helper::getMatchedUserIds($kw, false);
+                $query->where(function ($q) use ($kw, $matchedUserIds) {
+                    $q->whereIn('user_id', $matchedUserIds)
+                        ->orWhereHas('user', function ($uq) use ($kw) {
+                            $uq->where('name', 'like', "%{$kw}%");
+                        })->orWhere('transaction_id', 'like', "%{$kw}%");
                 });
             }
 
@@ -109,15 +111,16 @@ class ManualCoinController extends Controller
     }
 
     /**
-     * Search user by UID – returns user info for lookup modal
+     * Search user by UID – returns user info for lookup modal (supports System, Premium, Store UID)
      */
     public function searchUser(Request $request)
     {
         $request->validate(['uid' => 'required']);
 
-        $user = AppUser::where('uid', $request->uid)
-            ->with('coinSeller', 'agency', 'host')
-            ->first();
+        $user = Helper::findUserByUid($request->uid);
+        if ($user) {
+            $user->load('coinSeller', 'agency', 'host');
+        }
 
         if (!$user) {
             return response()->json(['status' => false, 'message' => 'User not found.']);

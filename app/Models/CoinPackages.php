@@ -14,10 +14,17 @@ class CoinPackages extends Model
     protected $fillable = [
         'coins',
         'price',
+        'country_id',
+        'currency_symbol',
         'bonus_percent',
         'bonus_coins',
         'total_coins',
         'icon',
         'status'
     ];
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class, 'country_id');
+    }
 }

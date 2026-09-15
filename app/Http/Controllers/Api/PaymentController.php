@@ -25,28 +25,73 @@ class PaymentController extends Controller
     {
         try {
             $user = Auth::user();
-            $packages = DB::table('coin_packages')
-                ->where('status', 1)
-                ->orderBy('id', 'asc')
-                ->get();
+
+            $countryId = null;
+            if ($user && !empty($user->country)) {
+                $country = Country::whereRaw('LOWER(name) = ?', [strtolower($user->country)])
+                    ->orWhereRaw('LOWER(nicename) = ?', [strtolower($user->country)])
+                    ->first();
+                if ($country) {
+                    $countryId = $country->id;
+                }
+            }
+
+            if ($countryId) {
+                // Fetch packages specifically for user's country
+                $packages = DB::table('coin_packages')
+                    ->where('status', 1)
+                    ->where('country_id', $countryId)
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                if ($packages->isEmpty()) {
+                    return response()->json([
+                        'status'       => false,
+                        'message'      => 'There is no coin package available for your country',
+                        'total_points' => (int) ($user->buy_coins_wallet ?? 0),
+                        'image'        => asset('storage/recharge_agency.png'),
+                        'data'         => []
+                    ]);
+                }
+            } else {
+                // Fetch global default packages (where country_id is null)
+                $packages = DB::table('coin_packages')
+                    ->where('status', 1)
+                    ->whereNull('country_id')
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                if ($packages->isEmpty()) {
+                    return response()->json([
+                        'status'       => false,
+                        'message'      => 'No coin package available',
+                        'total_points' => (int) ($user->buy_coins_wallet ?? 0),
+                        'image'        => asset('storage/recharge_agency.png'),
+                        'data'         => []
+                    ]);
+                }
+            }
 
             $data = $packages->map(function ($item) {
                 return [
-                    'id'    => $item->id,
-                    'coins' => (int) $item->coins,
-                    'price' => (int) $item->price,
-                    'bonus_percent' => $item->bonus_percent,
-                    'bonus_coins' => $item->bonus_coins,
-                    'icon'  => Helper::showImage($item->icon, true),
+                    'id'              => $item->id,
+                    'coins'           => (int) $item->coins,
+                    'price'           => (float) $item->price,
+                    'currency_symbol' => $item->currency_symbol ?? '$',
+                    'country_id'      => $item->country_id ? (int) $item->country_id : null,
+                    'bonus_percent'   => (float) $item->bonus_percent,
+                    'bonus_coins'     => (int) $item->bonus_coins,
+                    'total_coins'     => (int) ($item->total_coins ?? ($item->coins + $item->bonus_coins)),
+                    'icon'            => Helper::showImage($item->icon, true),
                 ];
             });
 
             return response()->json([
-                'status'  => true,
-                'message' => 'Coin packages fetched successfully',
+                'status'       => true,
+                'message'      => 'Coin packages fetched successfully',
                 'total_points' => (int) ($user->buy_coins_wallet ?? 0),
-                'image' => asset('storage/recharge_agency.png'),
-                'data'    => $data
+                'image'        => asset('storage/recharge_agency.png'),
+                'data'         => $data
             ]);
         } catch (\Exception $e) {
             return response()->json([
