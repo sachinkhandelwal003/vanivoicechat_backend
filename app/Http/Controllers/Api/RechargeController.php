@@ -321,8 +321,38 @@ class RechargeController extends Controller
             })
             ->toArray();
 
+        $manualCoinHistory = ManualCoinTransaction::where(
+            'user_id',
+            $sellerUserId
+        )
+            ->where(function ($q) {
+                $q->where('target_wallet', 'seller')
+                    ->orWhereNull('target_wallet');
+            })
+            ->latest()
+            ->get()
+            ->map(function ($item) {
+
+                return [
+
+                    'id' => $item->id,
+
+                    'history_type' => 'manual_coin_transaction',
+
+                    'coin' => $item->coins,
+
+                    'transaction_type' => $item->action,
+
+                    'remark' => $item->reason ?? 'Admin Manual Coin Transfer',
+
+                    'created_at' => $item->created_at,
+                ];
+            })
+            ->toArray();
+
         $history = collect($adminHistory)
             ->merge($sellerHistory)
+            ->merge($manualCoinHistory)
             ->sortByDesc(function ($item) {
 
                 return strtotime($item['created_at']);
@@ -894,6 +924,35 @@ class RechargeController extends Controller
             })
             ->toArray();
 
+        $manualCoinHistory = ManualCoinTransaction::where(
+            'user_id',
+            $merchantUserId
+        )
+            ->where(function ($q) {
+                $q->where('target_wallet', 'seller')
+                    ->orWhereNull('target_wallet');
+            })
+            ->latest()
+            ->get()
+            ->map(function ($item) {
+
+                return [
+
+                    'id' => $item->id,
+
+                    'history_type' => 'manual_coin_transaction',
+
+                    'coin' => $item->coins,
+
+                    'transaction_type' => $item->action,
+
+                    'remark' => $item->reason ?? 'Admin Manual Coin Transfer',
+
+                    'created_at' => $item->created_at,
+                ];
+            })
+            ->toArray();
+
         /*
     |--------------------------------------------------------------------------
     | Merge Both Histories
@@ -902,6 +961,7 @@ class RechargeController extends Controller
 
         $history = collect($adminHistory)
             ->merge($merchantHistory)
+            ->merge($manualCoinHistory)
             ->sortByDesc(function ($item) {
 
                 return strtotime($item['created_at']);
@@ -1081,6 +1141,7 @@ class RechargeController extends Controller
         // 3. Manual Admin Coin Transactions (Send & Deduct from Admin Panel)
         $manualAdminTransactions = ManualCoinTransaction::with('admin:id,name')
             ->where('user_id', $user->id)
+            ->where('target_wallet', 'user')
             ->get()
             ->map(function ($item) {
 
