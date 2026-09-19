@@ -202,7 +202,7 @@ class RedEnvelopeController extends Controller
                 'sender_user_id'   => $sender->id,
                 'country'          => ucfirst(strtolower($sender->country ?? $room->country)) ?? '',
                 'type'             => 'random',
-                'total_amount'     => $claimableAmount,
+                'total_amount'     => $totalAmount,
                 'total_users'      => $totalUsers,
                 'claimed_amount'   => 0,
                 'claimed_users'    => 0,

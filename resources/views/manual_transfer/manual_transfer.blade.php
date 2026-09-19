@@ -107,7 +107,7 @@
 
                 <label class="form-label">
 
-                    User UID
+                    User UID (System, Premium or Store UID)
 
                     <span class="text-danger">*</span>
 
@@ -118,7 +118,7 @@
                     id="uid"
                     name="uid"
                     class="form-control"
-                    placeholder="Enter User UID">
+                    placeholder="Enter System UID, Premium UID, or Store UID">
 
             </div>
 

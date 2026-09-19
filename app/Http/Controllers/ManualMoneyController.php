@@ -264,7 +264,7 @@ class ManualMoneyController extends Controller
     {
         $validator = Validator::make($request->all(), [
 
-            'uid' => 'required|exists:app_users,uid',
+            'uid' => 'required',
 
             'type' => 'required|in:credit,deduct',
 
@@ -287,6 +287,13 @@ class ManualMoneyController extends Controller
         try {
 
             $user = Helper::findUserByUid($request->uid);
+
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User not found for the given UID.'
+                ]);
+            }
 
             /*
         |--------------------------------------------------------------------------
