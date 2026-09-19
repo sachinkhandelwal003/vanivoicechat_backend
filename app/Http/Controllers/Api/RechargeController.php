@@ -17,6 +17,10 @@ use App\Models\CoinSellerTransaction;
 use App\Models\Country;
 use App\Models\ManualMoneyTransaction;
 use App\Models\ManualCoinTransaction;
+use App\Models\GiftTransaction;
+use App\Models\RelationshipInvitation;
+use App\Models\HostSalarySettlement;
+use App\Models\AgencySalarySettlement;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -52,7 +56,7 @@ class RechargeController extends Controller
 
             'data' => [
 
-                'balance' => $seller->user->buy_coins_wallet ?? 0,
+                'balance' => $seller->user->sellers_coin_wallet ?? 0,
 
                 'seller_to_user_rate' =>
                 $rate->seller_to_user_rate ?? 10000
@@ -174,7 +178,7 @@ class RechargeController extends Controller
 
         $sellerUser = $seller->user;
 
-        if (($sellerUser->buy_coins_wallet ?? 0) < $request->coin) {
+        if (($sellerUser->sellers_coin_wallet ?? 0) < $request->coin) {
 
             return response()->json([
                 'status' => false,
@@ -187,7 +191,7 @@ class RechargeController extends Controller
         try {
 
             $sellerUser->decrement(
-                'buy_coins_wallet',
+                'sellers_coin_wallet',
                 $request->coin
             );
 
@@ -353,7 +357,7 @@ class RechargeController extends Controller
 
             'data' => [
 
-                'balance' => $merchant->user->buy_coins_wallet ?? 0,
+                'balance' => $merchant->user->sellers_coin_wallet ?? 0,
 
                 'merchant_to_user_rate' =>
                 $rate->merchant_to_user_rate,
@@ -480,7 +484,7 @@ class RechargeController extends Controller
 
         $merchantUser = $merchant->user;
 
-        if (($merchantUser->buy_coins_wallet ?? 0) < $request->coin) {
+        if (($merchantUser->sellers_coin_wallet ?? 0) < $request->coin) {
 
             return response()->json([
                 'status' => false,
@@ -499,7 +503,7 @@ class RechargeController extends Controller
         */
 
             $merchantUser->decrement(
-                'buy_coins_wallet',
+                'sellers_coin_wallet',
                 $request->coin
             );
 
@@ -711,7 +715,7 @@ class RechargeController extends Controller
 
         $merchantUser = $merchant->user;
 
-        if (($merchantUser->buy_coins_wallet ?? 0) < $request->coin) {
+        if (($merchantUser->sellers_coin_wallet ?? 0) < $request->coin) {
 
             return response()->json([
                 'status' => false,
@@ -730,7 +734,7 @@ class RechargeController extends Controller
         */
 
             $merchantUser->decrement(
-                'buy_coins_wallet',
+                'sellers_coin_wallet',
                 $request->coin
             );
 
@@ -741,7 +745,7 @@ class RechargeController extends Controller
         */
 
             $sellerUser->increment(
-                'buy_coins_wallet',
+                'sellers_coin_wallet',
                 $request->coin
             );
 
@@ -780,10 +784,10 @@ class RechargeController extends Controller
                 // 'data' => [
 
                 //     'merchant_balance' =>
-                //     $merchantUser->fresh()->buy_coins_wallet,
+                //     $merchantUser->fresh()->sellers_coin_wallet,
 
                 //     'seller_balance' =>
-                //     $sellerUser->fresh()->buy_coins_wallet,
+                //     $sellerUser->fresh()->sellers_coin_wallet,
                 // ]
             ]);
         } catch (\Exception $e) {
@@ -920,19 +924,86 @@ class RechargeController extends Controller
     {
         $user = Auth::user();
 
-        $transactions = ManualMoneyTransaction::where('user_id', $user->id)
-            ->orderByDesc('id')
+        // 1. Admin Manual Money Transactions
+        $manualTransactions = ManualMoneyTransaction::where('user_id', $user->id)
             ->get()
             ->map(function ($item) {
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
                 return [
                     'id'             => (int) $item->id,
                     'type'           => $item->type, // credit / deduct
                     'amount'         => (float) $item->amount,
                     'before_balance' => (float) $item->before_balance,
                     'after_balance'  => (float) $item->after_balance,
-                    'reason'         => $item->reason,
-                    'created_at'     => $item->created_at->format('Y-m-d H:i:s'),
+                    'reason'         => $item->reason ?? ($item->type === 'credit' ? 'Admin Money Added' : 'Admin Money Deducted'),
+                    'created_at'     => $createdAt ? $createdAt->format('Y-m-d H:i:s') : '',
+                    'raw_date'       => $createdAt ? $createdAt->timestamp : 0,
                 ];
+            });
+
+        // 2. Host Salary Settlements
+        $hostSalarySettlements = HostSalarySettlement::where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhereHas('host', function ($hq) use ($user) {
+                      $hq->where('user_id', $user->id);
+                  });
+            })
+            ->where('status', 'settled')
+            ->get()
+            ->map(function ($item) use ($user) {
+                $amount = (float) ($item->host_salary ?? $item->total_salary ?? 0);
+                $settledDate = $item->settled_at ? Carbon::parse($item->settled_at) : ($item->created_at ? Carbon::parse($item->created_at) : null);
+                $cycleStr = !empty($item->month) ? " ({$item->month} Cycle {$item->cycle})" : '';
+
+                return [
+                    'id'             => (int) $item->id,
+                    'type'           => 'credit',
+                    'amount'         => $amount,
+                    'before_balance' => (float) max(0, ($user->balance ?? 0) - $amount),
+                    'after_balance'  => (float) ($user->balance ?? 0),
+                    'reason'         => 'Host Salary Settlement' . $cycleStr,
+                    'created_at'     => $settledDate ? $settledDate->format('Y-m-d H:i:s') : '',
+                    'raw_date'       => $settledDate ? $settledDate->timestamp : 0,
+                ];
+            });
+
+        // 3. Agency Salary Settlements
+        $agencySalarySettlements = AgencySalarySettlement::where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhereHas('agency', function ($aq) use ($user) {
+                      $aq->where('user_id', $user->id);
+                  });
+            })
+            ->where('status', 'settled')
+            ->get()
+            ->map(function ($item) use ($user) {
+                $amount = (float) ($item->agent_salary ?? $item->total_salary ?? 0);
+                $settledDate = $item->settled_at ? Carbon::parse($item->settled_at) : ($item->created_at ? Carbon::parse($item->created_at) : null);
+                $cycleStr = !empty($item->month) ? " ({$item->month} Cycle {$item->cycle})" : '';
+
+                return [
+                    'id'             => (int) $item->id,
+                    'type'           => 'credit',
+                    'amount'         => $amount,
+                    'before_balance' => (float) max(0, ($user->balance ?? 0) - $amount),
+                    'after_balance'  => (float) ($user->balance ?? 0),
+                    'reason'         => 'Agency Salary Settlement' . $cycleStr,
+                    'created_at'     => $settledDate ? $settledDate->format('Y-m-d H:i:s') : '',
+                    'raw_date'       => $settledDate ? $settledDate->timestamp : 0,
+                ];
+            });
+
+        $transactions = $manualTransactions
+            ->concat($hostSalarySettlements)
+            ->concat($agencySalarySettlements)
+            ->filter(function ($item) {
+                return !empty($item['created_at']);
+            })
+            ->sortByDesc('raw_date')
+            ->values()
+            ->map(function ($item) {
+                unset($item['raw_date']);
+                return $item;
             });
 
         return response()->json([
@@ -1174,11 +1245,121 @@ class RechargeController extends Controller
                 ];
             });
 
+        // 9. Red Envelope Creation
+        $redEnvelopesCreated = DB::table('red_envelopes')
+            ->where('sender_user_id', $user->id)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $amount = (int) $item->total_amount;
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Red Envelope Created',
+                    'description' => number_format($amount) . ' Coins spent creating red envelope',
+                    'type' => 'deduct',
+                    'amount' => $amount,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'Red Envelope',
+                    'from_uid' => null,
+                    'role' => 'red_envelope_create',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 10. Broadcast Creation
+        $broadcastsCreated = DB::table('broadcasts')
+            ->where('user_id', $user->id)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $cost = (int) ($item->cost ?? 0);
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+                $msgSnippet = !empty($item->message) ? ': ' . Str::limit(e($item->message), 30) : '';
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Broadcast Created',
+                    'description' => number_format($cost) . ' Coins spent creating broadcast' . $msgSnippet,
+                    'type' => 'deduct',
+                    'amount' => $cost,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => 'System Broadcast',
+                    'from_uid' => null,
+                    'role' => 'broadcast_create',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 11. Gift Sent Transactions
+        $giftsSent = GiftTransaction::with(['receiver:id,name,uid', 'gift:id,name'])
+            ->where('sender_id', $user->id)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $amount = (int) ($item->total_value ?? ($item->coin_value * ($item->multiplier ?? 1)));
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+                $giftTitle = $item->gift->name ?? 'Gift';
+                $receiverName = $item->receiver->name ?? 'User';
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'Gift Sent',
+                    'description' => number_format($amount) . ' Coins spent sending ' . $giftTitle . ' to ' . $receiverName,
+                    'type' => 'deduct',
+                    'amount' => $amount,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => $receiverName,
+                    'from_uid' => !empty($item->receiver?->uid) ? (int) $item->receiver->uid : null,
+                    'role' => 'send_gift',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+        // 13. CP / Relationship Invitations Sent
+        $cpInvitesSent = RelationshipInvitation::with(['receiver:id,name,uid', 'relationshipItem:id,name,required_coins'])
+            ->where('sender_id', $user->id)
+            ->get()
+            ->map(function ($item) use ($user) {
+
+                $amount = (int) ($item->relationshipItem->required_coins ?? 0);
+                $createdAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+                $receiverName = $item->receiver->name ?? 'User';
+                $relTitle = $item->relationshipItem->name ?? ucfirst($item->type ?? 'CP');
+
+                return [
+                    'id' => (int) $item->id,
+                    'title' => 'CP Invite Sent',
+                    'description' => 'Sent ' . $relTitle . ' invite to ' . $receiverName,
+                    'type' => 'deduct',
+                    'amount' => $amount,
+                    'balance' => (int) $user->buy_coins_wallet,
+                    'from_name' => $receiverName,
+                    'from_uid' => !empty($item->receiver?->uid) ? (int) $item->receiver->uid : null,
+                    'role' => 'cp_invite_send',
+                    'icon_type' => 'wallet',
+                    'created_at' => $createdAt,
+                    'created_date' => $createdAt ? $createdAt->format('d M Y, h:i A') : '',
+                ];
+            });
+
+
         $history = $recharges
             ->concat($adminTransactions)
             ->concat($manualAdminTransactions)
             ->concat($onlineTransactions)
             ->concat($redEnvelopes)
+            ->concat($redEnvelopesCreated)
+            ->concat($broadcastsCreated)
+            ->concat($giftsSent)
+            ->concat($cpInvitesSent)
             ->concat($roomRewards)
             ->concat($treasureClaims)
             ->concat($inviteRewards)

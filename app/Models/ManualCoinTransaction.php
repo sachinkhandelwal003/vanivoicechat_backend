@@ -10,7 +10,7 @@ class ManualCoinTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'admin_id', 'transaction_id', 'action', 'coins', 'before_coins', 'after_coins', 'reason'
+        'user_id', 'admin_id', 'transaction_id', 'action', 'coins', 'before_coins', 'after_coins', 'reason', 'target_wallet'
     ];
 
     public function user()

@@ -847,6 +847,13 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('manual-coins/process', 'process')->name('manual-coins.process')->middleware('isAllow:172,can_edit');
     });
 
+    // ----------------------- Manual User Coin Send/Deduct  -------------------------------------------
+    Route::controller(App\Http\Controllers\ManualUserCoinController::class)->group(function () {
+        Route::get('manual-user-coins', 'index')->name('manual-user-coins.index')->middleware('isAllow:172,can_view');
+        Route::get('manual-user-coins/search-user', 'searchUser')->name('manual-user-coins.search-user')->middleware('isAllow:172,can_view');
+        Route::post('manual-user-coins/process', 'process')->name('manual-user-coins.process')->middleware('isAllow:172,can_edit');
+    });
+
     // ----------------------- Manual Money  ----------------------------------------------------
     Route::controller(ManualMoneyController::class)->group(function () {
         Route::get('manual_transfer', 'index')->name('manual-transfer.index')->middleware('isAllow:163,can_view');

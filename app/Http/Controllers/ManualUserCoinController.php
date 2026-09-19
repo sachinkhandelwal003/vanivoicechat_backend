@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppUser;
-use App\Models\Country;
 use App\Models\ManualCoinTransaction;
 use App\Helper\Helper;
 use Carbon\Carbon;
@@ -13,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
 
-class ManualCoinController extends Controller
+class ManualUserCoinController extends Controller
 {
     public function __construct()
     {
@@ -25,9 +24,7 @@ class ManualCoinController extends Controller
         if ($request->ajax()) {
 
             $query = ManualCoinTransaction::with(['user', 'admin'])
-                ->where(function ($q) {
-                    $q->whereNull('target_wallet')->orWhere('target_wallet', 'seller');
-                })
+                ->where('target_wallet', 'user')
                 ->latest();
 
             // Search by user name / uid / txn id
@@ -111,7 +108,7 @@ class ManualCoinController extends Controller
                 ->make(true);
         }
 
-        return view('manual_coins.index');
+        return view('manual_user_coins.index');
     }
 
     /**
@@ -122,35 +119,25 @@ class ManualCoinController extends Controller
         $request->validate(['uid' => 'required']);
 
         $user = Helper::findUserByUid($request->uid);
-        if ($user) {
-            $user->load('coinSeller');
-        }
 
         if (!$user) {
             return response()->json(['status' => false, 'message' => 'User not found.']);
         }
 
-        // Only Merchants and Coin Sellers allowed
-        if (!$user->coinSeller || $user->coinSeller->status != 1) {
-            return response()->json(['status' => false, 'message' => 'Manual coin transfer is only allowed for Merchants and Coin Sellers.']);
-        }
-
-        $roleTitle = $user->coinSeller->is_merchant ? 'Merchant' : 'Coin Seller';
-
         return response()->json([
             'status' => true,
             'user'   => [
                 'id'           => $user->id,
-                'name'         => $user->name . ' (' . $roleTitle . ')',
+                'name'         => $user->name,
                 'uid'          => $user->uid,
-                'total_points' => (int) $user->sellers_coin_wallet,
+                'total_points' => (int) $user->buy_coins_wallet,
                 'image'        => $user->image ? Helper::showImage($user->image, true) : asset('assets/img/avatar.png'),
             ]
         ]);
     }
 
     /**
-     * Process send or deduct
+     * Process send or deduct for buy_coins_wallet
      */
     public function process(Request $request)
     {
@@ -169,23 +156,18 @@ class ManualCoinController extends Controller
                 return response()->json(['status' => false, 'message' => 'User not found.']);
             }
 
-            // Validate Merchant / Coin Seller server-side
-            if (!$user->coinSeller || $user->coinSeller->status != 1) {
-                return response()->json(['status' => false, 'message' => 'Manual coin transfer is only allowed for Merchants and Coin Sellers.']);
-            }
-
-            $before = (int) $user->sellers_coin_wallet;
+            $before = (int) $user->buy_coins_wallet;
 
             if ($request->action === 'deduct') {
                 if ($request->coins > $before) {
-                    return response()->json(['status' => false, 'message' => 'Deduct amount exceeds seller coin wallet balance (' . number_format($before) . ' coins).']);
+                    return response()->json(['status' => false, 'message' => 'Deduct amount exceeds user coin balance (' . number_format($before) . ' coins).']);
                 }
                 $after = $before - $request->coins;
             } else {
                 $after = $before + $request->coins;
             }
 
-            $user->sellers_coin_wallet = $after;
+            $user->buy_coins_wallet = $after;
             $user->save();
 
             ManualCoinTransaction::create([
@@ -197,7 +179,7 @@ class ManualCoinController extends Controller
                 'before_coins'   => $before,
                 'after_coins'    => $after,
                 'reason'         => $request->reason,
-                'target_wallet'  => 'seller',
+                'target_wallet'  => 'user',
             ]);
 
             DB::commit();
@@ -205,9 +187,9 @@ class ManualCoinController extends Controller
             $actLabel = $request->action === 'send' ? 'Send Coins' : 'Deduct Coins';
             $actWord  = $request->action === 'send' ? 'sent to' : 'deducted from';
             Helper::logActivity(
-                'Manual Coins',
+                'Manual User Coins',
                 $actLabel,
-                number_format($request->coins) . ' coins ' . $actWord . ' Seller/Merchant ' . $user->name . ' (UID: ' . $user->uid . '). Reason: ' . $request->reason
+                number_format($request->coins) . ' coins ' . $actWord . ' User ' . $user->name . ' (UID: ' . $user->uid . '). Reason: ' . $request->reason
             );
 
             $actionWord = $request->action === 'send' ? 'sent' : 'deducted';
