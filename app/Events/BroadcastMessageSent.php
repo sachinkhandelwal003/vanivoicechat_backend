@@ -13,7 +13,8 @@ class BroadcastMessageSent implements ShouldBroadcastNow
     protected $country;
     public function __construct($user, $message)
     {
-        $imageUrl = asset('storage/1776759640_7915.svga');
+        // $imageUrl = asset('storage/1776759640_7915.svga');
+        $imageUrl = asset('storage/broadcast_banner.svga');
         $img_key = 'avator';
         $text_key = 'name';
         $this->country = strtoupper($user->country);
