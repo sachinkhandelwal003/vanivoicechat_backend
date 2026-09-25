@@ -15,8 +15,9 @@ class BroadcastMessageSent implements ShouldBroadcastNow
     {
         // $imageUrl = asset('storage/1776759640_7915.svga');
         $imageUrl = asset('storage/broadcast_banner.svga');
-        $img_key = 'avator';
-        $text_key = 'name';
+        $img_key = 'avatar';
+        $name_key = 'name';
+        $text_key = 'text';
         $this->country = strtoupper($user->country);
         $this->data = [
             'id'      => $user->id,
@@ -25,6 +26,7 @@ class BroadcastMessageSent implements ShouldBroadcastNow
             'message' => $message,
             'image'   => $imageUrl,
             'img_key'   => $img_key,
+            'name_key'   => $name_key,
             'text_key'   => $text_key,
         ];
     }
