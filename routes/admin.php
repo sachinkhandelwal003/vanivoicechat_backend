@@ -854,6 +854,13 @@ Route::middleware(['auth', 'permission', 'authCheck', 'verified'])->group(functi
         Route::post('manual-user-coins/process', 'process')->name('manual-user-coins.process')->middleware('isAllow:172,can_edit');
     });
 
+    // ----------------------- Wallet Tab Settings  -------------------------------------------
+    Route::controller(App\Http\Controllers\WalletTabSettingController::class)->group(function () {
+        Route::get('wallet-tabs', 'index')->name('wallet-tabs.index')->middleware('isAllow:172,can_view');
+        Route::post('wallet-tabs/update', 'update')->name('wallet-tabs.update')->middleware('isAllow:172,can_edit');
+        Route::post('wallet-tabs/toggle-status', 'toggleStatus')->name('wallet-tabs.toggle-status')->middleware('isAllow:172,can_edit');
+    });
+
     // ----------------------- Manual Money  ----------------------------------------------------
     Route::controller(ManualMoneyController::class)->group(function () {
         Route::get('manual_transfer', 'index')->name('manual-transfer.index')->middleware('isAllow:163,can_view');

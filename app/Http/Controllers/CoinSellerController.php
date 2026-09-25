@@ -939,6 +939,8 @@ class CoinSellerController extends Controller
             'merchant_to_seller_rate' => 'required|numeric|min:1',
             'seller_to_user_rate'     => 'required|numeric|min:1',
             'coin_exchange_rate'     => 'required|numeric|min:1',
+            'coin_exchange_merchant_rate' => 'required|numeric|min:1',
+            'coin_exchange_seller_rate' => 'required|numeric|min:1',
         ]);
 
         $rate = CoinConversionRate::first();
@@ -948,6 +950,8 @@ class CoinSellerController extends Controller
             'merchant_to_seller_rate' => $request->merchant_to_seller_rate,
             'seller_to_user_rate'     => $request->seller_to_user_rate,
             'coin_exchange_rate'     => $request->coin_exchange_rate,
+            'coin_exchange_merchant_rate' => $request->coin_exchange_merchant_rate,
+            'coin_exchange_seller_rate' => $request->coin_exchange_seller_rate,
         ]);
 
         return back()->with('success', 'Coin conversion rates updated successfully.');

@@ -691,6 +691,7 @@ class UserController extends Controller
 
             $nicknameMeta = Helper::getNicknameMeta($user->id);
             $membershipBadges = Helper::getUserMembershipBadges($user->id);
+            $badgesData = Helper::getUserVipSvipBadgesData($user->id);
             $authHasAnyPrivateMessage = Helper::hasVipPrivilege($authUser->id, 'any_private_message');
             return response()->json([
                 'status' => true,
@@ -741,6 +742,7 @@ class UserController extends Controller
                     'auth_has_any_private_message' => $authHasAnyPrivateMessage,
                     'role_badges' => Helper::getUserRoleBadges($user->id),
                     'membership_badges' => $membershipBadges,
+                    'badges' => $badgesData,
                     'wealth_level' => [
                         'level' => $wealthLevel?->level ?? 1,
                         'icon' => $wealthLevel?->levelData?->icon

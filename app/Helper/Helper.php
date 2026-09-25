@@ -751,17 +751,12 @@ class Helper
 
         //    GET VIP BADGE
         if ($vipTransaction) {
-
             $vip = DB::table('vips')
                 ->where('id', $vipTransaction->vip_id)
                 ->first();
 
             if ($vip && !empty($vip->title_tag)) {
-
-                $vipBadge = Helper::showImage(
-                    $vip->title_tag,
-                    true
-                );
+                $vipBadge = Helper::showImage($vip->title_tag, true);
             }
         }
 
@@ -775,23 +770,90 @@ class Helper
 
         //  GET SVIP BADGE
         if ($svipTransaction) {
-
             $svip = DB::table('svips')
                 ->where('id', $svipTransaction->svip_id)
                 ->first();
 
             if ($svip && !empty($svip->title)) {
-
-                $svipBadge = Helper::showImage(
-                    $svip->title,
-                    true
-                );
+                $svipBadge = Helper::showImage($svip->title, true);
             }
         }
 
         return [
             'vip_badge' => $vipBadge,
             'svip_badge' => $svipBadge,
+        ];
+    }
+
+    public static function getUserVipSvipBadgesData($userId)
+    {
+        $vipBadge           = null;
+        $vipBadgeImage      = null;
+        $vipBadgeAnimation  = null;
+
+        $svipBadge          = null;
+        $svipMedal          = null;
+        $svipMedalGif       = null;
+
+        // ACTIVE VIP
+        $vipTransaction = DB::table('vip_transactions')
+            ->where('user_id', $userId)
+            ->where('start_at', '<=', now())
+            ->where('end_at', '>=', now())
+            ->latest('end_at')
+            ->first();
+
+        if ($vipTransaction) {
+            $vip = DB::table('vips')
+                ->where('id', $vipTransaction->vip_id)
+                ->first();
+
+            if ($vip) {
+                if (!empty($vip->title_tag)) {
+                    $vipBadge = Helper::showImage($vip->title_tag, true);
+                }
+                if (!empty($vip->badge)) {
+                    $vipBadgeImage = Helper::showImage($vip->badge, true);
+                }
+                if (!empty($vip->badge_animation)) {
+                    $vipBadgeAnimation = Helper::showImage($vip->badge_animation, true);
+                }
+            }
+        }
+
+        // ACTIVE SVIP
+        $svipTransaction = DB::table('svip_transactions')
+            ->where('user_id', $userId)
+            ->where('start_at', '<=', now())
+            ->where('end_at', '>=', now())
+            ->latest('end_at')
+            ->first();
+
+        if ($svipTransaction) {
+            $svip = DB::table('svips')
+                ->where('id', $svipTransaction->svip_id)
+                ->first();
+
+            if ($svip) {
+                if (!empty($svip->title)) {
+                    $svipBadge = Helper::showImage($svip->title, true);
+                }
+                if (!empty($svip->medal)) {
+                    $svipMedal = Helper::showImage($svip->medal, true);
+                }
+                if (!empty($svip->medal_gif)) {
+                    $svipMedalGif = Helper::showImage($svip->medal_gif, true);
+                }
+            }
+        }
+
+        return [
+            'vip_badge'           => $vipBadge,
+            'vip_badge_image'     => $vipBadgeImage,
+            'vip_badge_animation' => $vipBadgeAnimation,
+            'svip_badge'          => $svipBadge,
+            'svip_medal'          => $svipMedal,
+            'svip_medal_gif'      => $svipMedalGif,
         ];
     }
 

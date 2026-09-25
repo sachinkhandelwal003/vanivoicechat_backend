@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\HostSalarySettlement;
 use App\Services\FirebaseService;
+use App\Models\WalletTabSetting;
 
 class HostCenterController extends Controller
 {
@@ -578,23 +579,53 @@ class HostCenterController extends Controller
                 ]);
             }
 
-            $coins = round($request->amount * $rate->coin_exchange_rate);
+            // Check role of authenticated user
+            $isMerchant = CoinSeller::where('user_id', $user->id)
+                ->where('status', 1)
+                ->where('is_merchant', 1)
+                ->exists();
+
+            $isCoinSeller = CoinSeller::where('user_id', $user->id)
+                ->where('status', 1)
+                ->where('is_merchant', 0)
+                ->exists();
+
+            if ($isMerchant) {
+                $exchangeRate = !empty($rate->coin_exchange_merchant_rate)
+                    ? $rate->coin_exchange_merchant_rate
+                    : $rate->coin_exchange_rate;
+            } elseif ($isCoinSeller) {
+                $exchangeRate = !empty($rate->coin_exchange_seller_rate)
+                    ? $rate->coin_exchange_seller_rate
+                    : $rate->coin_exchange_rate;
+            } else {
+                $exchangeRate = $rate->coin_exchange_rate;
+            }
+
+            $coins = round($request->amount * $exchangeRate);
 
             DB::transaction(function () use (
                 $user,
                 $request,
                 $coins,
-                $rate
+                $exchangeRate,
+                $isMerchant,
+                $isCoinSeller
             ) {
-                $user->balance -=  $request->amount;
-                $user->buy_coins_wallet += $coins;
+                $user->balance -= $request->amount;
+                if ($isMerchant || $isCoinSeller) {
+                    $user->sellers_coin_wallet += $coins;
+                } else {
+                    $user->buy_coins_wallet += $coins;
+                }
                 $user->save();
 
                 ExchangeHistory::create([
-                    'user_id' =>  $user->id,
-                    'usd_amount' => $request->amount,
-                    'exchange_rate' => $rate->coin_exchange_rate,
-                    'coins_received' => $coins
+                    'user_id'        => $user->id,
+                    'usd_amount'     => $request->amount,
+                    'exchange_rate'  => $exchangeRate,
+                    'coins_received' => $coins,
+                    'wallet_type'    => ($isMerchant || $isCoinSeller) ? 'seller' : 'buy_coins'
                 ]);
             });
 
@@ -602,8 +633,9 @@ class HostCenterController extends Controller
                 'status' => true,
                 'message' => 'Coins exchanged successfully',
                 'data' => [
-                    'usd_amount' => (float) $request->amount,
-                    'coins_received' => $coins,
+                    'usd_amount'        => (float) $request->amount,
+                    'exchange_rate'     => $exchangeRate,
+                    'coins_received'    => $coins,
                     'remaining_balance' => $user->fresh()->balance
                 ]
             ]);
@@ -1103,6 +1135,15 @@ class HostCenterController extends Controller
         try {
             $user = Auth::user();
 
+            $tabs = WalletTabSetting::orderBy('sort_order', 'asc')->get()->map(function ($t) {
+                return [
+                    'tab_key'    => $t->tab_key,
+                    'tab_name'   => $t->tab_name,
+                    'sub_title'  => $t->sub_title,
+                    'is_enabled' => (bool) $t->status,
+                ];
+            });
+
             return response()->json([
 
                 'status' => true,
@@ -1110,6 +1151,10 @@ class HostCenterController extends Controller
                 'data' => [
                     'balance' => (float) $user->balance,
                     'formatted_balance' => '$' . number_format($user->balance, 2),
+                    'is_exchange_enabled' => (bool) WalletTabSetting::isTabEnabled('exchange'),
+                    'is_transfer_enabled' => (bool) WalletTabSetting::isTabEnabled('transfer'),
+                    'is_withdraw_enabled' => (bool) WalletTabSetting::isTabEnabled('withdraw'),
+                    'tabs' => $tabs,
                 ]
             ]);
         } catch (\Exception $e) {
