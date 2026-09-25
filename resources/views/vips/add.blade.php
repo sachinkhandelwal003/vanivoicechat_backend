@@ -183,6 +183,18 @@
                     </div>
 
                     <div class="col-md-4">
+                        <label class="form-label">Badge Animation</label>
+                        <input type="file" name="badge_animation"
+                            class="form-control @error('badge_animation') is-invalid @enderror"
+                            accept="image/*,.svga">
+                        @error('badge_animation')
+                            <small class="text-danger">{{ $message }}</small>
+                        @enderror
+
+                        <small class="current-file">SVGA allowed</small>
+                    </div>
+
+                    <div class="col-md-4">
                         <label class="form-label">Chat Card</label>
                         <input type="file" name="chat_card"
                             class="form-control image-input @error('chat_card') is-invalid @enderror" accept="image/*">

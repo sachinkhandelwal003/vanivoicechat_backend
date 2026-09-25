@@ -112,6 +112,15 @@
                     </div>
 
                     <div class="col-md-4">
+                        <label>Badge Animation</label>
+                        <input type="file" name="badge_animation" class="form-control">
+                        @if ($vip->badge_animation)
+                            <small class="text-muted">Current: {{ basename($vip->badge_animation) }}</small>
+                        @endif
+                    </div>
+
+
+                    <div class="col-md-4">
                         <label>Chat Card</label>
                         <input type="file" name="chat_card" class="form-control image-input">
                         @if ($vip->chat_card)

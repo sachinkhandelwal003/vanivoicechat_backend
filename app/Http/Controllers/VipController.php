@@ -168,6 +168,7 @@ class VipController extends Controller
             'voice_frame'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
 
             // Animations
+            'badge_animation'         => 'nullable',
             'entry_tag_animation'     => 'nullable',
             'image_frame_animation'   => 'nullable',
             'profile_frame_animation' => 'nullable',
@@ -201,6 +202,7 @@ class VipController extends Controller
             $fileFields = [
                 'title_tag',
                 'badge',
+                'badge_animation',
                 'chat_card',
                 'entry_tag',
                 'entry_tag_animation',
@@ -268,6 +270,7 @@ class VipController extends Controller
             'profile_frame' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
             'voice_frame'   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5048',
 
+            'badge_animation'         => 'nullable',
             'entry_tag_animation'     => 'nullable',
             'image_frame_animation'   => 'nullable',
             'profile_frame_animation' => 'nullable',
@@ -300,6 +303,7 @@ class VipController extends Controller
             $fileFields = [
                 'title_tag',
                 'badge',
+                'badge_animation',
                 'chat_card',
                 'entry_tag',
                 'entry_tag_animation',

@@ -95,6 +95,40 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+
+                            <label class="form-label fw-bold text-warning">
+                                Coin Exchange Merchant Rate
+                            </label>
+
+                            <input type="number" name="coin_exchange_merchant_rate" class="form-control form-control-lg" value="{{ $rate->coin_exchange_merchant_rate }}" required>
+
+                            <small class="text-muted">
+                                 Coin Exchange Merchant Rate per $1.
+                            </small>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+
+                            <label class="form-label fw-bold text-warning">
+                                Coin Exchange Seller Rate
+                            </label>
+
+                            <input type="number" name="coin_exchange_seller_rate" class="form-control form-control-lg" value="{{ $rate->coin_exchange_seller_rate }}" required>
+
+                            <small class="text-muted">
+                                 Coin Exchange Seller Rate per $1.
+                            </small>
+
+                        </div>
+                    </div>
+                </div>
 
             </div>
 

@@ -601,15 +601,15 @@
         @endif
 
         @if(Helper::userCan([160,161,162,163,164,165,170,171,172]))
-        <li class="menu @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index,manual-user-coins.index') active @endrouteis">
-            <a href="#financial" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index,manual-user-coins.index') }}" class="dropdown-toggle">
+        <li class="menu @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index,manual-user-coins.index,wallet-tabs.index') active @endrouteis">
+            <a href="#financial" data-bs-toggle="collapse" aria-expanded="{{ Helper::routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index,manual-user-coins.index,wallet-tabs.index') }}" class="dropdown-toggle">
                 <div class="">
                     <i class="fa-solid fa-wallet"></i>
                     <span>Financial Management</span>
                 </div>
                 <div> <i class="fa-solid fa-chevron-right"></i> </div>
             </a>
-            <ul class="collapse submenu list-unstyled @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index,manual-user-coins.index') show @endrouteis" id="financial">
+            <ul class="collapse submenu list-unstyled @routeis('coin.package,settlement-log,manual-transfer.index,coin.purchase.history,host.work,agency-team-work,withdrawal.requests,exchange.log,manual-coins.index,manual-user-coins.index,wallet-tabs.index') show @endrouteis" id="financial">
 
                 @if(Helper::userCan(160))
                 <li class="@routeis('coin.package') active @endrouteis">
@@ -660,6 +660,9 @@
                 </li>
                 <li class="@routeis('manual-user-coins.index') active @endrouteis">
                     <a href="{{ route('manual-user-coins.index') }}">Manual User Coins Send/Deduct</a>
+                </li>
+                <li class="@routeis('wallet-tabs.index') active @endrouteis">
+                    <a href="{{ route('wallet-tabs.index') }}">Wallet Tab Settings</a>
                 </li>
                 @endif
             </ul>

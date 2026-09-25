@@ -15,6 +15,8 @@ class CoinConversionRate extends Model
         'seller_to_user_rate',
         'merchant_to_seller_rate',
         'merchant_to_user_rate',
-        'coin_exchange_rate'
+        'coin_exchange_rate',
+        'coin_exchange_merchant_rate',
+        'coin_exchange_seller_rate',
     ];
 }
