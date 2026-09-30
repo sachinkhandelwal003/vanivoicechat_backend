@@ -567,7 +567,7 @@ class RechargeController extends Controller
 
                 'transaction_type' => 'merchant_to_user',
 
-                'remark' => 'Merchant recharge to user',
+                'remark' => 'Merchant recharge to user (' . $user->uid . ')',
             ]);
 
             DB::commit();
@@ -800,7 +800,7 @@ class RechargeController extends Controller
 
                 'transaction_type' => 'merchant_to_seller',
 
-                'remark' => 'Merchant recharge to seller',
+                'remark' => 'Merchant recharge to seller (' . $sellerUser->uid . ')',
             ]);
 
             DB::commit();
